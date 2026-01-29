@@ -55,6 +55,9 @@
 	  <None Update="StaticFiles\SQL\create_triggers.sql">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
+	  <None Update="StaticFiles\SQL\indexes.sql">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	  <None Update="StaticFiles\SQL\initial_migration_fetch.sql">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>

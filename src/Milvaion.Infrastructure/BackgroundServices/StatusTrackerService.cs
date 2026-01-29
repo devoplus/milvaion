@@ -21,6 +21,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 /// </summary>
 public class StatusTrackerService(IServiceProvider serviceProvider,
                                   IRedisSchedulerService redisScheduler,
+                                  IRedisStatsService redisStatsService,
                                   IOptions<RabbitMQOptions> rabbitOptions,
                                   IOptions<StatusTrackerOptions> options,
                                   IOptions<JobAutoDisableOptions> autoDisableOptions,
@@ -29,12 +30,26 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly IRedisSchedulerService _redisScheduler = redisScheduler;
+    private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<StatusTrackerService>();
     private readonly RabbitMQOptions _rabbitOptions = rabbitOptions.Value;
     private readonly StatusTrackerOptions _options = options.Value;
     private readonly JobAutoDisableOptions _autoDisableOptions = autoDisableOptions.Value;
     private IConnection _connection;
     private IChannel _channel;
+    private readonly JobOccurrenceStatus[] _finalStatuses =
+    [
+        JobOccurrenceStatus.Completed,
+        JobOccurrenceStatus.Failed,
+        JobOccurrenceStatus.Cancelled,
+        JobOccurrenceStatus.TimedOut
+    ];
+
+    private readonly JobOccurrenceStatus[] _nonFinalStatuses =
+    [
+        JobOccurrenceStatus.Queued,
+        JobOccurrenceStatus.Running
+    ];
 
     //  Batch processing
     private readonly System.Collections.Concurrent.ConcurrentQueue<JobStatusUpdateMessage> _statusBatch = new();
@@ -49,7 +64,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         nameof(JobOccurrence.Result),
         nameof(JobOccurrence.Exception),
         nameof(JobOccurrence.LastHeartbeat),
-        nameof(JobOccurrence.StatusChangeLogs),
+        nameof(JobOccurrence.StatusChangeLogs)
     ];
 
     private readonly static List<string> _jobCircuitBreakerUpdateProps =
@@ -217,8 +232,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                                                            consumer: consumer,
                                                            cancellationToken: stoppingToken);
 
-        _logger.Information("StatusTrackerService consuming from {Queue}. ConsumerTag: {ConsumerTag}, ChannelOpen: {IsOpen}, ChannelNumber: {ChannelNumber}",
-            WorkerConstant.Queues.StatusUpdates, consumerTag, _channel.IsOpen, _channel.ChannelNumber);
+        _logger.Information("StatusTrackerService consuming from {Queue}. ConsumerTag: {ConsumerTag}, ChannelOpen: {IsOpen}, ChannelNumber: {ChannelNumber}", WorkerConstant.Queues.StatusUpdates, consumerTag, _channel.IsOpen, _channel.ChannelNumber);
 
         // Keep running until cancellation
         try
@@ -269,14 +283,14 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             if (_statusBatch.Count >= _options.BatchSize)
                 await ProcessBatchAsync(cancellationToken);
 
-            // ACK the message
-            await _channel.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
+            // ACK the message (safe operation)
+            await SafeAckAsync(ea.DeliveryTag, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process status update message");
 
-            await _channel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
+            await SafeNackAsync(ea.DeliveryTag, cancellationToken);
         }
     }
 
@@ -306,199 +320,293 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             if (batch.Count == 0)
                 return;
 
-            try
+            // Retry logic for optimistic concurrency conflicts
+            const int maxRetries = 3;
+            var retryCount = 0;
+            var retryDelay = TimeSpan.FromMilliseconds(50); // Start with 50ms
+
+            while (retryCount < maxRetries)
             {
-                await using var scope = _serviceProvider.CreateAsyncScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-
-                // Use Dictionary instead of GroupBy (last update wins)
-                var statusByCorrelation = new Dictionary<Guid, JobStatusUpdateMessage>(batch.Count);
-
-                // Last update wins - overwrite if already exists
-                foreach (var message in batch)
-                    statusByCorrelation[message.CorrelationId] = message;
-
-                var correlationIds = statusByCorrelation.Keys.ToList();
-
-                //  Single query for all occurrences
-                var occurrences = await dbContext.JobOccurrences
-                                                 .AsNoTracking()
-                                                 .Where(o => correlationIds.Contains(o.CorrelationId))
-                                                 .Select(JobOccurrence.Projections.UpdateStatus)
-                                                 .ToListAsync(cancellationToken: cancellationToken);
-
-                if (occurrences.Count == 0)
+                try
                 {
-                    _logger.Debug("No matching occurrences found for {Count} status updates", batch.Count);
-                    return;
-                }
+                    await using var scope = _serviceProvider.CreateAsyncScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-                var occurrenceDict = occurrences.ToDictionary(o => o.CorrelationId);
+                    // Use Dictionary instead of GroupBy (last update wins)
+                    var statusByCorrelation = new Dictionary<Guid, JobStatusUpdateMessage>(batch.Count);
 
-                // Track jobs that need circuit breaker updates
-                var jobsToUpdateCircuitBreaker = new Dictionary<Guid, (bool isFailed, string exception)>();
+                    // Last update wins - overwrite if already exists
+                    foreach (var message in batch)
+                        statusByCorrelation[message.CorrelationId] = message;
 
-                //  Update in memory (NO foreach DB operation!)
-                foreach (var kvp in statusByCorrelation)
-                {
-                    if (!occurrenceDict.TryGetValue(kvp.Key, out var occurrence))
+                    var correlationIds = statusByCorrelation.Keys.ToList();
+
+                    _logger.Debug("Processing batch: {Count} unique status updates. Sample CorrelationIds: {Samples}", correlationIds.Count, string.Join(", ", correlationIds.Take(3)));
+
+                    //  Single query for all occurrences (ORDER BY Id to prevent deadlock)
+                    var occurrences = await dbContext.JobOccurrences
+                                                     .AsNoTracking()
+                                                     .Where(o => correlationIds.Contains(o.CorrelationId))
+                                                     .OrderBy(o => o.Id) // Consistent lock order
+                                                     .Select(JobOccurrence.Projections.UpdateStatus)
+                                                     .ToListAsync(cancellationToken: cancellationToken);
+
+                    if (occurrences.Count == 0)
                     {
-                        _logger.Debug("JobOccurrence not found for CorrelationId: {CorrelationId}", kvp.Key);
-                        continue;
+                        _logger.Warning("No matching occurrences found for {Count} status updates. CorrelationIds: {Ids}", batch.Count, string.Join(", ", correlationIds.Take(5)));
+                        return;
                     }
 
-                    var message = kvp.Value;
+                    var occurrenceDict = occurrences.ToDictionary(o => o.CorrelationId);
 
-                    // Track status change history
-                    var previousStatus = occurrence.Status;
-                    var newStatus = message.Status;
+                    // Track jobs that need circuit breaker updates
+                    var jobsToUpdateCircuitBreaker = new Dictionary<Guid, (bool isFailed, string exception)>();
 
-                    // Detect if this is a heartbeat-only update (no status change, no other data)
-                    var isHeartbeat = previousStatus == newStatus
-                                      && newStatus == JobOccurrenceStatus.Running
-                                      && message.EndTime == null
-                                      && message.DurationMs == null
-                                      && string.IsNullOrEmpty(message.Result);
-
-                    if (isHeartbeat)
+                    //  Update in memory (NO foreach DB operation!)
+                    foreach (var kvp in statusByCorrelation)
                     {
+                        if (!occurrenceDict.TryGetValue(kvp.Key, out var occurrence))
+                        {
+                            _logger.Debug("JobOccurrence not found for CorrelationId: {CorrelationId}", kvp.Key);
+                            continue;
+                        }
+
+                        var message = kvp.Value;
+
+                        // Track status change history
+                        var previousStatus = occurrence.Status;
+                        var newStatus = message.Status;
+
+                        // Prevent invalid status transitions from FINAL states
+                        // Once a job reaches a terminal state (Completed, Failed, Cancelled, TimedOut), it should NOT transition back to Running or Queued (race condition from late messages)
+                        if (_finalStatuses.Contains(previousStatus) && _nonFinalStatuses.Contains(newStatus))
+                            continue;
+
+                        // Detect if this is a heartbeat-only update (no status change, no other data)
+                        var isHeartbeat = previousStatus == newStatus
+                                          && newStatus == JobOccurrenceStatus.Running
+                                          && message.EndTime == null
+                                          && message.DurationMs == null
+                                          && string.IsNullOrEmpty(message.Result);
+
+                        if (isHeartbeat)
+                        {
+                            occurrence.LastHeartbeat = DateTime.UtcNow;
+
+                            _logger.Debug("Heartbeat received for CorrelationId: {CorrelationId}", kvp.Key);
+
+                            continue; // Skip other processing
+                        }
+
+                        occurrence.StatusChangeLogs ??= [];
+
+                        // Limit status change logs to prevent unbounded growth
+                        if (occurrence.StatusChangeLogs.Count >= _options.ExecutionLogMaxCount)
+                            occurrence.StatusChangeLogs = [.. occurrence.StatusChangeLogs.OrderByDescending(l => l.Timestamp).Take(_options.ExecutionLogMaxCount)];
+
+                        if (previousStatus != newStatus)
+                            occurrence.StatusChangeLogs.Add(new OccurrenceStatusChangeLog
+                            {
+                                Timestamp = DateTime.UtcNow,
+                                From = previousStatus,
+                                To = newStatus
+                            });
+
+                        // Update consumer-level counters in Redis when status changes
+                        await UpdateConsumerCountersAsync(message.WorkerId, occurrence.JobName, previousStatus, newStatus, cancellationToken);
+
+                        // Update real-time statistics counters for dashboard
+                        if (previousStatus != newStatus)
+                        {
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    await _redisStatsService.UpdateStatusCountersAsync(previousStatus, newStatus, cancellationToken);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Debug(ex, "Failed to update stats counters (non-critical)");
+                                }
+                            }, CancellationToken.None);
+                        }
+
+                        // Track for circuit breaker update
+                        if (newStatus == JobOccurrenceStatus.Failed)
+                        {
+                            jobsToUpdateCircuitBreaker[occurrence.JobId] = (true, message.Exception ?? "Unknown error");
+                        }
+                        else if (newStatus == JobOccurrenceStatus.Completed)
+                        {
+                            jobsToUpdateCircuitBreaker[occurrence.JobId] = (false, null);
+                        }
+
+                        occurrence.Status = message.Status;
+                        occurrence.WorkerId = message.WorkerId;
+
+                        if (message.StartTime.HasValue)
+                            occurrence.StartTime = message.StartTime;
+
+                        if (message.EndTime.HasValue)
+                            occurrence.EndTime = message.EndTime;
+
+                        if (message.DurationMs.HasValue)
+                        {
+                            occurrence.DurationMs = message.DurationMs;
+
+                            // Track duration for average calculation (only for completed jobs)
+                            if (newStatus == JobOccurrenceStatus.Completed)
+                            {
+                                _ = Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await _redisStatsService.TrackDurationAsync(message.DurationMs.Value, cancellationToken);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.Debug(ex, "Failed to track duration (non-critical)");
+                                    }
+                                }, CancellationToken.None);
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(message.Result))
+                            occurrence.Result = message.Result;
+
+                        // Smart exception handling: Clear old exception if job completed successfully
+                        if (!string.IsNullOrEmpty(message.Exception))
+                        {
+                            occurrence.Exception = message.Exception;
+                        }
+                        else if (message.Status == JobOccurrenceStatus.Completed)
+                        {
+                            // Job completed successfully - clear any previous exception
+                            occurrence.Exception = null;
+                        }
+
                         occurrence.LastHeartbeat = DateTime.UtcNow;
 
-                        _logger.Debug("Heartbeat received for CorrelationId: {CorrelationId}", kvp.Key);
-
-                        continue; // Skip other processing
                     }
 
-                    occurrence.StatusChangeLogs ??= [];
+                    // Sort occurrences by Id before bulk update to prevent deadlock
+                    occurrences = [.. occurrences.OrderBy(o => o.Id)];
 
-                    // Limit status change logs to prevent unbounded growth
-                    if (occurrence.StatusChangeLogs.Count >= _options.ExecutionLogMaxCount)
-                        occurrence.StatusChangeLogs = [.. occurrence.StatusChangeLogs.OrderByDescending(l => l.Timestamp).Take(_options.ExecutionLogMaxCount)];
+                    // BulkUpdate with RowVersion concurrency check
+                    await dbContext.BulkUpdateAsync(occurrences, (bc) =>
+                    {
+                        bc.PropertiesToIncludeOnUpdate = _updatePropNames;
+                    }, cancellationToken: cancellationToken);
 
-                    if (previousStatus != newStatus)
-                        occurrence.StatusChangeLogs.Add(new OccurrenceStatusChangeLog
+                    // Process circuit breaker updates for jobs
+                    if (jobsToUpdateCircuitBreaker.Count > 0 && _autoDisableOptions.Enabled)
+                        await ProcessCircuitBreakerUpdatesAsync(dbContext, jobsToUpdateCircuitBreaker, cancellationToken);
+
+                    // Batch Redis updates instead of one-by-one
+                    var redisUpdateTasks = new List<Task>(occurrences.Count);
+
+                    foreach (var occurrence in occurrences)
+                    {
+                        // Mark as running when job actually starts (atomic check-and-set)
+                        if (occurrence.Status == JobOccurrenceStatus.Running)
                         {
-                            Timestamp = DateTime.UtcNow,
-                            From = previousStatus,
-                            To = newStatus
-                        });
-
-                    // Update consumer-level counters in Redis when status changes
-                    await UpdateConsumerCountersAsync(message.WorkerId, occurrence.JobName, previousStatus, newStatus, cancellationToken);
-
-                    // Track for circuit breaker update
-                    if (newStatus == JobOccurrenceStatus.Failed)
-                    {
-                        jobsToUpdateCircuitBreaker[occurrence.JobId] = (true, message.Exception ?? "Unknown error");
-                    }
-                    else if (newStatus == JobOccurrenceStatus.Completed)
-                    {
-                        jobsToUpdateCircuitBreaker[occurrence.JobId] = (false, null);
-                    }
-
-                    occurrence.Status = message.Status;
-                    occurrence.WorkerId = message.WorkerId;
-
-                    if (message.StartTime.HasValue)
-                        occurrence.StartTime = message.StartTime;
-
-                    if (message.EndTime.HasValue)
-                        occurrence.EndTime = message.EndTime;
-
-                    if (message.DurationMs.HasValue)
-                        occurrence.DurationMs = message.DurationMs;
-
-                    if (!string.IsNullOrEmpty(message.Result))
-                        occurrence.Result = message.Result;
-
-                    // Smart exception handling: Clear old exception if job completed successfully
-                    if (!string.IsNullOrEmpty(message.Exception))
-                    {
-                        occurrence.Exception = message.Exception;
-                    }
-                    else if (message.Status == JobOccurrenceStatus.Completed)
-                    {
-                        // Job completed successfully - clear any previous exception
-                        occurrence.Exception = null;
-                    }
-
-                    occurrence.LastHeartbeat = DateTime.UtcNow;
-
-                }
-
-                await dbContext.BulkUpdateAsync(occurrences, (bc) =>
-                {
-                    bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _updatePropNames;
-                }, cancellationToken: cancellationToken);
-
-                // Process circuit breaker updates for jobs
-                if (jobsToUpdateCircuitBreaker.Count > 0 && _autoDisableOptions.Enabled)
-                    await ProcessCircuitBreakerUpdatesAsync(dbContext, jobsToUpdateCircuitBreaker, cancellationToken);
-
-                // Batch Redis updates instead of one-by-one
-                var redisUpdateTasks = new List<Task>(occurrences.Count);
-
-                foreach (var occurrence in occurrences)
-                {
-                    // Mark as running when job actually starts (atomic check-and-set)
-                    if (occurrence.Status == JobOccurrenceStatus.Running)
-                    {
-                        // Use TryMarkJobAsRunningAsync for atomic operation
-                        // Fire and forget - don't block on Redis response
-                        redisUpdateTasks.Add(Task.Run(async () =>
-                        {
-                            try
+                            // Use TryMarkJobAsRunningAsync for atomic operation
+                            // Fire and forget - don't block on Redis response
+                            redisUpdateTasks.Add(Task.Run(async () =>
                             {
-                                var marked = await _redisScheduler.TryMarkJobAsRunningAsync(occurrence.JobId, occurrence.CorrelationId, cancellationToken);
-
-                                if (!marked)
+                                try
                                 {
-                                    _logger.Debug("Job {JobId} already marked as running by another occurrence (CorrelationId: {CorrelationId})", occurrence.JobId, occurrence.CorrelationId);
+                                    var marked = await _redisScheduler.TryMarkJobAsRunningAsync(occurrence.JobId, occurrence.CorrelationId, cancellationToken);
+
+                                    if (!marked)
+                                    {
+                                        _logger.Debug("Job {JobId} already marked as running by another occurrence (CorrelationId: {CorrelationId})", occurrence.JobId, occurrence.CorrelationId);
+                                    }
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.Debug(ex, "Failed to mark job {JobId} as running (non-critical)", occurrence.JobId);
-                            }
-                        }, cancellationToken));
-                    }
-                    // Mark as completed when job finishes (any final status)
-                    else if (occurrence.Status.IsFinalStatus())
-                    {
-                        redisUpdateTasks.Add(Task.Run(async () =>
+                                catch (Exception ex)
+                                {
+                                    _logger.Debug(ex, "Failed to mark job {JobId} as running (non-critical)", occurrence.JobId);
+                                }
+                            }, cancellationToken));
+                        }
+                        // Mark as completed when job finishes (any final status)
+                        else if (occurrence.Status.IsFinalStatus())
                         {
-                            try
+                            redisUpdateTasks.Add(Task.Run(async () =>
                             {
-                                await _redisScheduler.MarkJobAsCompletedAsync(occurrence.JobId, cancellationToken);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.Debug(ex, "Failed to mark job {JobId} as completed (non-critical)", occurrence.JobId);
-                            }
-                        }, cancellationToken));
+                                try
+                                {
+                                    await _redisScheduler.MarkJobAsCompletedAsync(occurrence.JobId, cancellationToken);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Debug(ex, "Failed to mark job {JobId} as completed (non-critical)", occurrence.JobId);
+                                }
+                            }, cancellationToken));
+                        }
                     }
-                }
 
-                // Execute all Redis updates in parallel with timeout
-                if (redisUpdateTasks.Count > 0)
+                    // Execute all Redis updates in parallel with timeout
+                    if (redisUpdateTasks.Count > 0)
+                    {
+                        var redisTimeout = Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+                        var redisCompleted = await Task.WhenAny(Task.WhenAll(redisUpdateTasks), redisTimeout);
+
+                        if (redisCompleted == redisTimeout)
+                            _logger.Warning("Redis updates timed out after 3 seconds for {Count} occurrences", redisUpdateTasks.Count);
+                    }
+
+                    // Parallel SignalR event publishing with timeout
+                    var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
+
+                    await eventPublisher.PublishOccurrenceUpdatedAsync(occurrences, _logger, cancellationToken);
+
+                    _logger.Debug("Processed {Count} status updates in batch (RetryCount: {RetryCount})", batch.Count, retryCount);
+
+                    // SUCCESS - Exit retry loop
+                    break;
+                }
+                catch (DbUpdateConcurrencyException concurrencyEx)
                 {
-                    var redisTimeout = Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
-                    var redisCompleted = await Task.WhenAny(Task.WhenAll(redisUpdateTasks), redisTimeout);
+                    retryCount++;
 
-                    if (redisCompleted == redisTimeout)
-                        _logger.Warning("Redis updates timed out after 3 seconds for {Count} occurrences", redisUpdateTasks.Count);
+                    if (retryCount >= maxRetries)
+                    {
+                        _logger.Error(concurrencyEx, "Concurrency conflict after {MaxRetries} retries. Status updates will be retried in next batch.", maxRetries);
+
+                        // Re-queue failed messages for next batch
+                        foreach (var msg in batch)
+                            _statusBatch.Enqueue(msg);
+
+                        break;
+                    }
+
+                    _logger.Warning(concurrencyEx, "Concurrency conflict detected in status batch processing (Retry {RetryCount}/{MaxRetries}). Retrying after {Delay}ms...", retryCount, maxRetries, retryDelay.TotalMilliseconds);
+
+                    // Exponential backoff: 50ms, 100ms, 200ms
+                    await Task.Delay(retryDelay, cancellationToken);
+                    retryDelay = TimeSpan.FromMilliseconds(retryDelay.TotalMilliseconds * 2);
                 }
+                catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "40P01") // Deadlock
+                {
+                    _logger.Warning(pgEx, "Deadlock detected in status batch processing. Updates will be retried in next batch.");
 
-                // Parallel SignalR event publishing with timeout
-                var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
+                    // Re-queue messages for next batch
+                    foreach (var msg in batch)
+                        _statusBatch.Enqueue(msg);
 
-                await eventPublisher.PublishOccurrenceUpdatedAsync(occurrences, _logger, cancellationToken);
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to process status update batch");
 
-                _logger.Debug("Processed {Count} status updates in batch", batch.Count);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Failed to process status update batch");
+                    // Re-queue messages for next batch
+                    foreach (var msg in batch)
+                        _statusBatch.Enqueue(msg);
+
+                    break;
+                }
             }
         }
         finally
@@ -652,6 +760,58 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
+    /// Safe ACK operation that checks channel state before acknowledgment.
+    /// Prevents "Already closed" exceptions during shutdown.
+    /// </summary>
+    private async Task SafeAckAsync(ulong deliveryTag, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (cancellationToken.IsCancellationRequested || _channel == null || _channel.IsClosed)
+            {
+                _logger.Debug("Skipping ACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
+                return;
+            }
+
+            await _channel.BasicAckAsync(deliveryTag, false, cancellationToken);
+        }
+        catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
+        {
+            _logger.Debug("Channel already closed during ACK (DeliveryTag: {DeliveryTag})", deliveryTag);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to ACK message (DeliveryTag: {DeliveryTag})", deliveryTag);
+        }
+    }
+
+    /// <summary>
+    /// Safe NACK operation that checks channel state before negative acknowledgment.
+    /// Prevents "Already closed" exceptions during shutdown.
+    /// </summary>
+    private async Task SafeNackAsync(ulong deliveryTag, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (cancellationToken.IsCancellationRequested || _channel == null || _channel.IsClosed)
+            {
+                _logger.Debug("Skipping NACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
+                return;
+            }
+
+            await _channel.BasicNackAsync(deliveryTag, false, false, cancellationToken);
+        }
+        catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
+        {
+            _logger.Debug("Channel already closed during NACK (DeliveryTag: {DeliveryTag})", deliveryTag);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to NACK message (DeliveryTag: {DeliveryTag})", deliveryTag);
+        }
+    }
+
+    /// <summary>
     /// Stops the background service and cleans up resources.
     /// </summary>
     /// <param name="cancellationToken"></param>
@@ -660,22 +820,49 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     {
         _logger.Information("StatusTrackerService stopping...");
 
-        //  Process remaining status updates
-        await ProcessBatchAsync(cancellationToken);
+        try
+        {
+            //  Process remaining status updates
+            await ProcessBatchAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to process remaining batch during shutdown");
+        }
 
         // Dispose semaphore
         _batchLock?.Dispose();
 
-        if (_channel != null)
+        try
         {
-            await _channel.CloseAsync(cancellationToken);
-            _channel.Dispose();
+            if (_channel != null && !_channel.IsClosed)
+            {
+                await _channel.CloseAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Error closing RabbitMQ channel");
+        }
+        finally
+        {
+            _channel?.Dispose();
         }
 
-        if (_connection != null)
+        try
         {
-            await _connection.CloseAsync(cancellationToken);
-            _connection.Dispose();
+            if (_connection != null && _connection.IsOpen)
+            {
+                await _connection.CloseAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Error closing RabbitMQ connection");
+        }
+        finally
+        {
+            _connection?.Dispose();
         }
 
         await base.StopAsync(cancellationToken);

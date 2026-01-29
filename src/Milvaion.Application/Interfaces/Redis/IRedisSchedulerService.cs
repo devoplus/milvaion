@@ -174,4 +174,12 @@ public interface IRedisSchedulerService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Set of job IDs that are currently running</returns>
     Task<HashSet<Guid>> GetRunningJobIdsAsync(IEnumerable<Guid> jobIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marks all running jobs that are associated with the given worker as completed in Redis.
+    /// This is used on worker shutdown to remove running flags for jobs that were owned by this worker.
+    /// </summary>
+    /// <param name="workerId">Worker identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task<long> RemoveAllRunningJobsForWorkerAsync(string workerId, CancellationToken cancellationToken = default);
 }

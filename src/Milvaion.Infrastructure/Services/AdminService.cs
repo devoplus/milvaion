@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Milvaion.Application.Dtos.AdminDtos;
@@ -198,60 +198,44 @@ public class AdminService(IServiceProvider serviceProvider) : IAdminService
     public async Task<Response<DatabaseStatisticsDto>> GetDatabaseStatisticsAsync(CancellationToken cancellationToken)
     {
         // Run all queries in parallel with separate DbContext instances for each
-        var tableSizesTask = Task.Run(async () =>
-        {
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-            return await GetTableSizesAsync(dbContext, cancellationToken);
-        }, cancellationToken);
+        var tableSizesTask = GetTableSizesAsync(cancellationToken);
+        var indexEfficiencyTask = GetIndexEfficiencyAsync(cancellationToken);
+        var cacheHitRatioTask = GetCacheHitRatioAsync(cancellationToken);
+        var tableBloatTask = GetTableBloatAsync(cancellationToken);
 
-        var occurrenceGrowthTask = Task.Run(async () =>
-        {
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-            return await GetOccurrenceGrowthAsync(dbContext, cancellationToken);
-        }, cancellationToken);
+        await Task.WhenAll(tableSizesTask, indexEfficiencyTask, cacheHitRatioTask, tableBloatTask);
 
-        var largeOccurrencesTask = Task.Run(async () =>
-        {
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-            return await GetLargeOccurrencesAsync(dbContext, cancellationToken);
-        }, cancellationToken);
+        var tableSizesResponse = await tableSizesTask;
+        var indexEfficiencyResponse = await indexEfficiencyTask;
+        var cacheHitRatioResponse = await cacheHitRatioTask;
+        var tableBloatResponse = await tableBloatTask;
 
-        await Task.WhenAll(tableSizesTask, occurrenceGrowthTask, largeOccurrencesTask);
-
-        var tableSizes = await tableSizesTask;
-        var occurrenceGrowth = await occurrenceGrowthTask;
-        var largeOccurrences = await largeOccurrencesTask;
-
+        var tableSizes = tableSizesResponse.Data ?? [];
         var totalSizeBytes = tableSizes.Sum(t => t.SizeBytes);
 
         var stats = new DatabaseStatisticsDto
         {
             TableSizes = tableSizes,
-            OccurrenceGrowth = occurrenceGrowth,
-            LargeOccurrences = largeOccurrences,
             TotalDatabaseSizeBytes = totalSizeBytes,
-            TotalDatabaseSize = FormatBytes(totalSizeBytes)
+            TotalDatabaseSize = FormatBytes(totalSizeBytes),
+            IndexEfficiency = indexEfficiencyResponse.Data,
+            CacheHitRatio = cacheHitRatioResponse.Data,
+            TableBloat = tableBloatResponse.Data
         };
 
         return Response<DatabaseStatisticsDto>.Success(stats);
     }
 
     /// <summary>
-    /// Gets background service memory diagnostics.
+    /// Gets top tables by size.
     /// </summary>
-    /// <returns>Database statistics</returns>
-    public Response<AggregatedMemoryStats> GetBackgroundServiceMemoryDiagnostics()
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Table sizes</returns>
+    [Cache(CacheConstant.Key.DatabaseStats + ":tables", CacheConstant.Time.Seconds120)]
+    public async Task<Response<List<TableSizeDto>>> GetTableSizesAsync(CancellationToken cancellationToken)
     {
-        var memoryStatsRegistry = _serviceProvider.GetRequiredService<IMemoryStatsRegistry>();
-
-        return Response<AggregatedMemoryStats>.Success(memoryStatsRegistry.GetAggregatedStats());
-    }
-
-    private static async Task<List<TableSizeDto>> GetTableSizesAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
-    {
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
         var sql = @"
             SELECT 
                 schemaname,
@@ -271,7 +255,7 @@ public class AdminService(IServiceProvider serviceProvider) : IAdminService
 
         var totalSizeBytes = tableSizesRaw.Sum(t => t.size_bytes);
 
-        return [.. tableSizesRaw.Select(t => new TableSizeDto
+        List<TableSizeDto> tableSizes = [.. tableSizesRaw.Select(t => new TableSizeDto
         {
             SchemaName = t.schemaname,
             TableName = t.tablename,
@@ -279,67 +263,230 @@ public class AdminService(IServiceProvider serviceProvider) : IAdminService
             SizeBytes = t.size_bytes,
             Percentage = totalSizeBytes > 0 ? (decimal)t.size_bytes / totalSizeBytes * 100 : 0
         })];
+
+        return Response<List<TableSizeDto>>.Success(tableSizes);
     }
 
-    private static async Task<List<OccurrenceGrowthDto>> GetOccurrenceGrowthAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
+    /// <summary>
+    /// Gets index efficiency statistics (unused/underutilized indexes).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Index efficiency statistics</returns>
+    [Cache(CacheConstant.Key.DatabaseStats + ":indexes", CacheConstant.Time.Seconds120)]
+    public async Task<Response<IndexEfficiencyDto>> GetIndexEfficiencyAsync(CancellationToken cancellationToken)
     {
-        // Optimize: Only last 7 days instead of 30, use simpler aggregations
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+        // Find unused or rarely used indexes
         var sql = @"
             SELECT 
-                DATE_TRUNC('day', ""CreatedAt"") AS day,
-                ""Status"" AS status,
-                COUNT(*) AS count,
-                CAST(AVG(CASE WHEN ""Exception"" IS NOT NULL THEN LENGTH(""Exception"") ELSE 0 END) AS INTEGER) AS avg_exception_size,
-                CAST(AVG(CASE WHEN ""Logs"" IS NOT NULL THEN JSONB_ARRAY_LENGTH(""Logs"") ELSE 0 END) AS INTEGER) AS avg_log_count
-            FROM ""JobOccurrences""
-            WHERE ""CreatedAt"" > NOW() - INTERVAL '15 days'
-            GROUP BY DATE_TRUNC('day', ""CreatedAt""), ""Status""
-            ORDER BY day DESC
-            LIMIT 50";
+                schemaname || '.' || relname AS table_name,
+                indexrelname AS index_name,
+                pg_relation_size(indexrelid) AS size_bytes,
+                idx_scan AS scans,
+                idx_tup_read AS tuples_read
+            FROM pg_stat_user_indexes
+            WHERE schemaname = 'public'
+              AND indexrelname NOT LIKE 'pg_%'
+            ORDER BY pg_relation_size(indexrelid) DESC";
 
-        var occurrenceGrowthRaw = await dbContext.Database.SqlQueryRaw<OccurrenceGrowthRawDto>(sql).ToListAsync(cancellationToken);
+        var indexesRaw = await dbContext.Database.SqlQueryRaw<IndexStatsRawDto>(sql).ToListAsync(cancellationToken);
 
-        return [.. occurrenceGrowthRaw.Select(o => new OccurrenceGrowthDto
+        var indexes = indexesRaw.Select(i =>
         {
-            Day = o.day,
-            Status = o.status,
-            Count = o.count,
-            AvgExceptionSize = o.avg_exception_size,
-            AvgLogCount = o.avg_log_count
-        })];
+            var efficiencyScore = i.scans > 0 ? Math.Min(100, (i.scans / 1000.0m) * 100) : 0;
+            var status = i.scans == 0 ? "Unused" : i.scans < 100 ? "Rarely Used" : "Normal";
+
+            return new IndexStatsDto
+            {
+                TableName = i.table_name,
+                IndexName = i.index_name,
+                SizeBytes = i.size_bytes,
+                Size = FormatBytes(i.size_bytes),
+                Scans = i.scans,
+                TuplesRead = i.tuples_read,
+                EfficiencyScore = efficiencyScore,
+                Status = status
+            };
+        }).ToList();
+
+        var unusedIndexes = indexes.Where(i => i.Status is "Unused" or "Rarely Used").ToList();
+        var totalWastedBytes = unusedIndexes.Sum(i => i.SizeBytes);
+
+        var recommendation = totalWastedBytes > 1024 * 1024 * 100 // 100 MB
+            ? $"Consider dropping {unusedIndexes.Count} unused/rarely used indexes to free up {FormatBytes(totalWastedBytes)}."
+            : "Index usage is optimal. No action needed.";
+
+        var indexEfficiency = new IndexEfficiencyDto
+        {
+            Indexes = [.. unusedIndexes.OrderByDescending(i => i.SizeBytes).Take(10)],
+            TotalWastedBytes = totalWastedBytes,
+            TotalWastedSpace = FormatBytes(totalWastedBytes),
+            Recommendation = recommendation
+        };
+
+        return Response<IndexEfficiencyDto>.Success(indexEfficiency);
     }
 
-    private static async Task<List<LargeOccurrenceDto>> GetLargeOccurrencesAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
+    /// <summary>
+    /// Gets database cache hit ratio.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Cache hit ratio statistics</returns>
+    [Cache(CacheConstant.Key.DatabaseStats + ":cache", CacheConstant.Time.Seconds120)]
+    public async Task<Response<CacheHitRatioDto>> GetCacheHitRatioAsync(CancellationToken cancellationToken)
     {
-        // Optimize: Only check recent occurrences (last 30 days) and limit to top 5
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+        // Cache hit ratio for tables and indexes
         var sql = @"
             SELECT 
-                ""Id"",
-                ""JobName"",
-                ""Status"",
-                ""CreatedAt"",
-                pg_column_size(COALESCE(""Logs"", '[]'::jsonb)) AS logs_size,
-                pg_column_size(COALESCE(""Exception"", '')) AS exception_size,
-                pg_column_size(COALESCE(""StatusChangeLogs"", '[]'::jsonb)) AS status_logs_size
-            FROM ""JobOccurrences""
-            WHERE ""CreatedAt"" > NOW() - INTERVAL '30 days'
-            ORDER BY pg_column_size(COALESCE(""Logs"", '[]'::jsonb)) +
-                     pg_column_size(COALESCE(""Exception"", '')) +
-                     pg_column_size(COALESCE(""StatusChangeLogs"", '[]'::jsonb)) DESC
-            LIMIT 5";
+                SUM(heap_blks_read) AS disk_reads,
+                SUM(heap_blks_hit) AS cache_reads,
+                SUM(idx_blks_read) AS idx_disk_reads,
+                SUM(idx_blks_hit) AS idx_cache_reads
+            FROM pg_statio_user_tables";
 
-        var largeOccurrencesRaw = await dbContext.Database.SqlQueryRaw<LargeOccurrenceRawDto>(sql).ToListAsync(cancellationToken);
+        var result = await dbContext.Database.SqlQueryRaw<CacheHitRatioRawDto>(sql).FirstOrDefaultAsync(cancellationToken);
 
-        return [.. largeOccurrencesRaw.Select(o => new LargeOccurrenceDto
+        if (result == null)
         {
-            Id = o.Id,
-            JobName = o.JobName,
-            Status = o.Status,
-            CreatedAt = o.CreatedAt,
-            LogsSize = o.logs_size,
-            ExceptionSize = o.exception_size,
-            StatusLogsSize = o.status_logs_size
-        })];
+            return Response<CacheHitRatioDto>.Success(new CacheHitRatioDto
+            {
+                Status = "Unknown",
+                Recommendation = "No data available"
+            });
+        }
+
+        var totalReads = result.disk_reads + result.cache_reads;
+        var hitRatio = totalReads > 0 ? (decimal)result.cache_reads / totalReads * 100 : 0;
+
+        var totalIdxReads = result.idx_disk_reads + result.idx_cache_reads;
+        var idxHitRatio = totalIdxReads > 0 ? (decimal)result.idx_cache_reads / totalIdxReads * 100 : 0;
+
+        var tableReads = result.disk_reads + result.cache_reads;
+        var tableHitRatio = tableReads > 0 ? (decimal)result.cache_reads / tableReads * 100 : 0;
+
+        var status = hitRatio switch
+        {
+            >= 99 => "Excellent",
+            >= 95 => "Good",
+            >= 90 => "Poor",
+            _ => "Critical"
+        };
+
+        var recommendation = status switch
+        {
+            "Excellent" => "Cache performance is excellent. Database is well-tuned.",
+            "Good" => "Cache performance is acceptable. Monitor disk I/O.",
+            "Poor" => "Consider increasing shared_buffers in PostgreSQL configuration.",
+            _ => "CRITICAL: Cache hit ratio is too low. Increase shared_buffers and investigate slow queries."
+        };
+
+        var cacheHitRatio = new CacheHitRatioDto
+        {
+            HitRatioPercentage = hitRatio,
+            IndexHitRatioPercentage = idxHitRatio,
+            TableHitRatioPercentage = tableHitRatio,
+            DiskReads = result.disk_reads,
+            CacheReads = result.cache_reads,
+            Status = status,
+            Recommendation = recommendation
+        };
+
+        return Response<CacheHitRatioDto>.Success(cacheHitRatio);
+    }
+
+    /// <summary>
+    /// Gets table bloat detection (VACUUM recommendation).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Table bloat statistics</returns>
+    [Cache(CacheConstant.Key.DatabaseStats + ":bloat", CacheConstant.Time.Seconds120)]
+    public async Task<Response<TableBloatDto>> GetTableBloatAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+        // Estimate table bloat using pg_stat_user_tables
+        var sql = @"
+            SELECT 
+                schemaname || '.' || relname AS table_name,
+                pg_total_relation_size(quote_ident(schemaname) || '.' || quote_ident(relname)) AS actual_size_bytes,
+                n_dead_tup AS dead_tuples,
+                n_live_tup AS live_tuples,
+                last_vacuum,
+                last_analyze
+            FROM pg_stat_user_tables
+            WHERE schemaname = 'public'
+              AND n_dead_tup > 1000
+            ORDER BY n_dead_tup DESC
+            LIMIT 10";
+
+        var bloatedTablesRaw = await dbContext.Database.SqlQueryRaw<BloatedTableRawDto>(sql).ToListAsync(cancellationToken);
+
+        var bloatedTables = bloatedTablesRaw.Select(t =>
+        {
+            var totalTuples = t.live_tuples + t.dead_tuples;
+            var bloatPercentage = totalTuples > 0 ? (decimal)t.dead_tuples / totalTuples * 100 : 0;
+            var expectedSizeBytes = totalTuples > 0 ? (long)(t.actual_size_bytes * ((decimal)t.live_tuples / totalTuples)) : t.actual_size_bytes;
+            var wastedBytes = t.actual_size_bytes - expectedSizeBytes;
+
+            var status = bloatPercentage switch
+            {
+                >= 50 => "Critical",
+                >= 20 => "Warning",
+                _ => "Normal"
+            };
+
+            return new BloatedTableDto
+            {
+                TableName = t.table_name,
+                ActualSizeBytes = t.actual_size_bytes,
+                ActualSize = FormatBytes(t.actual_size_bytes),
+                ExpectedSizeBytes = expectedSizeBytes,
+                ExpectedSize = FormatBytes(expectedSizeBytes),
+                WastedBytes = wastedBytes,
+                WastedSpace = FormatBytes(wastedBytes),
+                BloatPercentage = bloatPercentage,
+                DeadTuples = t.dead_tuples,
+                LiveTuples = t.live_tuples,
+                LastVacuum = t.last_vacuum,
+                LastAnalyze = t.last_analyze,
+                Status = status
+            };
+        }).ToList();
+
+        var totalWastedBytes = bloatedTables.Sum(t => t.WastedBytes);
+
+        var criticalTables = bloatedTables.Count(t => t.Status == "Critical");
+        var recommendation = criticalTables > 0
+            ? $"URGENT: {criticalTables} table(s) need VACUUM. Run 'VACUUM ANALYZE' on bloated tables to reclaim {FormatBytes(totalWastedBytes)}."
+            : totalWastedBytes > 1024 * 1024 * 50 // 50 MB
+                ? $"Consider running VACUUM on tables with high bloat to reclaim {FormatBytes(totalWastedBytes)}."
+                : "Table bloat is under control. No action needed.";
+
+        var tableBloat = new TableBloatDto
+        {
+            BloatedTables = bloatedTables,
+            TotalWastedBytes = totalWastedBytes,
+            TotalWastedSpace = FormatBytes(totalWastedBytes),
+            Recommendation = recommendation
+        };
+
+        return Response<TableBloatDto>.Success(tableBloat);
+    }
+
+    /// <summary>
+    /// Gets background service memory diagnostics.
+    /// </summary>
+    /// <returns>Database statistics</returns>
+    public Response<AggregatedMemoryStats> GetBackgroundServiceMemoryDiagnostics()
+    {
+        var memoryStatsRegistry = _serviceProvider.GetRequiredService<IMemoryStatsRegistry>();
+
+        return Response<AggregatedMemoryStats>.Success(memoryStatsRegistry.GetAggregatedStats());
     }
 
     private static string FormatBytes(long bytes)
@@ -435,6 +582,42 @@ internal class TableSizeRawDto
     public string tablename { get; set; }
     public string size { get; set; }
     public long size_bytes { get; set; }
+}
+
+/// <summary>
+/// Raw DTO for index stats query (matches PostgreSQL column names).
+/// </summary>
+internal class IndexStatsRawDto
+{
+    public string table_name { get; set; }
+    public string index_name { get; set; }
+    public long size_bytes { get; set; }
+    public long scans { get; set; }
+    public long tuples_read { get; set; }
+}
+
+/// <summary>
+/// Raw DTO for cache hit ratio query (matches PostgreSQL column names).
+/// </summary>
+internal class CacheHitRatioRawDto
+{
+    public long disk_reads { get; set; }
+    public long cache_reads { get; set; }
+    public long idx_disk_reads { get; set; }
+    public long idx_cache_reads { get; set; }
+}
+
+/// <summary>
+/// Raw DTO for bloated table query (matches PostgreSQL column names).
+/// </summary>
+internal class BloatedTableRawDto
+{
+    public string table_name { get; set; }
+    public long actual_size_bytes { get; set; }
+    public long dead_tuples { get; set; }
+    public long live_tuples { get; set; }
+    public DateTime? last_vacuum { get; set; }
+    public DateTime? last_analyze { get; set; }
 }
 
 /// <summary>

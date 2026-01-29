@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+using Milvasoft.Attributes.Annotations;
 using Milvasoft.Core.EntityBases.Concrete.Auditing;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
@@ -13,11 +13,7 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// Tracks the lifecycle of each job trigger with correlation for observability.
 /// </summary>
 [Table(SchedulerTableNames.JobOccurrences)]
-[Index(nameof(CorrelationId), IsUnique = true)]
-[Index(nameof(JobId), nameof(EndTime), nameof(CreatedAt), IsDescending = [false, true, true])] // For GroupBy with OrderByDescending(EndTime ?? CreatedAt)
-[Index(nameof(Status), nameof(NextDispatchRetryAt), nameof(DispatchRetryCount))] // For RetryFailedDispatchesAsync
-[Index(nameof(Status), nameof(CreatedAt), IsDescending = [false, true])] // For ZombieOccurrenceDetector
-[Index(nameof(WorkerId), nameof(Status))] // For worker-specific queries
+[DontIndexCreationDate]
 public class JobOccurrence : CreationAuditableEntity<Guid>
 {
     /// <summary>
@@ -97,13 +93,6 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
     public string Exception { get; set; }
 
     /// <summary>
-    /// Structured logs from job execution stored as JSONB array.
-    /// Each entry contains timestamp, level, message, and optional data.
-    /// </summary>
-    [Column(TypeName = "jsonb")]
-    public List<OccurrenceLog> Logs { get; set; } = [];
-
-    /// <summary>
     /// Timestamp when this occurrence record was created (UTC).
     /// </summary>
     [Required]
@@ -136,6 +125,11 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
     [ForeignKey(nameof(JobId))]
     public virtual ScheduledJob Job { get; set; }
 
+    /// <summary>
+    /// Log entries associated with this job occurrence.
+    /// </summary>
+    public virtual List<JobOccurrenceLog> Logs { get; set; }
+
     public static class Projections
     {
         public static Expression<Func<JobOccurrence, JobOccurrence>> AddFailedOccurrence { get; } = s => new JobOccurrence
@@ -155,16 +149,8 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
             Status = s.Status,
             Exception = s.Exception,
             NextDispatchRetryAt = s.NextDispatchRetryAt,
-            Logs = s.Logs,
             CorrelationId = s.CorrelationId,
             DispatchRetryCount = s.DispatchRetryCount,
-        };
-
-        public static Expression<Func<JobOccurrence, JobOccurrence>> UpdateLogs { get; } = s => new JobOccurrence
-        {
-            Id = s.Id,
-            CorrelationId = s.CorrelationId,
-            Logs = s.Logs,
         };
 
         public static Expression<Func<JobOccurrence, JobOccurrence>> UpdateStatus { get; } = s => new JobOccurrence
@@ -189,7 +175,6 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
             Id = s.Id,
             Status = s.Status,
             StatusChangeLogs = s.StatusChangeLogs,
-            Logs = s.Logs,
             WorkerId = s.WorkerId,
             StartTime = s.StartTime,
             EndTime = s.EndTime,
@@ -208,7 +193,6 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
             CreatedAt = s.CreatedAt,
             Status = s.Status,
             StatusChangeLogs = s.StatusChangeLogs,
-            Logs = s.Logs,
             WorkerId = s.WorkerId,
             StartTime = s.StartTime,
             EndTime = s.EndTime,

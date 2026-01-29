@@ -17,7 +17,7 @@ public static class CacheConstant
     }
     public static class Key
     {
-        public const string Configurations = "configs";
+        public const string DashboardStats = "dashboard";
         public const string DatabaseStats = "db_stats";
     }
 }

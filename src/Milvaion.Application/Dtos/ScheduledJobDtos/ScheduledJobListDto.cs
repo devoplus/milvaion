@@ -16,6 +16,11 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
     public string DisplayName { get; set; }
 
     /// <summary>
+    /// Description of the scheduled job.
+    /// </summary>
+    public string Description { get; set; }
+
+    /// <summary>
     /// Type identifier for the job handler (e.g., "SendEmailJob", "ProcessOrderJob").
     /// </summary>
     public string JobType { get; set; }
@@ -44,24 +49,12 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
     public ConcurrentExecutionPolicy ConcurrentExecutionPolicy { get; set; }
 
     /// <summary>
-    /// Latest occurrence status (computed from most recent JobOccurrence).
-    /// Note: This is NOT persisted in ScheduledJob - fetched from occurrences.
-    /// </summary>
-    public JobOccurrenceStatus? LatestStatus { get; set; }
-
-    /// <summary>
-    /// Latest run time of the job.
-    /// </summary>
-    public DateTime? LatestRun { get; set; }
-
-    /// <summary>
     /// Latest run time of the job.
     /// </summary>
     public string Tags { get; set; }
 
     /// <summary>
     /// Projection expression for mapping ScheduledJob to ScheduledJobListDto.
-    /// Note: LatestStatus must be populated separately via join or post-query.
     /// </summary>
     [JsonIgnore]
     [ExcludeFromMetadata]
@@ -69,6 +62,7 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
     {
         Id = r.Id,
         DisplayName = r.DisplayName,
+        Description = r.Description,
         CronExpression = r.CronExpression,
         JobData = r.JobData,
         JobType = r.JobNameInWorker,

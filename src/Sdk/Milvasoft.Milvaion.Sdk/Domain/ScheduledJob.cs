@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Milvasoft.Attributes.Annotations;
 using Milvasoft.Core.EntityBases.Concrete.Auditing;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
@@ -13,8 +12,6 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// Entity of the ScheduledJobs table. Represents a background job scheduled for future execution.
 /// </summary>
 [Table(SchedulerTableNames.ScheduledJobs)]
-[Index(nameof(IsActive), nameof(ExecuteAt))] // For active jobs due for execution
-[Index(nameof(WorkerId), nameof(IsActive))] // For worker-specific active jobs
 [DontIndexCreationDate]
 public class ScheduledJob : CreationAuditableEntity<Guid>
 {
@@ -228,6 +225,15 @@ public class ScheduledJob : CreationAuditableEntity<Guid>
             IsActive = s.IsActive,
             CronExpression = s.CronExpression,
             AutoDisableSettings = s.AutoDisableSettings
+        };
+
+        /// <summary>
+        /// Projection for circuit breaker updates.
+        /// </summary>
+        public static Expression<Func<ScheduledJob, ScheduledJob>> OccurrenceJobData { get; } = s => new ScheduledJob
+        {
+            Id = s.Id,
+            DisplayName = s.DisplayName,
         };
     }
 }

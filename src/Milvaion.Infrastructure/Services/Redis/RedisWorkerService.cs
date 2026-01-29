@@ -383,12 +383,28 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         }
                     }
 
-                    // Get current running jobs for this consumer from Redis counter
-                    var consumerKey = $"consumer:{workerId}:{jobType}:count";
-                    var currentJobsStr = await _db.StringGetAsync(consumerKey);
-                    var currentJobs = currentJobsStr.HasValue ? (int)currentJobsStr : 0;
+                    // Get current running jobs for this consumer across ALL instances
+                    // Worker instances write keys like: consumer:{workerId}-{instanceSuffix}:{jobType}:count
+                    // We need to sum all instances for this worker group
+                    var pattern = $"consumer:{workerId}-*:{jobType}:count";
+                    var server = _redis.GetServer(_redis.GetEndPoints().First());
+                    var keys = server.Keys(pattern: pattern, pageSize: 100).ToList();
 
-                    return (currentJobs, consumerMaxParallel);
+                    var totalCurrentJobs = 0;
+
+                    if (keys.Count > 0)
+                    {
+                        // Batch get all values
+                        var values = await _db.StringGetAsync([.. keys]);
+
+                        foreach (var value in values)
+                        {
+                            if (value.HasValue && int.TryParse(value.ToString(), out var count))
+                                totalCurrentJobs += count;
+                        }
+                    }
+
+                    return (totalCurrentJobs, consumerMaxParallel);
                 }
                 catch (Exception ex)
                 {
@@ -472,6 +488,42 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             },
             fallback: async () => false,
             operationName: "RemoveWorker",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task<bool> RemoveWorkerInstanceAsync(string workerId, string instanceId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                try
+                {
+                    var instanceKey = $"workers:{workerId}:instances:{instanceId}";
+                    
+                    // Delete instance metadata
+                    await _db.KeyDeleteAsync(instanceKey);
+
+                    // Clean up all consumer count keys for this instance
+                    // Pattern: consumer:{instanceId}:*:count
+                    var server = _redis.GetServer(_redis.GetEndPoints().First());
+                    var consumerKeys = server.Keys(pattern: $"consumer:{instanceId}:*:count").ToArray();
+                    
+                    if (consumerKeys.Length > 0)
+                    {
+                        await _db.KeyDeleteAsync(consumerKeys);
+                        _logger.Information("Cleaned up {Count} consumer count keys for instance {InstanceId}", consumerKeys.Length, instanceId);
+                    }
+
+                    _logger.Information("Worker instance {InstanceId} removed from Redis", instanceId);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to remove worker instance {InstanceId}", instanceId);
+                    return false;
+                }
+            },
+            fallback: async () => false,
+            operationName: "RemoveWorkerInstance",
             cancellationToken: cancellationToken
         );
 

@@ -84,8 +84,8 @@ public class JobOccurrenceTests
     {
         // Arrange
         var occurrence = new JobOccurrence();
-        var log1 = new OccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Information", Message = "Log 1" };
-        var log2 = new OccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Warning", Message = "Log 2" };
+        var log1 = new JobOccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Information", Message = "Log 1" };
+        var log2 = new JobOccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Warning", Message = "Log 2" };
 
         // Act
         occurrence.Logs.Add(log1);
@@ -136,11 +136,6 @@ public class JobOccurrenceTests
     public void Projections_RetryFailed_ShouldExist()
         // Assert
         => JobOccurrence.Projections.RetryFailed.Should().NotBeNull();
-
-    [Fact]
-    public void Projections_UpdateLogs_ShouldExist()
-        // Assert
-        => JobOccurrence.Projections.UpdateLogs.Should().NotBeNull();
 
     [Fact]
     public void Projections_UpdateStatus_ShouldExist()

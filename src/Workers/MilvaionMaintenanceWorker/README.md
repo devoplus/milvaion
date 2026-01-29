@@ -1,99 +1,144 @@
-# MilvaionWorker
+# Milvaion Maintenance Worker
 
-A Milvaion console worker project for executing scheduled jobs from the Milvaion Scheduler API.
+Built-in maintenance worker for Milvaion scheduler. Performs database cleanup, archiving, and optimization tasks.
 
-## Getting Started
+## Jobs
 
-This project was created from the **Milvaion Console Worker** template.
+### 1. OccurrenceRetentionJob
+Deletes old job occurrences based on retention policy.
 
-### Prerequisites
+**Schedule:** Daily at 2 AM
 
-- .NET 10.0 SDK or later
-- Access to RabbitMQ instance
-- Access to Redis instance
-- Milvaion Scheduler API running
-
-### Configuration
-
-Update `appsettings.json` with your infrastructure settings:
-
+**Configuration:**
 ```json
-{
-  "Worker": {
-    "WorkerId": "my-worker-01",
-    "RabbitMQ": {
-      "Host": "localhost",
-      "Port": 5672,
-      "Username": "guest",
-      "Password": "guest"
-    },
-    "Redis": {
-      "ConnectionString": "localhost:6379"
-    }
-  }
+"OccurrenceRetention": {
+  "CompletedRetentionDays": 30,
+  "FailedRetentionDays": 30,
+  "CancelledRetentionDays": 30,
+  "TimedOutRetentionDays": 30,
+  "BatchSize": 10000,
+  "VacuumAfterCleanup": true,
+  "VacuumThreshold": 10000
 }
 ```
 
-### Running the Worker
+### 2. OccurrenceArchiveJob
+Archives old occurrences to dated tables instead of deleting.
 
+**Schedule:** Monthly (1st day at 4 AM)
+
+**Configuration:**
+```json
+"OccurrenceArchive": {
+  "ArchiveAfterDays": 30,
+  "ArchiveTablePrefix": "JobOccurrences_Archive",
+  "StatusesToArchive": [ 2, 3, 4, 5 ],
+  "BatchSize": 10000,
+  "CreateIndexOnArchive": false,
+  "VacuumAfterArchive": true,
+  "VacuumThreshold": 10000
+}
+```
+
+**Creates tables:**
+- `JobOccurrences_Archive_YYYY_MM`
+- `JobOccurrences_Archive_YYYY_MM_Logs`
+
+### 3. DatabaseMaintenanceJob
+Runs VACUUM, ANALYZE, and optionally REINDEX on tables.
+
+**Schedule:** Weekly (Sunday at 3 AM)
+
+**Configuration:**
+```json
+"DatabaseMaintenance": {
+  "EnableVacuum": true,
+  "EnableAnalyze": true,
+  "EnableReindex": false,
+  "Tables": [
+    "JobOccurrences",
+    "JobOccurrenceLogs",
+    "ScheduledJobs",
+    "FailedOccurrences"
+  ]
+}
+```
+
+### 4. FailedOccurrenceCleanupJob
+Cleans up old DLQ (Dead Letter Queue) entries.
+
+**Schedule:** Weekly
+
+**Configuration:**
+```json
+"FailedOccurrenceRetention": {
+  "RetentionDays": 30,
+  "BatchSize": 10000
+}
+```
+
+### 5. RedisCleanupJob
+Removes orphaned cache entries and stale locks.
+
+**Schedule:** Daily
+
+**Configuration:**
+```json
+"RedisCleanup": {
+  "KeyPrefix": "Milvaion:JobScheduler:",
+  "CleanOrphanedJobCache": true,
+  "CleanStaleLocks": true,
+  "CleanOrphanedRunningStates": true,
+  "StaleLockHours": 24
+}
+```
+
+### 6. ActivityLogCleanupJob
+Deletes old activity logs.
+
+**Configuration:**
+```json
+"ActivityLogRetention": {
+  "RetentionDays": 30
+}
+```
+
+### 7. NotificationCleanupJob
+Deletes old seen/unseen notifications.
+
+**Configuration:**
+```json
+"NotificationRetention": {
+  "SeenRetentionDays": 30,
+  "UnseenRetentionDays": 60
+}
+```
+
+## Running
+
+### Docker
 ```bash
+docker run -d --name maintenance-worker \
+  --network milvaion_milvaion-network \
+  milvaion-maintenance-worker
+```
+
+### Development
+```bash
+cd src/Workers/MilvaionMaintenanceWorker
 dotnet run
 ```
 
-Or with Docker:
+## Features
 
-```bash
-docker build -t milvaion-sampleworker .
+- Batch deletions to avoid long locks
+- Optional VACUUM after cleanup (immediate space reclaim)
+- Separate archive tables for historical data
+- JobOccurrenceLogs handled separately
+- Configurable retention policies per status
+- Non-blocking error handling
 
-docker run -d --name worker milvaion-sampleworker
-```
-or with default Milvaion Network:
-```bash
-docker run --name worker --network milvaion_milvaion-network milvaion-sampleworker
-```
+## Documentation
 
-### Adding New Jobs
-
-1. Create a new class in the `Jobs/` folder
-2. Implement `IAsyncJob` interface
-3. Add configuration to `appsettings.json` under `JobConsumers`
-
-Example:
-
-```csharp
-public class MyCustomJob : IAsyncJob
-{
-    public async Task ExecuteAsync(IJobContext context)
-    {
-        context.LogInformation("Job started!");
-        
-        // Your business logic here
-        
-        context.LogInformation("Job completed!");
-    }
-}
-```
-
-Add to `appsettings.json`:
-
-```json
-{
-  "JobConsumers": {
-    "MyCustomJob": {
-      "ConsumerId": "mycustom-consumer",
-      "MaxParallelJobs": 10,
-      "ExecutionTimeoutSeconds": 300,
-      "MaxRetries": 3
-    }
-  }
-}
-```
-
-### Documentation
-
+- [Maintenance Guide](../../docs/portaldocs/11-maintenance.md)
 - [Milvaion Documentation](https://github.com/Milvasoft/milvaion)
-- [Worker SDK Guide](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker)
-
-### License
-
-MIT License

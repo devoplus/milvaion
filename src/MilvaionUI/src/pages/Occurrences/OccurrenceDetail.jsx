@@ -83,8 +83,9 @@ const { modalProps, showModal } = useModal()
       if (occurrenceData?.logs && Array.isArray(occurrenceData.logs)) {
         // Sort logs by timestamp (ascending - oldest first)
         const sortedLogs = [...occurrenceData.logs].sort((a, b) => {
-          const timeA = new Date(a.timestamp || a.createdAt || 0).getTime()
-          const timeB = new Date(b.timestamp || b.createdAt || 0).getTime()
+          // Support both PascalCase (from C#) and camelCase
+          const timeA = new Date(a.timestamp || a.Timestamp  || 0).getTime()
+          const timeB = new Date(b.timestamp || b.Timestamp  || 0).getTime()
           return timeA - timeB
         })
         setLogs(sortedLogs)
@@ -197,19 +198,25 @@ const { modalProps, showModal } = useModal()
         if (updatedOccurrence.logs && Array.isArray(updatedOccurrence.logs)) {
           // Sort logs by timestamp (ascending - oldest first)
           const sortedLogs = [...updatedOccurrence.logs].sort((a, b) => {
-            const timeA = new Date(a.timestamp || a.createdAt || 0).getTime()
-            const timeB = new Date(b.timestamp || b.createdAt || 0).getTime()
+            // Support both PascalCase (from C#) and camelCase
+            const timeA = new Date(a.timestamp || a.Timestamp || a.createdAt || a.CreatedAt || 0).getTime()
+            const timeB = new Date(b.timestamp || b.Timestamp || b.createdAt || b.CreatedAt || 0).getTime()
             return timeA - timeB
           })
           setLogs(sortedLogs)
         }
 
-        // If final status reached, disconnect SignalR
+        // If final status reached, disconnect SignalR after delay to receive remaining logs
         if (updatedOccurrence.status !== undefined && isFinalStatus(updatedOccurrence.status)) {
-          console.log('✅ Final status reached, disconnecting SignalR...')
-          setSignalRConnected(false)
-          if (statusCleanup) statusCleanup()
-          signalRService.unsubscribeFromOccurrence(id).catch(console.error)
+          console.log('✅ Final status reached, waiting 3 seconds for remaining logs before disconnecting SignalR...')
+
+          // Delay disconnect to allow final logs to arrive
+          setTimeout(() => {
+            console.log('🔌 Disconnecting SignalR after final status delay...')
+            setSignalRConnected(false)
+            if (statusCleanup) statusCleanup()
+            signalRService.unsubscribeFromOccurrence(id).catch(console.error)
+          }, 3000) // 3 second delay
         }
       }
     })
@@ -223,8 +230,8 @@ const { modalProps, showModal } = useModal()
           const newLogs = [...prev, logData.log]
           // Sort logs by timestamp (ascending - oldest first)
           return newLogs.sort((a, b) => {
-            const timeA = new Date(a.timestamp || a.createdAt || 0).getTime()
-            const timeB = new Date(b.timestamp || b.createdAt || 0).getTime()
+            const timeA = new Date(a.timestamp || a.Timestamp || 0).getTime()
+            const timeB = new Date(b.timestamp || b.Timestamp || 0).getTime()
             return timeA - timeB
           })
         })

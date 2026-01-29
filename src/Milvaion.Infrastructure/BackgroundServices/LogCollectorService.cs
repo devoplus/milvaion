@@ -8,6 +8,7 @@ using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -31,7 +32,6 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     private readonly LogCollectorOptions _options = logCollectorOptions.Value;
     private IConnection _connection;
     private IChannel _channel;
-    private readonly static List<string> _updatePropNames = [nameof(JobOccurrence.Logs)];
 
     // Batch processing
     private readonly ConcurrentQueue<WorkerLogMessage> _logBatch = new();
@@ -163,20 +163,42 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     {
         try
         {
-            // Parse message
-            var message = JsonSerializer.Deserialize<WorkerLogMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+            // Try to parse as batch message first (new format)
+            var batchMessage = JsonSerializer.Deserialize<WorkerLogBatchMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
 
-            if (message == null)
+            if (batchMessage != null && batchMessage.Count > 0)
+            {
+                // Batch message - add all logs
+                foreach (var log in batchMessage.Logs)
+                {
+                    _logBatch.Enqueue(log);
+                }
+
+                _logger.Debug("Received batch message with {Count} logs", batchMessage.Count);
+
+                // Trigger immediate batch if queue is full
+                if (_logBatch.Count >= _options.BatchSize)
+                {
+                    await ProcessBatchAsync(cancellationToken);
+                }
+
+                // ACK the message (safe operation)
+                await SafeAckAsync(ea.DeliveryTag, cancellationToken);
+                return;
+            }
+
+            // Fallback: Try single message format (backward compatibility)
+            var singleMessage = JsonSerializer.Deserialize<WorkerLogMessage>(ea.Body.Span, ConstantJsonOptions.PropNameCaseInsensitive);
+
+            if (singleMessage == null)
             {
                 _logger.Debug("Failed to deserialize log message");
-
-                await _channel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
-
+                await SafeNackAsync(ea.DeliveryTag, cancellationToken);
                 return;
             }
 
             // Add to batch queue (NO DB operation here!)
-            _logBatch.Enqueue(message);
+            _logBatch.Enqueue(singleMessage);
 
             // Trigger immediate batch if queue is full
             if (_logBatch.Count >= _options.BatchSize)
@@ -184,19 +206,19 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 await ProcessBatchAsync(cancellationToken);
             }
 
-            // ACK the message
-            await _channel.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
+            // ACK the message (safe operation)
+            await SafeAckAsync(ea.DeliveryTag, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process log message");
-
-            await _channel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
+            await SafeNackAsync(ea.DeliveryTag, cancellationToken);
         }
     }
 
     /// <summary>
     /// Process batch of logs - single DB transaction for all logs.
+    /// Uses optimistic concurrency control to prevent lost updates when multiple instances run concurrently.
     /// </summary>
     private async Task ProcessBatchAsync(CancellationToken cancellationToken)
     {
@@ -218,79 +240,163 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             if (batch.Count == 0)
                 return;
 
-            try
+            // Retry logic for optimistic concurrency conflicts
+            const int maxRetries = 3;
+            var retryCount = 0;
+            var retryDelay = TimeSpan.FromMilliseconds(50); // Start with 50ms
+
+            while (retryCount < maxRetries)
             {
-                await using var scope = _serviceProvider.CreateAsyncScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-
-                // Group by CorrelationId
-                var logsByCorrelation = batch.GroupBy(m => m.CorrelationId).ToList();
-
-                var correlationIds = logsByCorrelation.Select(g => g.Key).ToList();
-
-                // Single query for all occurrences
-                var occurrences = await dbContext.JobOccurrences.AsNoTracking()
-                                                                .Where(o => correlationIds.Contains(o.CorrelationId))
-                                                                .Select(JobOccurrence.Projections.UpdateLogs)
-                                                                .ToListAsync(cancellationToken: cancellationToken);
-
-                var occurrenceDict = occurrences.ToDictionary(o => o.CorrelationId);
-
-                // Append logs in memory
-                foreach (var group in logsByCorrelation)
+                try
                 {
-                    if (occurrenceDict.TryGetValue(group.Key, out var occurrence))
+                    await using var scope = _serviceProvider.CreateAsyncScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+                    // Group by CorrelationId
+                    var logsByCorrelation = batch.GroupBy(m => m.CorrelationId).ToList();
+
+                    var logsToInsert = batch.Select(l => new JobOccurrenceLog
                     {
-                        foreach (var message in group)
-                            occurrence.Logs.Add(message.Log);
-                    }
-                    else
+                        Id = Guid.CreateVersion7(),
+                        OccurrenceId = l.CorrelationId,
+                        Level = l.Log.Level,
+                        Category = l.Log.Category,
+                        ExceptionType = l.Log.ExceptionType,
+                        Message = l.Log.Message,
+                        Data = l.Log.Data,
+                        Timestamp = l.Log.Timestamp,
+                    });
+
+                    if (!logsToInsert.IsNullOrEmpty())
+                        await dbContext.BulkInsertAsync(logsToInsert, cancellationToken: cancellationToken);
+
+                    #region Send Socket Events
+
+                    // Trigger SignalR events after DB update
+                    var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
+
+                    if (eventPublisher != null)
                     {
-                        _logger.Debug("JobOccurrence not found for CorrelationId: {CorrelationId}", group.Key);
+                        //  Collect events first, then publish in batch
+                        var publishTasks = new List<Task>(batch.Count);
+
+                        foreach (var logToInsert in batch)
+                            publishTasks.Add(eventPublisher.PublishLogAddedAsync(logToInsert.CorrelationId, logToInsert.Log, cancellationToken));
+
+                        // Wait for all events to complete (with timeout)
+                        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                        var completedTask = await Task.WhenAny(Task.WhenAll(publishTasks), timeoutTask);
+
+                        if (completedTask == timeoutTask)
+                            _logger.Warning("SignalR event publishing timed out after 5 seconds for {Count} events", publishTasks.Count);
                     }
+
+                    #endregion
+
+                    _logger.Debug("Processed {Count} logs in batch (RetryCount: {RetryCount})", batch.Count, retryCount);
+
+                    // SUCCESS - Exit retry loop
+                    break;
                 }
-
-                await dbContext.BulkUpdateAsync(occurrences, (bc) =>
+                catch (DbUpdateConcurrencyException concurrencyEx)
                 {
-                    bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _updatePropNames;
-                }, cancellationToken: cancellationToken);
+                    retryCount++;
 
-                #region Send Socket Events
+                    if (retryCount >= maxRetries)
+                    {
+                        _logger.Error(concurrencyEx, "Concurrency conflict after {MaxRetries} retries. Logs will be retried in next batch.", maxRetries);
 
-                // Trigger SignalR events after DB update
-                var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
+                        // Re-queue failed logs for next batch
+                        foreach (var log in batch)
+                            _logBatch.Enqueue(log);
 
-                if (eventPublisher != null)
-                {
-                    //  Collect events first, then publish in batch
-                    var publishTasks = new List<Task>(batch.Count);
+                        break;
+                    }
 
-                    foreach (var kvp in logsByCorrelation)
-                        if (occurrenceDict.TryGetValue(kvp.Key, out var occurrence))
-                            foreach (var message in kvp)
-                                publishTasks.Add(eventPublisher.PublishLogAddedAsync(occurrence.Id, message.Log, cancellationToken));
+                    _logger.Warning(concurrencyEx, "Concurrency conflict detected in log batch processing (Retry {RetryCount}/{MaxRetries}). Retrying after {Delay}ms...", retryCount, maxRetries, retryDelay.TotalMilliseconds);
 
-                    // Wait for all events to complete (with timeout)
-                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-                    var completedTask = await Task.WhenAny(Task.WhenAll(publishTasks), timeoutTask);
-
-                    if (completedTask == timeoutTask)
-                        _logger.Warning("SignalR event publishing timed out after 5 seconds for {Count} events", publishTasks.Count);
+                    // Exponential backoff: 50ms, 100ms, 200ms
+                    await Task.Delay(retryDelay, cancellationToken);
+                    retryDelay = TimeSpan.FromMilliseconds(retryDelay.TotalMilliseconds * 2);
                 }
+                catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "40P01") // Deadlock
+                {
+                    _logger.Warning(pgEx, "Deadlock detected in log batch processing. Logs will be retried in next batch.");
 
-                #endregion
+                    // Re-queue logs for next batch
+                    foreach (var log in batch)
+                        _logBatch.Enqueue(log);
 
-                _logger.Debug("Processed {Count} logs in batch", batch.Count);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Failed to process log batch");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to process log batch");
+
+                    // Re-queue logs for next batch
+                    foreach (var log in batch)
+                        _logBatch.Enqueue(log);
+
+                    break;
+                }
             }
         }
         finally
         {
             // Release the batch lock
             _batchLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Safe ACK operation that checks channel state before acknowledgment.
+    /// Prevents "Already closed" exceptions during shutdown.
+    /// </summary>
+    private async Task SafeAckAsync(ulong deliveryTag, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (cancellationToken.IsCancellationRequested || _channel == null || _channel.IsClosed)
+            {
+                _logger.Debug("Skipping ACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
+                return;
+            }
+
+            await _channel.BasicAckAsync(deliveryTag, false, cancellationToken);
+        }
+        catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
+        {
+            _logger.Debug("Channel already closed during ACK (DeliveryTag: {DeliveryTag})", deliveryTag);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to ACK message (DeliveryTag: {DeliveryTag})", deliveryTag);
+        }
+    }
+
+    /// <summary>
+    /// Safe NACK operation that checks channel state before negative acknowledgment.
+    /// Prevents "Already closed" exceptions during shutdown.
+    /// </summary>
+    private async Task SafeNackAsync(ulong deliveryTag, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (cancellationToken.IsCancellationRequested || _channel == null || _channel.IsClosed)
+            {
+                _logger.Debug("Skipping NACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
+                return;
+            }
+
+            await _channel.BasicNackAsync(deliveryTag, false, false, cancellationToken);
+        }
+        catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
+        {
+            _logger.Debug("Channel already closed during NACK (DeliveryTag: {DeliveryTag})", deliveryTag);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to NACK message (DeliveryTag: {DeliveryTag})", deliveryTag);
         }
     }
 
@@ -303,22 +409,49 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     {
         _logger.Information("LogCollectorService stopping...");
 
-        // Process remaining logs before shutdown
-        await ProcessBatchAsync(cancellationToken);
+        try
+        {
+            // Process remaining logs before shutdown
+            await ProcessBatchAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to process remaining logs during shutdown");
+        }
 
         // Dispose semaphore
         _batchLock?.Dispose();
 
-        if (_channel != null)
+        try
         {
-            await _channel.CloseAsync(cancellationToken);
-            _channel.Dispose();
+            if (_channel != null && !_channel.IsClosed)
+            {
+                await _channel.CloseAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Error closing RabbitMQ channel");
+        }
+        finally
+        {
+            _channel?.Dispose();
         }
 
-        if (_connection != null)
+        try
         {
-            await _connection.CloseAsync(cancellationToken);
-            _connection.Dispose();
+            if (_connection != null && _connection.IsOpen)
+            {
+                await _connection.CloseAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Error closing RabbitMQ connection");
+        }
+        finally
+        {
+            _connection?.Dispose();
         }
 
         await base.StopAsync(cancellationToken);

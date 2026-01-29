@@ -67,6 +67,34 @@ public interface IAdminService : IInterceptable
     public Task<Response<DatabaseStatisticsDto>> GetDatabaseStatisticsAsync(CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets top tables by size.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Table sizes</returns>
+    public Task<Response<List<TableSizeDto>>> GetTableSizesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets index efficiency statistics (unused/underutilized indexes).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Index efficiency statistics</returns>
+    public Task<Response<IndexEfficiencyDto>> GetIndexEfficiencyAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets database cache hit ratio.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Cache hit ratio statistics</returns>
+    public Task<Response<CacheHitRatioDto>> GetCacheHitRatioAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets table bloat detection (VACUUM recommendation).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Table bloat statistics</returns>
+    public Task<Response<TableBloatDto>> GetTableBloatAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets background service memory diagnostics.
     /// </summary>
     /// <returns>Database statistics</returns>

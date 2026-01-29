@@ -1,99 +1,60 @@
-# MilvaionWorker
+# HTTP Worker
 
-A Milvaion console worker project for executing scheduled jobs from the Milvaion Scheduler API.
+Built-in worker for making HTTP/HTTPS requests from Milvaion scheduler.
 
-## Getting Started
+## Job: RequestSenderJob
 
-This project was created from the **Milvaion Console Worker** template.
+Sends HTTP requests with full customization (headers, body, authentication, etc.).
 
-### Prerequisites
-
-- .NET 10.0 SDK or later
-- Access to RabbitMQ instance
-- Access to Redis instance
-- Milvaion Scheduler API running
-
-### Configuration
-
-Update `appsettings.json` with your infrastructure settings:
-
+**Job Data:**
 ```json
 {
-  "Worker": {
-    "WorkerId": "my-worker-01",
-    "RabbitMQ": {
-      "Host": "localhost",
-      "Port": 5672,
-      "Username": "guest",
-      "Password": "guest"
-    },
-    "Redis": {
-      "ConnectionString": "localhost:6379"
-    }
-  }
+  "Url": "https://api.example.com/webhook",
+  "Method": "POST",
+  "Headers": {
+    "Authorization": "Bearer your-token",
+    "Content-Type": "application/json"
+  },
+  "Body": "{\"event\":\"user_created\",\"userId\":123}",
+  "TimeoutSeconds": 30
 }
 ```
 
-### Running the Worker
+**Supported Methods:**
+- GET
+- POST
+- PUT
+- PATCH
+- DELETE
 
+## Running
+
+### Docker
 ```bash
+docker run -d --name http-worker \
+  --network milvaion_milvaion-network \
+  milvaion-http-worker
+```
+
+### Development
+```bash
+cd src/Workers/HttpWorker
 dotnet run
 ```
 
-Or with Docker:
+## Features
 
-```bash
-docker build -t milvaion-sampleworker .
+- All HTTP methods (GET, POST, PUT, PATCH, DELETE)
+- Custom headers
+- Request body (JSON, form-data, etc.)
+- Configurable timeout
+- Response logging
+- Error handling with retries
 
-docker run -d --name worker milvaion-sampleworker
-```
-or with default Milvaion Network:
-```bash
-docker run --name worker --network milvaion_milvaion-network milvaion-sampleworker
-```
+## Use Cases
 
-### Adding New Jobs
-
-1. Create a new class in the `Jobs/` folder
-2. Implement `IAsyncJob` interface
-3. Add configuration to `appsettings.json` under `JobConsumers`
-
-Example:
-
-```csharp
-public class MyCustomJob : IAsyncJob
-{
-    public async Task ExecuteAsync(IJobContext context)
-    {
-        context.LogInformation("Job started!");
-        
-        // Your business logic here
-        
-        context.LogInformation("Job completed!");
-    }
-}
-```
-
-Add to `appsettings.json`:
-
-```json
-{
-  "JobConsumers": {
-    "MyCustomJob": {
-      "ConsumerId": "mycustom-consumer",
-      "MaxParallelJobs": 10,
-      "ExecutionTimeoutSeconds": 300,
-      "MaxRetries": 3
-    }
-  }
-}
-```
-
-### Documentation
-
-- [Milvaion Documentation](https://github.com/Milvasoft/milvaion)
-- [Worker SDK Guide](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker)
-
-### License
-
-MIT License
+- Webhook notifications
+- API integrations
+- Data synchronization
+- Third-party service calls
+- Microservice communication

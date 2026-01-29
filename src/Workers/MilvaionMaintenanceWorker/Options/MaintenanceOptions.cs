@@ -82,6 +82,16 @@ public class OccurrenceRetentionSettings
     /// Batch size for deletion to avoid long locks.
     /// </summary>
     public int BatchSize { get; set; } = 1000;
+
+    /// <summary>
+    /// Whether to run VACUUM after cleanup (reclaim disk space immediately).
+    /// </summary>
+    public bool VacuumAfterCleanup { get; set; } = true;
+
+    /// <summary>
+    /// Minimum number of deleted rows to trigger VACUUM.
+    /// </summary>
+    public int VacuumThreshold { get; set; } = 10000;
 }
 
 /// <summary>
@@ -190,6 +200,16 @@ public class OccurrenceArchiveSettings
     /// Whether to create indexes on the archive table.
     /// </summary>
     public bool CreateIndexOnArchive { get; set; } = true;
+
+    /// <summary>
+    /// Whether to run VACUUM after archiving (reclaim disk space immediately).
+    /// </summary>
+    public bool VacuumAfterArchive { get; set; } = true;
+
+    /// <summary>
+    /// Minimum number of archived rows to trigger VACUUM.
+    /// </summary>
+    public int VacuumThreshold { get; set; } = 10000;
 }
 
 /// <summary>

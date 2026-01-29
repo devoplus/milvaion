@@ -86,13 +86,16 @@ public class JobConsumer : BackgroundService
     {
         var maxParallelJobs = _options.MaxParallelJobs;
 
+        // Clamp to ushort.MaxValue (65535) to avoid overflow when casting to ushort for RabbitMQ QoS
+        var prefetchCount = Math.Min(maxParallelJobs, ushort.MaxValue);
+
         _concurrencySemaphore = new SemaphoreSlim(maxParallelJobs, maxParallelJobs);
 
         // Generate queue name from routing patterns
         var queueSuffix = _options.RabbitMQ.RoutingKeyPattern.Replace("*", "wildcard").Replace("#", "all");
         var queueName = $"{WorkerConstant.Queues.Jobs}.{queueSuffix}";
 
-        _logger?.Information("Worker {InstanceId} starting consumer for patterns [{Patterns}]. Queue: {QueueName}. MaxParallelJobs: {MaxParallel}", _options.InstanceId, _options.RabbitMQ.RoutingKeyPattern, queueName, maxParallelJobs);
+        _logger?.Information("Worker {InstanceId} starting consumer for patterns [{Patterns}]. Queue: {QueueName}. MaxParallelJobs: {MaxParallel}, PrefetchCount: {Prefetch}", _options.InstanceId, _options.RabbitMQ.RoutingKeyPattern, queueName, maxParallelJobs, prefetchCount);
 
         try
         {
@@ -173,9 +176,9 @@ public class JobConsumer : BackgroundService
 
             _logger?.Information("Worker {InstanceId} DLQ configured. DLX: {DLX}, DLQ: {DLQ}, RoutingKey: {RoutingKey}", _options.InstanceId, WorkerConstant.DeadLetterExchangeName, WorkerConstant.Queues.FailedOccurrences, WorkerConstant.DeadLetterRoutingKey);
 
-            await _channel.BasicQosAsync(0, (ushort)maxParallelJobs, false, stoppingToken);
+            await _channel.BasicQosAsync(0, (ushort)prefetchCount, false, stoppingToken);
 
-            _logger?.Information("Worker {InstanceId} connected. Queue: {Queue}, Patterns: [{Patterns}], MaxParallel: {MaxParallel}", _options.InstanceId, queueName, _options.RabbitMQ.RoutingKeyPattern, maxParallelJobs);
+            _logger?.Information("Worker {InstanceId} connected. Queue: {Queue}, Patterns: [{Patterns}], MaxParallel: {MaxParallel}, PrefetchCount: {Prefetch}", _options.InstanceId, queueName, _options.RabbitMQ.RoutingKeyPattern, maxParallelJobs, prefetchCount);
 
             var consumer = new AsyncEventingBasicConsumer(_channel);
 
@@ -217,6 +220,21 @@ public class JobConsumer : BackgroundService
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger?.Information("Worker {InstanceId} stopping...", _options.InstanceId);
+
+        // Send final shutdown heartbeat to trigger immediate cleanup
+        try
+        {
+            var statusPublisher = _serviceProvider.GetService<IStatusUpdatePublisher>();
+            if (statusPublisher != null)
+            {
+                await statusPublisher.PublishShutdownHeartbeatAsync(cancellationToken);
+                _logger?.Information("Shutdown heartbeat sent for worker {InstanceId}", _options.InstanceId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Failed to send shutdown heartbeat for {InstanceId}", _options.InstanceId);
+        }
 
         if (_channel != null)
         {
@@ -330,6 +348,21 @@ public class JobConsumer : BackgroundService
                         };
 
                         await _outboxService.PublishLogAsync(correlationId, _options.InstanceId, redeliveryLog, CancellationToken.None);
+
+                        // CRITICAL: Flush redelivery logs immediately to prevent loss
+                        var logPublisher = _serviceProvider.GetService<ILogPublisher>();
+                        if (logPublisher != null)
+                        {
+                            try
+                            {
+                                await logPublisher.FlushAsync(CancellationToken.None);
+                                logger?.Debug("Flushed redelivery logs (CorrelationId: {CorrelationId})", correlationId);
+                            }
+                            catch (Exception flushEx)
+                            {
+                                logger?.Warning(flushEx, "Failed to flush redelivery logs (non-critical)");
+                            }
+                        }
 
                         logger?.Debug("Redelivery log and status update published for CorrelationId {CorrelationId}", correlationId);
                     }
@@ -589,6 +622,22 @@ public class JobConsumer : BackgroundService
                                                                   JobOccurrenceStatus.Running,
                                                                   startTime: DateTime.UtcNow,
                                                                   cancellationToken: CancellationToken.None);
+
+                    // CRITICAL: Flush logs after Running status to ensure initial logs are sent
+                    // This prevents loss of early logs if worker crashes or completes quickly
+                    var logPublisher = _serviceProvider.GetService<ILogPublisher>();
+                    if (logPublisher != null)
+                    {
+                        try
+                        {
+                            await logPublisher.FlushAsync(CancellationToken.None);
+                            logger?.Debug("Flushed initial logs after Running status (CorrelationId: {CorrelationId})", correlationId);
+                        }
+                        catch (Exception flushEx)
+                        {
+                            logger?.Warning(flushEx, "Failed to flush initial logs after Running status (non-critical)");
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -673,6 +722,21 @@ public class JobConsumer : BackgroundService
                             };
 
                             await _outboxService.PublishLogAsync(correlationId, _options.InstanceId, retryLog, CancellationToken.None);
+
+                            // CRITICAL: Flush retry logs immediately to ensure they're not lost
+                            var logPublisher = _serviceProvider.GetService<ILogPublisher>();
+                            if (logPublisher != null)
+                            {
+                                try
+                                {
+                                    await logPublisher.FlushAsync(CancellationToken.None);
+                                    logger?.Debug("Flushed retry logs (CorrelationId: {CorrelationId})", correlationId);
+                                }
+                                catch (Exception flushEx)
+                                {
+                                    logger?.Warning(flushEx, "Failed to flush retry logs (non-critical)");
+                                }
+                            }
                         }
                         catch { /* Ignore log failure */ }
                     }
@@ -932,6 +996,22 @@ public class JobConsumer : BackgroundService
         {
             try
             {
+                // CRITICAL: Flush all buffered logs BEFORE publishing final status
+                // This ensures all job logs are sent before SignalR disconnects
+                var logPublisher = _serviceProvider.GetService<ILogPublisher>();
+                if (logPublisher != null)
+                {
+                    try
+                    {
+                        await logPublisher.FlushAsync(CancellationToken.None);
+                        logger?.Debug("Flushed pending logs for job completion (CorrelationId: {CorrelationId})", correlationId);
+                    }
+                    catch (Exception flushEx)
+                    {
+                        logger?.Warning(flushEx, "Failed to flush logs before job completion (non-critical)");
+                    }
+                }
+
                 await _outboxService.PublishStatusUpdateAsync(correlationId,
                                                               jobId,
                                                               _options.InstanceId,

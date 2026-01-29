@@ -1,4 +1,4 @@
-services:
+﻿services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
@@ -50,7 +50,8 @@ services:
     networks:
       - milvaion-network
     restart: unless-stopped
-    mem_limit: 8096m
+    shm_size: 1gb
+    mem_limit: 12096m
     mem_reservation: 2048m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d MilvaionDb"]
@@ -139,6 +140,7 @@ services:
       - milvaion-network
     restart: unless-stopped
     mem_limit: 2048m
+    stop_grace_period: 30s  # Allow time for graceful shutdown
     labels:
       - "com.milvaion.service=api"
       - "com.milvaion.description=Milvaion API with embedded React UI"
@@ -173,6 +175,7 @@ services:
       - milvaion-network
     restart: unless-stopped
     mem_limit: 1024m
+    stop_grace_period: 60s  # Allow time for running jobs to complete
     # Enable scaling: docker-compose up --scale test-worker=4 -d
     deploy:
       replicas: 1

@@ -387,7 +387,6 @@ public partial class InitialCreate : Migration
                 DurationMs = table.Column<long>(type: "bigint", nullable: true),
                 Result = table.Column<string>(type: "text", nullable: true),
                 Exception = table.Column<string>(type: "text", nullable: true),
-                Logs = table.Column<List<OccurrenceLog>>(type: "jsonb", nullable: true),
                 CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                 DispatchRetryCount = table.Column<int>(type: "integer", nullable: false),
                 NextDispatchRetryAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -541,6 +540,32 @@ public partial class InitialCreate : Migration
             });
 
         migrationBuilder.CreateTable(
+            name: "JobOccurrenceLogs",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "uuid", nullable: false),
+                OccurrenceId = table.Column<Guid>(type: "uuid", nullable: false),
+                Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                Level = table.Column<string>(type: "text", nullable: true),
+                Message = table.Column<string>(type: "text", nullable: true),
+                Data = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: true),
+                Category = table.Column<string>(type: "text", nullable: true),
+                ExceptionType = table.Column<string>(type: "text", nullable: true),
+                CreationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                CreatorUserName = table.Column<string>(type: "text", nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_JobOccurrenceLogs", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_JobOccurrenceLogs_JobOccurrences_OccurrenceId",
+                    column: x => x.OccurrenceId,
+                    principalTable: "JobOccurrences",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
+        migrationBuilder.CreateTable(
             name: "Medias",
             columns: table => new
             {
@@ -614,32 +639,14 @@ public partial class InitialCreate : Migration
             column: "RecipientUserName");
 
         migrationBuilder.CreateIndex(
-            name: "IX_JobOccurrences_CorrelationId",
-            table: "JobOccurrences",
-            column: "CorrelationId",
-            unique: true);
+            name: "IX_JobOccurrenceLogs_OccurrenceId",
+            table: "JobOccurrenceLogs",
+            column: "OccurrenceId");
 
         migrationBuilder.CreateIndex(
-            name: "IX_JobOccurrences_JobId_EndTime_CreatedAt",
+            name: "IX_JobOccurrences_JobId",
             table: "JobOccurrences",
-            columns: ["JobId", "EndTime", "CreatedAt"],
-            descending: [false, true, true]);
-
-        migrationBuilder.CreateIndex(
-            name: "IX_JobOccurrences_Status_CreatedAt",
-            table: "JobOccurrences",
-            columns: ["Status", "CreatedAt"],
-            descending: [false, true]);
-
-        migrationBuilder.CreateIndex(
-            name: "IX_JobOccurrences_Status_NextDispatchRetryAt_DispatchRetryCount",
-            table: "JobOccurrences",
-            columns: ["Status", "NextDispatchRetryAt", "DispatchRetryCount"]);
-
-        migrationBuilder.CreateIndex(
-            name: "IX_JobOccurrences_WorkerId_Status",
-            table: "JobOccurrences",
-            columns: ["WorkerId", "Status"]);
+            column: "JobId");
 
         migrationBuilder.CreateIndex(
             name: "IX_Medias_ContentId",
@@ -701,16 +708,6 @@ public partial class InitialCreate : Migration
             column: "RoleId");
 
         migrationBuilder.CreateIndex(
-            name: "IX_ScheduledJobs_IsActive_ExecuteAt",
-            table: "ScheduledJobs",
-            columns: ["IsActive", "ExecuteAt"]);
-
-        migrationBuilder.CreateIndex(
-            name: "IX_ScheduledJobs_WorkerId_IsActive",
-            table: "ScheduledJobs",
-            columns: ["WorkerId", "IsActive"]);
-
-        migrationBuilder.CreateIndex(
             name: "IX_UserRoleRelations_RoleId",
             table: "UserRoleRelations",
             column: "RoleId");
@@ -751,6 +748,9 @@ public partial class InitialCreate : Migration
 
         migrationBuilder.DropTable(
             name: "InternalNotifications");
+
+        migrationBuilder.DropTable(
+            name: "JobOccurrenceLogs");
 
         migrationBuilder.DropTable(
             name: "Languages");

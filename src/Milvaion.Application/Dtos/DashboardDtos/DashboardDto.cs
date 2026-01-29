@@ -26,7 +26,7 @@ public class DashboardDto
     /// <summary>
     /// Number of failed jobs.
     /// </summary>
-    public long FailedOccurrences { get; set; }
+    public long FailedJobs { get; set; }
 
     /// <summary>
     /// Number of cancelled jobs.
@@ -89,7 +89,7 @@ public class DashboardDto
     public double ExecutionsPerSecond { get; set; }
 
     /// <summary>
-    /// Peak executions per minute in the last hour.
+    /// Recent executions count (last 30 seconds) - used for throughput calculation.
     /// </summary>
-    public double? PeakExecutionsPerMinute { get; set; }
+    internal int? RecentExecutions { get; set; }
 }

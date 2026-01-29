@@ -15,13 +15,17 @@ namespace Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence;
 [Log]
 [UserActivityTrack(UserActivity.DeleteScheduledJob)] // Reuse existing activity for now
 public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
+                                                IMilvaionRepositoryBase<JobOccurrenceLog> OccurrenceLogRepository,
                                                 IJobCancellationService CancellationService,
                                                 IRedisSchedulerService SchedulerService,
+                                                IRedisStatsService StatsService,
                                                 IHttpContextAccessor HttpContextAccessor) : IInterceptable, ICommandHandler<CancelJobOccurrenceCommand, bool>
 {
     private readonly IMilvaionRepositoryBase<JobOccurrence> _occurenceRepository = OccurrenceRepository;
+    private readonly IMilvaionRepositoryBase<JobOccurrenceLog> _occurenceLogRepository = OccurrenceLogRepository;
     private readonly IJobCancellationService _cancellationService = CancellationService;
     private readonly IRedisSchedulerService _schedulerService = SchedulerService;
+    private readonly IRedisStatsService _statsService = StatsService;
     private readonly IHttpContextAccessor _httpContextAccessor = HttpContextAccessor;
 
     /// <inheritdoc/>
@@ -60,18 +64,34 @@ public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccur
         if (occurrence.StartTime.HasValue)
             occurrence.DurationMs = (int)(DateTime.UtcNow - occurrence.StartTime.Value).TotalMilliseconds;
 
-        occurrence.Logs.Add(new OccurrenceLog
+        var log = new JobOccurrenceLog
         {
+            Id = Guid.CreateVersion7(),
+            OccurrenceId = occurrence.Id,
             Timestamp = DateTime.UtcNow,
             Level = LogLevel.Warning.ToString(),
             Message = message,
             Category = "Cancellation"
-        });
+        };
 
         await _occurenceRepository.UpdateAsync(occurrence, cancellationToken: cancellationToken);
+        await _occurenceLogRepository.AddAsync(log, cancellationToken: cancellationToken);
 
         // Mark job as completed in Redis (remove from running set)
         await _schedulerService.MarkJobAsCompletedAsync(occurrence.JobId, cancellationToken);
+
+        // Update stats counters (Running -> Cancelled)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _statsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Running, JobOccurrenceStatus.Cancelled, cancellationToken);
+            }
+            catch
+            {
+                // Non-critical
+            }
+        }, CancellationToken.None);
 
         return Response<bool>.Success(true, $"Cancellation signal sent to {published} worker(s)");
     }

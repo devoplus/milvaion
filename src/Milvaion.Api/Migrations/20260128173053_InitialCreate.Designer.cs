@@ -15,7 +15,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Milvaion.Api.Migrations
 {
     [DbContext(typeof(MilvaionDbContext))]
-    [Migration("20260118153257_InitialCreate")]
+    [Migration("20260128173053_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -897,9 +897,6 @@ namespace Milvaion.Api.Migrations
                     b.Property<DateTime?>("LastHeartbeat")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<List<OccurrenceLog>>("Logs")
-                        .HasColumnType("jsonb");
-
                     b.Property<DateTime?>("NextDispatchRetryAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -924,20 +921,48 @@ namespace Milvaion.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CorrelationId")
-                        .IsUnique();
-
-                    b.HasIndex("Status", "CreatedAt")
-                        .IsDescending(false, true);
-
-                    b.HasIndex("WorkerId", "Status");
-
-                    b.HasIndex("JobId", "EndTime", "CreatedAt")
-                        .IsDescending(false, true, true);
-
-                    b.HasIndex("Status", "NextDispatchRetryAt", "DispatchRetryCount");
+                    b.HasIndex("JobId");
 
                     b.ToTable("JobOccurrences");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatorUserName")
+                        .HasColumnType("text");
+
+                    b.Property<Dictionary<string, object>>("Data")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("ExceptionType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Level")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OccurrenceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurrenceId");
+
+                    b.ToTable("JobOccurrenceLogs");
                 });
 
             modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.ScheduledJob", b =>
@@ -1004,10 +1029,6 @@ namespace Milvaion.Api.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("IsActive", "ExecuteAt");
-
-                    b.HasIndex("WorkerId", "IsActive");
 
                     b.ToTable("ScheduledJobs");
                 });
@@ -1160,6 +1181,17 @@ namespace Milvaion.Api.Migrations
                     b.Navigation("Job");
                 });
 
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog", b =>
+                {
+                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.JobOccurrence", "Occurrence")
+                        .WithMany("Logs")
+                        .HasForeignKey("OccurrenceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Occurrence");
+                });
+
             modelBuilder.Entity("Milvaion.Domain.ContentManagement.Content", b =>
                 {
                     b.Navigation("Medias");
@@ -1209,6 +1241,11 @@ namespace Milvaion.Api.Migrations
                     b.Navigation("RoleRelations");
 
                     b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.JobOccurrence", b =>
+                {
+                    b.Navigation("Logs");
                 });
 
             modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.ScheduledJob", b =>

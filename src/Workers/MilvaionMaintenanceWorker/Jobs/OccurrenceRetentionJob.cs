@@ -19,8 +19,9 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
     public async Task<string> ExecuteAsync(IJobContext context)
     {
         var settings = _options.OccurrenceRetention;
-        var results = new Dictionary<string, int>();
+        var results = new Dictionary<string, (int occurrences, int logs)>();
         var totalDeleted = 0;
+        var totalLogsDeleted = 0;
 
         context.LogInformation("[RETENTION] Occurrence retention cleanup started");
         context.LogInformation($"Retention: Completed={settings.CompletedRetentionDays}d, Failed={settings.FailedRetentionDays}d, Cancelled={settings.CancelledRetentionDays}d, TimedOut={settings.TimedOutRetentionDays}d");
@@ -31,40 +32,69 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
         // Status enum values: Queued=0, Running=1, Completed=2, Failed=3, Cancelled=4, TimedOut=5
 
         // 1. Delete old COMPLETED occurrences
-        var completedDeleted = await DeleteOccurrencesByStatusAsync(
+        var (completedDeleted, completedLogsDeleted) = await DeleteOccurrencesByStatusAsync(
             connection, 2, settings.CompletedRetentionDays, settings.BatchSize, context);
-        results["Completed"] = completedDeleted;
+        results["Completed"] = (completedDeleted, completedLogsDeleted);
         totalDeleted += completedDeleted;
+        totalLogsDeleted += completedLogsDeleted;
 
         // 2. Delete old FAILED occurrences
-        var failedDeleted = await DeleteOccurrencesByStatusAsync(
+        var (failedDeleted, failedLogsDeleted) = await DeleteOccurrencesByStatusAsync(
             connection, 3, settings.FailedRetentionDays, settings.BatchSize, context);
-        results["Failed"] = failedDeleted;
+        results["Failed"] = (failedDeleted, failedLogsDeleted);
         totalDeleted += failedDeleted;
+        totalLogsDeleted += failedLogsDeleted;
 
         // 3. Delete old CANCELLED occurrences
-        var cancelledDeleted = await DeleteOccurrencesByStatusAsync(
+        var (cancelledDeleted, cancelledLogsDeleted) = await DeleteOccurrencesByStatusAsync(
             connection, 4, settings.CancelledRetentionDays, settings.BatchSize, context);
-        results["Cancelled"] = cancelledDeleted;
+        results["Cancelled"] = (cancelledDeleted, cancelledLogsDeleted);
         totalDeleted += cancelledDeleted;
+        totalLogsDeleted += cancelledLogsDeleted;
 
         // 4. Delete old TIMED OUT occurrences
-        var timedOutDeleted = await DeleteOccurrencesByStatusAsync(
+        var (timedOutDeleted, timedOutLogsDeleted) = await DeleteOccurrencesByStatusAsync(
             connection, 5, settings.TimedOutRetentionDays, settings.BatchSize, context);
-        results["TimedOut"] = timedOutDeleted;
+        results["TimedOut"] = (timedOutDeleted, timedOutLogsDeleted);
         totalDeleted += timedOutDeleted;
+        totalLogsDeleted += timedOutLogsDeleted;
 
-        context.LogInformation($"[DONE] Occurrence retention cleanup completed. Total deleted: {totalDeleted}");
+        context.LogInformation($"[DONE] Occurrence retention cleanup completed. Total deleted: {totalDeleted} occurrences, {totalLogsDeleted} logs");
+
+        // OPTIONAL: Run VACUUM if enabled and threshold met
+        if (settings.VacuumAfterCleanup && (totalDeleted >= settings.VacuumThreshold || totalLogsDeleted >= (settings.VacuumThreshold * 5)))
+        {
+            context.LogInformation($"[VACUUM] Running VACUUM ANALYZE to reclaim space (deleted {totalDeleted} occurrences, {totalLogsDeleted} logs)...");
+            
+            try
+            {
+                // VACUUM ANALYZE both tables to reclaim space and update statistics
+                await connection.ExecuteAsync("VACUUM ANALYZE \"JobOccurrences\"");
+                context.LogInformation("  [OK] VACUUM JobOccurrences completed");
+                
+                await connection.ExecuteAsync("VACUUM ANALYZE \"JobOccurrenceLogs\"");
+                context.LogInformation("  [OK] VACUUM JobOccurrenceLogs completed");
+            }
+            catch (Exception ex)
+            {
+                context.LogWarning($"  [WARNING] VACUUM failed: {ex.Message} (non-critical, autovacuum will handle)");
+            }
+        }
+        else
+        {
+            context.LogInformation($"[SKIP] VACUUM skipped (VacuumAfterCleanup={settings.VacuumAfterCleanup}, deleted={totalDeleted}, threshold={settings.VacuumThreshold})");
+        }
 
         return JsonSerializer.Serialize(new
         {
             Success = true,
             TotalDeleted = totalDeleted,
+            TotalLogsDeleted = totalLogsDeleted,
             Details = results
         });
     }
 
-    private static async Task<int> DeleteOccurrencesByStatusAsync(
+    private static async Task<(int occurrences, int logs)> DeleteOccurrencesByStatusAsync(
         NpgsqlConnection connection,
         int status,
         int retentionDays,
@@ -82,6 +112,7 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
 
         var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
         var totalDeleted = 0;
+        var totalLogsDeleted = 0;
         int deletedInBatch;
 
         context.LogInformation($"  Deleting {statusName} occurrences older than {cutoffDate:yyyy-MM-dd}...");
@@ -91,7 +122,33 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
+            // First, delete associated logs atomically
             var sql = @"
+                WITH to_delete AS (
+                    SELECT ""Id"" FROM ""JobOccurrences""
+                    WHERE ""Status"" = @Status
+                    AND (
+                        (""EndTime"" IS NOT NULL AND ""EndTime"" < @CutoffDate)
+                        OR (""EndTime"" IS NULL AND ""CreatedAt"" < @CutoffDate)
+                    )
+                    LIMIT @BatchSize
+                ),
+                deleted_logs AS (
+                    DELETE FROM ""JobOccurrenceLogs""
+                    WHERE ""OccurrenceId"" IN (SELECT ""Id"" FROM to_delete)
+                    RETURNING 1
+                )
+                SELECT COUNT(*) FROM deleted_logs";
+
+            var logsDeletedInBatch = await connection.ExecuteScalarAsync<int>(sql, new
+            {
+                Status = status,
+                CutoffDate = cutoffDate,
+                BatchSize = batchSize
+            });
+
+            // Then delete occurrences
+            var occurrenceSql = @"
                 DELETE FROM ""JobOccurrences""
                 WHERE ""Id"" IN (
                     SELECT ""Id"" FROM ""JobOccurrences""
@@ -103,7 +160,7 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
                     LIMIT @BatchSize
                 )";
 
-            deletedInBatch = await connection.ExecuteAsync(sql, new
+            deletedInBatch = await connection.ExecuteAsync(occurrenceSql, new
             {
                 Status = status,
                 CutoffDate = cutoffDate,
@@ -111,15 +168,16 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
             });
 
             totalDeleted += deletedInBatch;
+            totalLogsDeleted += logsDeletedInBatch;
 
             if (deletedInBatch > 0)
             {
-                context.LogInformation($"    Deleted batch: {deletedInBatch} (total: {totalDeleted})");
+                context.LogInformation($"    Deleted batch: {deletedInBatch} occurrences, {logsDeletedInBatch} logs (total: {totalDeleted} occurrences, {totalLogsDeleted} logs)");
             }
         } while (deletedInBatch == batchSize);
 
-        context.LogInformation($"  [OK] {statusName}: Deleted {totalDeleted} occurrences");
+        context.LogInformation($"  [OK] {statusName}: Deleted {totalDeleted} occurrences, {totalLogsDeleted} logs");
 
-        return totalDeleted;
+        return (totalDeleted, totalLogsDeleted);
     }
 }

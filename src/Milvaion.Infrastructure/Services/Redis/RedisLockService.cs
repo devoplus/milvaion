@@ -97,7 +97,7 @@ public class RedisLockService : IRedisLockService
 
                     if (released)
                     {
-                        _logger.Information("Lock released for job {JobId} by worker {WorkerId}", jobId, workerId);
+                        _logger.Debug("Lock released for job {JobId} by worker {WorkerId}", jobId, workerId);
                     }
                     else
                     {
@@ -190,4 +190,163 @@ public class RedisLockService : IRedisLockService
             operationName: "ExtendLock",
             cancellationToken: cancellationToken
         );
+
+    /// <summary>
+    /// Tries to acquire locks for multiple jobs atomically using Lua script (bulk optimization).
+    /// Single Redis round-trip for all locks - massive performance improvement for high-throughput scenarios.
+    /// </summary>
+    public Task<Dictionary<Guid, bool>> TryAcquireLocksBulkAsync(List<Guid> jobIds, string workerId, TimeSpan ttl, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                try
+                {
+                    const string bulkLockScript = @"
+                        local results = {}
+                        local ttl = tonumber(ARGV[1])
+                        local owner = ARGV[2]
+                        for i, key in ipairs(KEYS) do
+                            local acquired = redis.call('SET', key, owner, 'NX', 'EX', ttl)
+                            if acquired then
+                                table.insert(results, 1)
+                            else
+                                table.insert(results, 0)
+                            end
+                        end
+                        return results";
+
+                    var keys = jobIds.Select(id => (RedisKey)_options.GetLockKey(id)).ToArray();
+                    var args = new RedisValue[] { (int)ttl.TotalSeconds, workerId };
+                    var result = await _database.ScriptEvaluateAsync(bulkLockScript, keys, args);
+                    var resultArray = (RedisResult[])result;
+                    var lockResults = new Dictionary<Guid, bool>();
+
+                    for (int i = 0; i < jobIds.Count; i++)
+                    {
+                        lockResults[jobIds[i]] = (int)resultArray[i] == 1;
+                    }
+
+                    var acquiredCount = lockResults.Count(kvp => kvp.Value);
+                    _logger.Debug("Bulk lock acquisition: {Acquired}/{Total} locks acquired by {WorkerId}", acquiredCount, jobIds.Count, workerId);
+
+                    return lockResults;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Error during bulk lock acquisition for {Count} jobs", jobIds.Count);
+                    throw;
+                }
+            },
+            fallback: async () => jobIds.ToDictionary(id => id, _ => false),
+            operationName: "TryAcquireLocksBulk",
+            cancellationToken: cancellationToken
+        );
+
+    /// <summary>
+    /// Releases multiple locks atomically using Lua script (bulk optimization).
+    /// </summary>
+    public Task<int> ReleaseLocksBulkAsync(List<Guid> jobIds, string workerId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                try
+                {
+                    const string bulkReleaseScript = @"
+                        local released = 0
+                        local owner = ARGV[1]
+                        for i, key in ipairs(KEYS) do
+                            local currentOwner = redis.call('GET', key)
+                            if currentOwner then
+                                if currentOwner == owner then
+                                    redis.call('DEL', key)
+                                    released = released + 1
+                                end
+                            else
+                                released = released + 1
+                            end
+                        end
+                        return released";
+
+                    var keys = jobIds.Select(id => (RedisKey)_options.GetLockKey(id)).ToArray();
+                    var args = new RedisValue[] { workerId };
+                    var result = await _database.ScriptEvaluateAsync(bulkReleaseScript, keys, args);
+                    var releasedCount = (int)result;
+
+                    _logger.Debug("Bulk lock release: {Released}/{Total} locks released by {WorkerId}", releasedCount, jobIds.Count, workerId);
+
+                    return releasedCount;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Error during bulk lock release for {Count} jobs", jobIds.Count);
+                    throw;
+                }
+            },
+            fallback: async () => 0,
+            operationName: "ReleaseLocksBulk",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task<bool> TryAcquireNamedLockAsync(string lockName, string workerId, TimeSpan ttl, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                try
+                {
+                    var lockKey = $"{_options.KeyPrefix}global_lock:{lockName}";
+
+                    // SET key value NX EX ttl - atomic acquire
+                    var acquired = await _database.StringSetAsync(lockKey, workerId, ttl, when: When.NotExists);
+
+                    if (acquired)
+                    {
+                        _logger.Information("Named lock '{LockName}' acquired by instance {WorkerId} (TTL: {Ttl}s)", lockName, workerId, (int)ttl.TotalSeconds);
+                    }
+                    else
+                    {
+                        var currentOwner = await _database.StringGetAsync(lockKey);
+                        _logger.Debug("Named lock '{LockName}' already held by {CurrentOwner}, skipping operation", lockName, currentOwner);
+                    }
+
+                    return acquired;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Error acquiring named lock '{LockName}'", lockName);
+                    throw;
+                }
+            },
+            fallback: async () => false,
+            operationName: "TryAcquireNamedLock",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task<bool> ReleaseNamedLockAsync(string lockName, string workerId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                try
+                {
+                    var lockKey = $"{_options.KeyPrefix}global_lock:{lockName}";
+
+                    var result = await _database.ScriptEvaluateAsync(_checkOwnerAndDeleteScript, [lockKey], [workerId]);
+
+                    var released = (int)result == 1;
+
+                    if (released)
+                    {
+                        _logger.Information("Named lock '{LockName}' released by instance {WorkerId}", lockName, workerId);
+                    }
+
+                    return released;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Error releasing named lock '{LockName}'", lockName);
+                    throw;
+                }
+            },
+            fallback: async () => false,
+            operationName: "ReleaseNamedLock",
+            cancellationToken: cancellationToken
+        );
 }
+

@@ -337,6 +337,7 @@ public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory fa
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisWorkerService>(),
+            _serviceProvider.GetRequiredService<IRedisStatsService>(),
             Options.Create(new ZombieOccurrenceDetectorOptions
             {
                 Enabled = true,

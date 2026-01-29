@@ -234,7 +234,7 @@ function Dashboard() {
           <div className="status-grid">
             <div
               className="status-item clickable"
-              onClick={() => navigate('/executions', { state: { filterByStatus: 2 } })}
+              onClick={() => navigate('/executions', { state: { filterByStatus: 0 } })}
             >
               <div className="status-icon success">
                 <Icon name="schedule" size={24} />
@@ -252,7 +252,7 @@ function Dashboard() {
                 <Icon name="cancel" size={24} />
               </div>
               <div className="status-content">
-                <span className="status-value" title={(stats.failedOccurrences || 0).toLocaleString()}>{formatNumber(stats.failedOccurrences)}</span>
+                <span className="status-value" title={(stats.failedJobs || 0).toLocaleString()}>{formatNumber(stats.failedJobs)}</span>
                 <span className="status-label">Failed</span>
               </div>
             </div>

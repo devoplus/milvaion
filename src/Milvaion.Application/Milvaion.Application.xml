@@ -685,16 +685,6 @@
             Table size statistics.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.DatabaseStatisticsDto.OccurrenceGrowth">
-            <summary>
-            Occurrence growth statistics (last 30 days).
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.DatabaseStatisticsDto.LargeOccurrences">
-            <summary>
-            Top 10 largest occurrences.
-            </summary>
-        </member>
         <member name="P:Milvaion.Application.Dtos.AdminDtos.DatabaseStatisticsDto.TotalDatabaseSizeBytes">
             <summary>
             Total database size in bytes.
@@ -703,6 +693,21 @@
         <member name="P:Milvaion.Application.Dtos.AdminDtos.DatabaseStatisticsDto.TotalDatabaseSize">
             <summary>
             Total database size (human-readable).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.DatabaseStatisticsDto.IndexEfficiency">
+            <summary>
+            Index efficiency statistics (unused/underutilized indexes).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.DatabaseStatisticsDto.CacheHitRatio">
+            <summary>
+            Database cache hit ratio (performance metric).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.DatabaseStatisticsDto.TableBloat">
+            <summary>
+            Table bloat detection (VACUUM recommendation).
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.AdminDtos.TableSizeDto">
@@ -735,79 +740,209 @@
             Percentage of total database size.
             </summary>
         </member>
-        <member name="T:Milvaion.Application.Dtos.AdminDtos.OccurrenceGrowthDto">
+        <member name="T:Milvaion.Application.Dtos.AdminDtos.IndexEfficiencyDto">
             <summary>
-            Occurrence growth statistics for a specific day and status.
+            Index efficiency statistics.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.OccurrenceGrowthDto.Day">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexEfficiencyDto.Indexes">
             <summary>
-            Day (date truncated to day).
+            List of unused or underutilized indexes.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.OccurrenceGrowthDto.Status">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexEfficiencyDto.TotalWastedBytes">
             <summary>
-            Occurrence status (0=Pending, 1=Running, 2=Success, 3=Failed, 4=Cancelled).
+            Total wasted space by unused indexes (bytes).
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.OccurrenceGrowthDto.Count">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexEfficiencyDto.TotalWastedSpace">
             <summary>
-            Number of occurrences for this day and status.
+            Total wasted space (human-readable).
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.OccurrenceGrowthDto.AvgExceptionSize">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexEfficiencyDto.Recommendation">
             <summary>
-            Average exception size in bytes.
+            Recommendation message.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.OccurrenceGrowthDto.AvgLogCount">
+        <member name="T:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto">
             <summary>
-            Average log entry count.
+            Individual index statistics.
             </summary>
         </member>
-        <member name="T:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto.TableName">
             <summary>
-            Large occurrence information.
+            Table name.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto.Id">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto.IndexName">
             <summary>
-            Occurrence ID.
+            Index name.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto.JobName">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto.SizeBytes">
             <summary>
-            Job name.
+            Index size in bytes.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto.Status">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto.Size">
             <summary>
-            Occurrence status.
+            Index size (human-readable).
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto.CreatedAt">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto.Scans">
             <summary>
-            Created at timestamp.
+            Number of index scans.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto.LogsSize">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto.TuplesRead">
             <summary>
-            Logs size in bytes.
+            Number of tuples read.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto.ExceptionSize">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto.EfficiencyScore">
             <summary>
-            Exception size in bytes.
+            Efficiency score (0-100, higher is better).
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto.StatusLogsSize">
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.IndexStatsDto.Status">
             <summary>
-            Status change logs size in bytes.
+            Status: "Unused", "Rarely Used", "Normal"
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.AdminDtos.LargeOccurrenceDto.TotalSize">
+        <member name="T:Milvaion.Application.Dtos.AdminDtos.CacheHitRatioDto">
             <summary>
-            Total size in bytes.
+            Cache hit ratio statistics.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.CacheHitRatioDto.HitRatioPercentage">
+            <summary>
+            Overall cache hit ratio (0-100).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.CacheHitRatioDto.IndexHitRatioPercentage">
+            <summary>
+            Index cache hit ratio (0-100).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.CacheHitRatioDto.TableHitRatioPercentage">
+            <summary>
+            Table cache hit ratio (0-100).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.CacheHitRatioDto.DiskReads">
+            <summary>
+            Number of blocks read from disk.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.CacheHitRatioDto.CacheReads">
+            <summary>
+            Number of blocks read from cache.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.CacheHitRatioDto.Status">
+            <summary>
+            Performance status: "Excellent", "Good", "Poor", "Critical"
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.CacheHitRatioDto.Recommendation">
+            <summary>
+            Recommendation message.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.AdminDtos.TableBloatDto">
+            <summary>
+            Table bloat detection statistics.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.TableBloatDto.BloatedTables">
+            <summary>
+            List of bloated tables.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.TableBloatDto.TotalWastedBytes">
+            <summary>
+            Total wasted space by bloat (bytes).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.TableBloatDto.TotalWastedSpace">
+            <summary>
+            Total wasted space (human-readable).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.TableBloatDto.Recommendation">
+            <summary>
+            Recommendation message.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto">
+            <summary>
+            Individual bloated table statistics.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.TableName">
+            <summary>
+            Table name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.ActualSizeBytes">
+            <summary>
+            Actual size in bytes.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.ActualSize">
+            <summary>
+            Actual size (human-readable).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.ExpectedSizeBytes">
+            <summary>
+            Expected size in bytes (without bloat).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.ExpectedSize">
+            <summary>
+            Expected size (human-readable).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.WastedBytes">
+            <summary>
+            Wasted space in bytes.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.WastedSpace">
+            <summary>
+            Wasted space (human-readable).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.BloatPercentage">
+            <summary>
+            Bloat percentage (0-100).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.DeadTuples">
+            <summary>
+            Dead tuples count.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.LiveTuples">
+            <summary>
+            Live tuples count.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.LastVacuum">
+            <summary>
+            Last VACUUM time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.LastAnalyze">
+            <summary>
+            Last ANALYZE time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AdminDtos.BloatedTableDto.Status">
+            <summary>
+            Status: "Critical", "Warning", "Normal"
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.AdminDtos.JobStatistics">
@@ -1868,7 +2003,7 @@
             Number of completed jobs.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.DashboardDtos.DashboardDto.FailedOccurrences">
+        <member name="P:Milvaion.Application.Dtos.DashboardDtos.DashboardDto.FailedJobs">
             <summary>
             Number of failed jobs.
             </summary>
@@ -1933,9 +2068,9 @@
             Executions per second (throughput metric).
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.DashboardDtos.DashboardDto.PeakExecutionsPerMinute">
+        <member name="P:Milvaion.Application.Dtos.DashboardDtos.DashboardDto.RecentExecutions">
             <summary>
-            Peak executions per minute in the last hour.
+            Recent executions count (last 30 seconds) - used for throughput calculation.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.EnumLookupModel">
@@ -2898,11 +3033,6 @@
             Calculated as (EndTime - StartTime).
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceListDto.Result">
-            <summary>
-            Result message from job execution (success message or summary).
-            </summary>
-        </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceListDto.CreatedAt">
             <summary>
             Timestamp when this occurrence record was created (UTC).
@@ -3065,6 +3195,11 @@
             Display name of the scheduled job.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.Description">
+            <summary>
+            Description of the scheduled job.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.JobType">
             <summary>
             Type identifier for the job handler (e.g., "SendEmailJob", "ProcessOrderJob").
@@ -3093,17 +3228,6 @@
             Defines behavior when a job is triggered while a previous occurrence is still running.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.LatestStatus">
-            <summary>
-            Latest occurrence status (computed from most recent JobOccurrence).
-            Note: This is NOT persisted in ScheduledJob - fetched from occurrences.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.LatestRun">
-            <summary>
-            Latest run time of the job.
-            </summary>
-        </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.Tags">
             <summary>
             Latest run time of the job.
@@ -3112,7 +3236,6 @@
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.Projection">
             <summary>
             Projection expression for mapping ScheduledJob to ScheduledJobListDto.
-            Note: LatestStatus must be populated separately via join or post-query.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.UpsertJobAutoDisableSettings">
@@ -4588,17 +4711,13 @@
         </member>
         <member name="T:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryHandler">
             <summary>
-            Handles the dashboard statistics query.
+            Handles the dashboard statistics query using Redis counters (real-time, no SQL!).
             </summary>
-            <param name="milvaionDbContextAccessor"></param>
-            <param name="redisWorkerService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisWorkerService)">
+        <member name="M:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryHandler.#ctor(Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService)">
             <summary>
-            Handles the dashboard statistics query.
+            Handles the dashboard statistics query using Redis counters (real-time, no SQL!).
             </summary>
-            <param name="milvaionDbContextAccessor"></param>
-            <param name="redisWorkerService"></param>
         </member>
         <member name="M:Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQueryHandler.Handle(Milvaion.Application.Features.Dashboard.GetDashboard.GetDashboardQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
@@ -5329,7 +5448,7 @@
             Handles job occurrence cancellation by publishing cancellation signal to Redis Pub/Sub.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence.CancelJobOccurrenceCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.Redis.IJobCancellationService,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.CancelJobOccurrence.CancelJobOccurrenceCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},Milvaion.Application.Interfaces.Redis.IJobCancellationService,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
             <summary>
             Handles job occurrence cancellation by publishing cancellation signal to Redis Pub/Sub.
             </summary>
@@ -5565,16 +5684,31 @@
             <summary>
             Handles the job occurrence list operation.
             </summary>
-            <param name="scheduledjobRepository"></param>
+            <param name="milvaionDbContextAccessor"></param>
+            <param name="redisStatsService"></param>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService)">
             <summary>
             Handles the job occurrence list operation.
             </summary>
-            <param name="scheduledjobRepository"></param>
+            <param name="milvaionDbContextAccessor"></param>
+            <param name="redisStatsService"></param>
         </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.EfExtensions.ToListResponseAsync``2(System.Linq.IQueryable{``0},Milvasoft.Components.Rest.Request.ListRequest,System.Linq.Expressions.Expression{System.Func{``0,``1}},System.Nullable{System.Int32},System.Threading.CancellationToken)">
+            <summary>
+            ToListResponseAsync extension method for IQueryable with filtering, sorting, and pagination.
+            </summary>
+            <typeparam name="TEntity"></typeparam>
+            <typeparam name="TDto"></typeparam>
+            <param name="query"></param>
+            <param name="listRequest"></param>
+            <param name="projection"></param>
+            <param name="manualTotalCount"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator">
             <summary>
@@ -5713,7 +5847,7 @@
             Handles manual job triggering by creating occurrence and dispatching immediately.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,Milvasoft.Core.Abstractions.IMilvaLogger,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob.TriggerScheduledJobCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,Milvasoft.Core.Abstractions.IMilvaLogger,Microsoft.AspNetCore.Http.IHttpContextAccessor)">
             <summary>
             Handles manual job triggering by creating occurrence and dispatching immediately.
             </summary>
@@ -6270,6 +6404,34 @@
             <param name="cancellationToken">Cancellation token</param>
             <returns>Database statistics</returns>
         </member>
+        <member name="M:Milvaion.Application.Interfaces.IAdminService.GetTableSizesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets top tables by size.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Table sizes</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAdminService.GetIndexEfficiencyAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets index efficiency statistics (unused/underutilized indexes).
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Index efficiency statistics</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAdminService.GetCacheHitRatioAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets database cache hit ratio.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Cache hit ratio statistics</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAdminService.GetTableBloatAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets table bloat detection (VACUUM recommendation).
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Table bloat statistics</returns>
+        </member>
         <member name="M:Milvaion.Application.Interfaces.IAdminService.GetBackgroundServiceMemoryDiagnostics">
             <summary>
             Gets background service memory diagnostics.
@@ -6713,6 +6875,36 @@
             <param name="cancellationToken">Cancellation token</param>
             <returns>True if extended, false if lock not found or owned by another worker</returns>
         </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisLockService.TryAcquireLocksBulkAsync(System.Collections.Generic.List{System.Guid},System.String,System.TimeSpan,System.Threading.CancellationToken)">
+            <summary>
+            Tries to acquire locks for multiple jobs atomically using Lua script (bulk optimization).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisLockService.ReleaseLocksBulkAsync(System.Collections.Generic.List{System.Guid},System.String,System.Threading.CancellationToken)">
+            <summary>
+            Releases multiple locks atomically using Lua script (bulk optimization).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisLockService.TryAcquireNamedLockAsync(System.String,System.String,System.TimeSpan,System.Threading.CancellationToken)">
+            <summary>
+            Tries to acquire a named distributed lock for global operations (e.g., startup recovery).
+            Only one instance can hold this lock at a time, ensuring multi-instance safety.
+            </summary>
+            <param name="lockName">Unique name for the lock (e.g., "startup_recovery")</param>
+            <param name="workerId">Worker identifier (machine name, container ID, etc.)</param>
+            <param name="ttl">Lock time-to-live duration</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>True if lock acquired, false if already held by another instance</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisLockService.ReleaseNamedLockAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Releases a named distributed lock.
+            </summary>
+            <param name="lockName">Unique name for the lock</param>
+            <param name="workerId">Worker identifier (must match the one who acquired the lock)</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>True if released, false if lock not found or owned by another instance</returns>
+        </member>
         <member name="T:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService">
             <summary>
             Redis-based job scheduler using ZSET for time-ordered scheduling.
@@ -6884,6 +7076,88 @@
             <param name="cancellationToken">Cancellation token</param>
             <returns>Set of job IDs that are currently running</returns>
         </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.MarkAllRunningJobsForWorkerCompletedAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Marks all running jobs that are associated with the given worker as completed in Redis.
+            This is used on worker shutdown to remove running flags for jobs that were owned by this worker.
+            </summary>
+            <param name="workerId">Worker identifier</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.Redis.IRedisStatsService">
+            <summary>
+            Redis-based real-time statistics service for dashboard metrics.
+            Provides atomic counter operations for job occurrence tracking.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.IncrementTotalOccurrencesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Increments total occurrence counter.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.IncrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+            <summary>
+            Increments status-specific counter atomically.
+            </summary>
+            <param name="status">Job occurrence status</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.DecrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+            <summary>
+            Decrements status-specific counter atomically.
+            </summary>
+            <param name="status">Job occurrence status</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.UpdateStatusCountersAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+            <summary>
+            Updates counters when status changes (decrement old, increment new).
+            </summary>
+            <param name="oldStatus">Previous status</param>
+            <param name="newStatus">New status</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.GetStatisticsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets current statistics from Redis counters.
+            </summary>
+            <returns>Dictionary of status counters</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.ResetCountersAsync(System.Threading.CancellationToken)">
+            <summary>
+            Resets all counters (for testing or maintenance).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.SyncCountersFromDatabaseAsync(Milvasoft.DataAccess.EfCore.Bulk.IMilvaBulkDbContextBase,System.Threading.CancellationToken)">
+            <summary>
+            Initializes counters from database (one-time sync on startup or after reset).
+            </summary>
+            <param name="context">Database context for querying current counts</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.TrackExecutionAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Tracks job execution in timeline (for EPS/EPM calculation).
+            Adds occurrence to sorted set with current timestamp as score.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.TrackDurationAsync(System.Int64,System.Threading.CancellationToken)">
+            <summary>
+            Tracks completed job duration for average calculation.
+            </summary>
+            <param name="durationMs">Duration in milliseconds</param>
+            <param name="cancellationToken"></param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.GetExecutionsPerMinuteAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets executions per minute (last 60 seconds).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.GetAverageDurationAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets average duration of completed jobs.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Interfaces.Redis.IRedisWorkerService">
             <summary>
             Redis-based worker tracking service for runtime state management.
@@ -6960,6 +7234,16 @@
             <summary>
             Removes worker from Redis (cleanup on graceful shutdown).
             </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisWorkerService.RemoveWorkerInstanceAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Removes a specific worker instance and cleans up all consumer counts for that instance.
+            Called during graceful shutdown to prevent stale capacity data.
+            </summary>
+            <param name="workerId">Worker group ID</param>
+            <param name="instanceId">Specific instance ID to remove</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>True if cleanup was successful</returns>
         </member>
         <member name="T:Milvaion.Application.Utils.Aspects.UserActivityLogAspect.UserActivityLogInterceptor">
             <summary>

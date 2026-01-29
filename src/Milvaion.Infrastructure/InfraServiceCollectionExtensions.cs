@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Cronos;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +13,7 @@ using Milvaion.Domain;
 using Milvaion.Infrastructure.BackgroundServices;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.HealthChecks;
+using Milvaion.Infrastructure.InternalJobs;
 using Milvaion.Infrastructure.LazyImpl;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Persistence.Repository;
@@ -26,6 +28,7 @@ using Milvasoft.Core.Abstractions;
 using Milvasoft.DataAccess.EfCore;
 using Milvasoft.Interception.Decorator;
 using Milvasoft.Interception.Ef;
+using Milvasoft.JobScheduling;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Npgsql;
 using StackExchange.Redis;
@@ -79,6 +82,13 @@ public static class InfraServiceCollectionExtensions
                 {
                     opt.DbContextType = typeof(MilvaionDbContext);
                 });
+
+        services.AddMilvaCronJob<RedisStatSyncJob>(c =>
+        {
+            c.TimeZoneInfo = TimeZoneInfo.Local;
+            c.CronExpression = @"0 */30 * * * *"; // Every 30 min
+            c.CronFormat = CronFormat.IncludeSeconds;
+        });
 
         return services;
     }
@@ -297,6 +307,7 @@ public static class InfraServiceCollectionExtensions
         services.AddSingleton<IRedisSchedulerService, RedisSchedulerService>();
         services.AddSingleton<IRedisLockService, RedisLockService>();
         services.AddSingleton<IRedisCancellationService, RedisCancellationService>();
+        services.AddSingleton<IRedisStatsService, RedisStatsService>();
 
         return services;
     }

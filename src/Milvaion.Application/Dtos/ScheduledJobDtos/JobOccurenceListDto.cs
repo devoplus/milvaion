@@ -64,11 +64,6 @@ public class JobOccurrenceListDto : MilvaionBaseDto<Guid>
     public long? DurationMs { get; set; }
 
     /// <summary>
-    /// Result message from job execution (success message or summary).
-    /// </summary>
-    public string Result { get; set; }
-
-    /// <summary>
     /// Timestamp when this occurrence record was created (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; }
@@ -89,9 +84,6 @@ public class JobOccurrenceListDto : MilvaionBaseDto<Guid>
         StartTime = r.StartTime,
         EndTime = r.EndTime,
         DurationMs = r.DurationMs,
-        Result = r.Result,
-        CreatedAt = r.CreatedAt,
-        JobDisplayName = r.Job.DisplayName,
-        JobTags = r.Job.Tags
+        CreatedAt = r.CreatedAt
     };
 }

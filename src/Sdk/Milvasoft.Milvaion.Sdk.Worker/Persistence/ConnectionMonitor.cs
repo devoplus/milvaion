@@ -37,6 +37,7 @@ public class ConnectionMonitor : IConnectionMonitor
     private bool _isHealthy = false;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _backgroundCheckTask;
+    private bool _disposed = false;
 
     public ConnectionMonitor(WorkerOptions options, IMilvaLogger logger)
     {
@@ -175,7 +176,21 @@ public class ConnectionMonitor : IConnectionMonitor
 
     public void Dispose()
     {
-        _cts?.Cancel();
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        try
+        {
+            if (!_cts.IsCancellationRequested)
+                _cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed, ignore
+        }
+        
         _backgroundCheckTask?.GetAwaiter().GetResult();
         DisposeConnectionAsync().GetAwaiter().GetResult();
         _cts?.Dispose();
@@ -184,7 +199,21 @@ public class ConnectionMonitor : IConnectionMonitor
 
     public async ValueTask DisposeAsync()
     {
-        _cts?.Cancel();
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        try
+        {
+            if (!_cts.IsCancellationRequested)
+                _cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed, ignore
+        }
+        
         if (_backgroundCheckTask != null)
             await _backgroundCheckTask;
         await DisposeConnectionAsync();

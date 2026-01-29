@@ -1,99 +1,65 @@
-# MilvaionWorker
+# SQL Worker
 
-A Milvaion console worker project for executing scheduled jobs from the Milvaion Scheduler API.
+Built-in worker for executing SQL queries/stored procedures from Milvaion scheduler.
 
-## Getting Started
+## Job: SqlExecutorJob
 
-This project was created from the **Milvaion Console Worker** template.
+Executes SQL commands against configured database (PostgreSQL, SQL Server, MySQL).
 
-### Prerequisites
-
-- .NET 10.0 SDK or later
-- Access to RabbitMQ instance
-- Access to Redis instance
-- Milvaion Scheduler API running
-
-### Configuration
-
-Update `appsettings.json` with your infrastructure settings:
-
+**Configuration:**
 ```json
-{
-  "Worker": {
-    "WorkerId": "my-worker-01",
-    "RabbitMQ": {
-      "Host": "localhost",
-      "Port": 5672,
-      "Username": "guest",
-      "Password": "guest"
-    },
-    "Redis": {
-      "ConnectionString": "localhost:6379"
-    }
-  }
+"SqlWorkerOptions": {
+  "DefaultConnectionString": "Host=localhost;Database=mydb;Username=user;Password=pass",
+  "CommandTimeout": 300
 }
 ```
 
-### Running the Worker
+**Job Data:**
+```json
+{
+  "ConnectionString": "Host=localhost;Database=mydb;...",
+  "CommandText": "DELETE FROM Logs WHERE CreatedAt < @CutoffDate",
+  "CommandType": "Text",
+  "Parameters": {
+    "@CutoffDate": "2024-01-01"
+  },
+  "TimeoutSeconds": 60
+}
+```
 
+**Command Types:**
+- `Text` - Raw SQL query
+- `StoredProcedure` - Execute stored procedure
+
+## Running
+
+### Docker
 ```bash
+docker run -d --name sql-worker \
+  --network milvaion_milvaion-network \
+  -e SqlWorkerOptions__DefaultConnectionString="Host=postgres;Database=mydb;..." \
+  milvaion-sql-worker
+```
+
+### Development
+```bash
+cd src/Workers/SqlWorker
 dotnet run
 ```
 
-Or with Docker:
+## Features
 
-```bash
-docker build -t milvaion-sampleworker .
+- PostgreSQL, SQL Server, MySQL support
+- Parameterized queries (SQL injection safe)
+- Stored procedure execution
+- Transaction support
+- Configurable timeout
+- Row count logging
 
-docker run -d --name worker milvaion-sampleworker
-```
-or with default Milvaion Network:
-```bash
-docker run --name worker --network milvaion_milvaion-network milvaion-sampleworker
-```
+## Use Cases
 
-### Adding New Jobs
-
-1. Create a new class in the `Jobs/` folder
-2. Implement `IAsyncJob` interface
-3. Add configuration to `appsettings.json` under `JobConsumers`
-
-Example:
-
-```csharp
-public class MyCustomJob : IAsyncJob
-{
-    public async Task ExecuteAsync(IJobContext context)
-    {
-        context.LogInformation("Job started!");
-        
-        // Your business logic here
-        
-        context.LogInformation("Job completed!");
-    }
-}
-```
-
-Add to `appsettings.json`:
-
-```json
-{
-  "JobConsumers": {
-    "MyCustomJob": {
-      "ConsumerId": "mycustom-consumer",
-      "MaxParallelJobs": 10,
-      "ExecutionTimeoutSeconds": 300,
-      "MaxRetries": 3
-    }
-  }
-}
-```
-
-### Documentation
-
-- [Milvaion Documentation](https://github.com/Milvasoft/milvaion)
-- [Worker SDK Guide](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker)
-
-### License
-
-MIT License
+- Database cleanup jobs
+- Report generation
+- Data aggregation
+- Batch updates
+- ETL processes

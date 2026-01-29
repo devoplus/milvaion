@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
@@ -18,7 +18,9 @@ function ExecutionList() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const [filterStatus, setFilterStatus] = useState(location.state?.filterByStatus || null)
+  const [filterStatus, setFilterStatus] = useState(
+    location.state?.filterByStatus !== undefined ? location.state.filterByStatus : null
+  )
   const [pageSize, setPageSize] = useState(20)
 
   const { modalProps, showConfirm, showSuccess, showError } = useModal()
@@ -174,7 +176,7 @@ function ExecutionList() {
         <div className="search-box">
           <input
             type="text"
-            placeholder="Search by name or tags..."
+            placeholder="Search by id or name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"

@@ -7,7 +7,7 @@ export const occurrenceService = {
       pageNumber: params.pageNumber || 1,
       rowCount: params.rowCount || 10,
       sorting: {
-        sortBy: params.sortBy || 'Id',
+        sortBy: params.sortBy || 'CreatedAt',  // Changed from CorrelationId to CreatedAt (better for time-series)
         type: params.sortType || 1, // 1 = Descending
       },
     }
@@ -42,7 +42,7 @@ export const occurrenceService = {
       pageNumber: params.pageNumber || 1,
       rowCount: params.rowCount || 10,
       sorting: {
-        sortBy: 'Id',
+        sortBy: 'CreatedAt',  // Changed from CorrelationId to CreatedAt
         type: 1, // 1 = Descending
       },
       filtering: {

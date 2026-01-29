@@ -4,7 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
-using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
 using Xunit.Abstractions;
@@ -154,7 +153,7 @@ public abstract class BackgroundServiceTestBase(CustomWebApplicationFactory fact
             CreatedAt = createdAt ?? DateTime.UtcNow,
             Logs =
             [
-                new OccurrenceLog
+                new JobOccurrenceLog
                 {
                     Timestamp = DateTime.UtcNow,
                     Level = "Information",

@@ -107,22 +107,20 @@ public class OutboxService(ILocalStateStore localStore,
             {
                 await _logPublisher.PublishLogAsync(correlationId, workerId, log, cancellationToken);
 
-                _logger?.Debug("Log published successfully for CorrelationId {CorrelationId}, Level: {Level}", correlationId, log.Level);
-
                 // SUCCESS - Don't store locally, direct publish succeeded
                 return;
             }
             catch (Exception ex)
             {
                 // Log warning and continue to local storage
-                _logger?.Debug(ex, "Failed to publish log for CorrelationId {CorrelationId}. Will store locally for retry.", correlationId);
+                _logger?.Warning(ex, "Failed to publish log for CorrelationId {CorrelationId}. Will store locally for retry. Message: {Message}", correlationId, log.Message);
             }
         }
 
         // STEP 2: Store locally only if direct publish failed or connection unhealthy
         await _localStore.StoreLogAsync(correlationId, workerId, log, cancellationToken);
 
-        _logger?.Debug("Log stored locally for CorrelationId {CorrelationId} (RabbitMQ: {Status}). Will sync later.", correlationId, _connectionMonitor.IsRabbitMQHealthy ? "failed" : "unhealthy");
+        _logger?.Debug("Log stored locally for CorrelationId {CorrelationId} (RabbitMQ: {Status}). Will sync later. Message: {Message}", correlationId, _connectionMonitor.IsRabbitMQHealthy ? "failed" : "unhealthy", log.Message);
     }
 
     #endregion

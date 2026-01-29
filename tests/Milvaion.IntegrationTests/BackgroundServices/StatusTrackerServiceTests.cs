@@ -499,6 +499,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
     private StatusTrackerService CreateStatusTrackerService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
+            _serviceProvider.GetRequiredService<IRedisStatsService>(),
             Options.Create(new RabbitMQOptions
             {
                 Host = _factory.GetRabbitMqHost(),

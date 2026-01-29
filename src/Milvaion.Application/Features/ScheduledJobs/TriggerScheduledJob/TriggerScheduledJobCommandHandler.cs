@@ -17,6 +17,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
                                                 IMilvaionRepositoryBase<JobOccurrence> OccurrenceRepository,
                                                 IRabbitMQPublisher RabbitMQPublisher,
                                                 IRedisSchedulerService RedisScheduler,
+                                                IRedisStatsService StatsService,
                                                 IJobOccurrenceEventPublisher EventPublisher,
                                                 IMilvaLogger Logger,
                                                 IHttpContextAccessor HttpContextAccessor) : IInterceptable, ICommandHandler<TriggerScheduledJobCommand, Guid>
@@ -25,6 +26,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
     private readonly IMilvaionRepositoryBase<JobOccurrence> _occurrenceRepository = OccurrenceRepository;
     private readonly IRabbitMQPublisher _rabbitMQPublisher = RabbitMQPublisher;
     private readonly IRedisSchedulerService _redisScheduler = RedisScheduler;
+    private readonly IRedisStatsService _statsService = StatsService;
     private readonly IJobOccurrenceEventPublisher _eventPublisher = EventPublisher;
     private readonly IMilvaLogger _logger = Logger;
     private readonly IHttpContextAccessor _httpContextAccessor = HttpContextAccessor;
@@ -67,8 +69,9 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
             CreatedAt = DateTime.UtcNow,
             Logs =
             [
-                new OccurrenceLog
+                new JobOccurrenceLog
                 {
+                    Id = Guid.CreateVersion7(),
                     Timestamp = DateTime.UtcNow,
                     Level = request.Force ? "Warning" : "Information",
                     Message = request.Force
@@ -97,6 +100,21 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
 
         await _occurrenceRepository.AddAsync(occurrence, cancellationToken: cancellationToken);
 
+        // Update stats counters (new Queued occurrence)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _statsService.IncrementTotalOccurrencesAsync(cancellationToken);
+                await _statsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, cancellationToken);
+                await _statsService.TrackExecutionAsync(occurrence.Id, cancellationToken);
+            }
+            catch
+            {
+                // Non-critical
+            }
+        }, CancellationToken.None);
+
         // Publish SignalR event for occurrence created
         await _eventPublisher.PublishOccurrenceCreatedAsync([occurrence], _logger, cancellationToken);
 
@@ -107,8 +125,9 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
         {
             occurrence.Status = JobOccurrenceStatus.Failed;
             occurrence.Exception = "Failed to publish to RabbitMQ";
-            occurrence.Logs.Add(new OccurrenceLog
+            occurrence.Logs.Add(new JobOccurrenceLog
             {
+                Id = Guid.CreateVersion7(),
                 Timestamp = DateTime.UtcNow,
                 Level = "Error",
                 Message = "Failed to publish job to RabbitMQ queue",

@@ -496,6 +496,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisLockService>(),
             _serviceProvider.GetRequiredService<IRedisWorkerService>(),
+            _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<IRabbitMQPublisher>(),
             Options.Create(new JobDispatcherOptions
             {

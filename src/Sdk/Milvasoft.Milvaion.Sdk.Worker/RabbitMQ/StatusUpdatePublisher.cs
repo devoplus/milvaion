@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using RabbitMQ.Client;
@@ -26,6 +27,12 @@ public interface IStatusUpdatePublisher : IAsyncDisposable
                             string result = null,
                             string exception = null,
                             CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Publishes a shutdown heartbeat to notify server that worker is stopping gracefully.
+    /// Server will immediately cleanup consumer counts and running jobs.
+    /// </summary>
+    Task PublishShutdownHeartbeatAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -49,32 +56,72 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
                                          string exception = null,
                                          CancellationToken cancellationToken = default)
     {
-        await EnsureConnectionAsync(cancellationToken);
-
-        var message = new JobStatusUpdateMessage
+        try
         {
-            CorrelationId = correlationId,
-            JobId = jobId,
-            WorkerId = workerId,
-            Status = status,
-            StartTime = startTime,
-            EndTime = endTime,
-            DurationMs = durationMs,
-            Result = result,
-            Exception = exception,
-            MessageTimestamp = DateTime.UtcNow
-        };
+            await EnsureConnectionAsync(cancellationToken);
 
-        var json = JsonSerializer.Serialize(message);
-        var body = Encoding.UTF8.GetBytes(json);
+            var message = new JobStatusUpdateMessage
+            {
+                CorrelationId = correlationId,
+                JobId = jobId,
+                WorkerId = workerId,
+                Status = status,
+                StartTime = startTime,
+                EndTime = endTime,
+                DurationMs = durationMs,
+                Result = result,
+                Exception = exception,
+                MessageTimestamp = DateTime.UtcNow
+            };
 
-        await _channel.BasicPublishAsync(exchange: string.Empty,
-                                         routingKey: WorkerConstant.Queues.StatusUpdates,
-                                         mandatory: false,
-                                         body: body,
-                                         cancellationToken: cancellationToken);
+            var json = JsonSerializer.Serialize(message);
+            var body = Encoding.UTF8.GetBytes(json);
 
-        _logger?.Debug("Published status update: {Status} for CorrelationId: {CorrelationId}", status, correlationId);
+            await _channel.BasicPublishAsync(exchange: string.Empty,
+                                             routingKey: WorkerConstant.Queues.StatusUpdates,
+                                             mandatory: false,
+                                             body: body,
+                                             cancellationToken: cancellationToken);
+
+            _logger?.Debug("Published status update: {Status} for CorrelationId: {CorrelationId}", status, correlationId);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to publish status update for CorrelationId {CorrelationId}, Status: {Status}", correlationId, status);
+            throw; // Re-throw so OutboxService can store locally
+        }
+    }
+
+    public async Task PublishShutdownHeartbeatAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await EnsureConnectionAsync(cancellationToken);
+
+            var heartbeat = new WorkerHeartbeatMessage
+            {
+                WorkerId = _options.WorkerId,
+                InstanceId = _options.InstanceId,
+                CurrentJobs = 0,
+                Timestamp = DateTime.UtcNow,
+                IsStopping = true  // Shutdown flag
+            };
+
+            var json = JsonSerializer.Serialize(heartbeat);
+            var body = Encoding.UTF8.GetBytes(json);
+
+            await _channel.BasicPublishAsync(exchange: string.Empty,
+                                             routingKey: WorkerConstant.Queues.WorkerHeartbeat,
+                                             mandatory: false,
+                                             body: body,
+                                             cancellationToken: cancellationToken);
+
+            _logger?.Information("Published shutdown heartbeat for {InstanceId}", _options.InstanceId);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Failed to publish shutdown heartbeat for {InstanceId}", _options.InstanceId);
+        }
     }
 
     private async Task EnsureConnectionAsync(CancellationToken cancellationToken)

@@ -49,4 +49,34 @@ public interface IRedisLockService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if extended, false if lock not found or owned by another worker</returns>
     Task<bool> ExtendLockAsync(Guid jobId, string workerId, TimeSpan ttl, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tries to acquire locks for multiple jobs atomically using Lua script (bulk optimization).
+    /// </summary>
+    Task<Dictionary<Guid, bool>> TryAcquireLocksBulkAsync(List<Guid> jobIds, string workerId, TimeSpan ttl, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Releases multiple locks atomically using Lua script (bulk optimization).
+    /// </summary>
+    Task<int> ReleaseLocksBulkAsync(List<Guid> jobIds, string workerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tries to acquire a named distributed lock for global operations (e.g., startup recovery).
+    /// Only one instance can hold this lock at a time, ensuring multi-instance safety.
+    /// </summary>
+    /// <param name="lockName">Unique name for the lock (e.g., "startup_recovery")</param>
+    /// <param name="workerId">Worker identifier (machine name, container ID, etc.)</param>
+    /// <param name="ttl">Lock time-to-live duration</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if lock acquired, false if already held by another instance</returns>
+    Task<bool> TryAcquireNamedLockAsync(string lockName, string workerId, TimeSpan ttl, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Releases a named distributed lock.
+    /// </summary>
+    /// <param name="lockName">Unique name for the lock</param>
+    /// <param name="workerId">Worker identifier (must match the one who acquired the lock)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if released, false if lock not found or owned by another instance</returns>
+    Task<bool> ReleaseNamedLockAsync(string lockName, string workerId, CancellationToken cancellationToken = default);
 }

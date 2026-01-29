@@ -101,6 +101,46 @@ public class AdminController(IAdminService adminService,
     public Task<Response<DatabaseStatisticsDto>> GetDatabaseStatisticsAsync(CancellationToken cancellationToken) => _adminService.GetDatabaseStatisticsAsync(cancellationToken);
 
     /// <summary>
+    /// Gets top tables by size.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Table sizes</returns>
+    [Auth(PermissionCatalog.SystemAdministration.List)]
+    [HttpGet("database-statistics/tables")]
+    [ProducesResponseType(typeof(Response<List<TableSizeDto>>), StatusCodes.Status200OK)]
+    public Task<Response<List<TableSizeDto>>> GetTableSizesAsync(CancellationToken cancellationToken) => _adminService.GetTableSizesAsync(cancellationToken);
+
+    /// <summary>
+    /// Gets index efficiency statistics (unused/underutilized indexes).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Index efficiency statistics</returns>
+    [Auth(PermissionCatalog.SystemAdministration.List)]
+    [HttpGet("database-statistics/indexes")]
+    [ProducesResponseType(typeof(Response<IndexEfficiencyDto>), StatusCodes.Status200OK)]
+    public Task<Response<IndexEfficiencyDto>> GetIndexEfficiencyAsync(CancellationToken cancellationToken) => _adminService.GetIndexEfficiencyAsync(cancellationToken);
+
+    /// <summary>
+    /// Gets database cache hit ratio.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Cache hit ratio statistics</returns>
+    [Auth(PermissionCatalog.SystemAdministration.List)]
+    [HttpGet("database-statistics/cache")]
+    [ProducesResponseType(typeof(Response<CacheHitRatioDto>), StatusCodes.Status200OK)]
+    public Task<Response<CacheHitRatioDto>> GetCacheHitRatioAsync(CancellationToken cancellationToken) => _adminService.GetCacheHitRatioAsync(cancellationToken);
+
+    /// <summary>
+    /// Gets table bloat detection (VACUUM recommendation).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Table bloat statistics</returns>
+    [Auth(PermissionCatalog.SystemAdministration.List)]
+    [HttpGet("database-statistics/bloat")]
+    [ProducesResponseType(typeof(Response<TableBloatDto>), StatusCodes.Status200OK)]
+    public Task<Response<TableBloatDto>> GetTableBloatAsync(CancellationToken cancellationToken) => _adminService.GetTableBloatAsync(cancellationToken);
+
+    /// <summary>
     /// Emergency stop. Disables the job dispatcher at runtime.
     /// </summary>
     /// <param name="reason">Reason for emergency stop</param>

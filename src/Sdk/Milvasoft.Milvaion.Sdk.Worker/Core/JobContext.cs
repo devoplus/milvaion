@@ -114,8 +114,14 @@ public class JobContext(Guid correlationId,
                     Console.WriteLine($"[{level}] [{category}] {message}");
                 }
 
-            // Publish via OutboxService (local-first, resilient)
-            _ = PublishLogViaOutboxAsync(log);
+            // Publish via OutboxService (fire-and-forget with exception tracking)
+            _ = PublishLogViaOutboxAsync(log).ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    Console.WriteLine($"[LOG PUBLISH FAILED] [{level}] {message} - Error: {t.Exception?.GetBaseException().Message}");
+                }
+            }, TaskScheduler.Default);
         }
     }
 
@@ -150,9 +156,16 @@ public class JobContext(Guid correlationId,
         lock (_logLock)
         {
             _logs.Add(log);
-
-            _ = PublishLogViaOutboxAsync(log);
         }
+
+        // Publish with exception tracking
+        _ = PublishLogViaOutboxAsync(log).ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+            {
+                Console.WriteLine($"[LOG PUBLISH FAILED] [Error] {message} - Error: {t.Exception?.GetBaseException().Message}");
+            }
+        }, TaskScheduler.Default);
 
         if (ExecutorJobConsumerConfig.LogUserFriendlyLogsViaLogger)
             Logger.Error(ex, "[UserDefined] {Message}", message);
@@ -176,6 +189,7 @@ public class JobContext(Guid correlationId,
         catch (OperationCanceledException ex)
         {
             Console.WriteLine($"[ERROR] Log publishing was canceled: {ex.Message}");
+            throw; // Re-throw to trigger ContinueWith handler
         }
         catch (Exception ex)
         {

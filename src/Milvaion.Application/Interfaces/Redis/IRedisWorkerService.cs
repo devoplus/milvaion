@@ -78,4 +78,14 @@ public interface IRedisWorkerService
     /// Removes worker from Redis (cleanup on graceful shutdown).
     /// </summary>
     Task<bool> RemoveWorkerAsync(string workerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a specific worker instance and cleans up all consumer counts for that instance.
+    /// Called during graceful shutdown to prevent stale capacity data.
+    /// </summary>
+    /// <param name="workerId">Worker group ID</param>
+    /// <param name="instanceId">Specific instance ID to remove</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if cleanup was successful</returns>
+    Task<bool> RemoveWorkerInstanceAsync(string workerId, string instanceId, CancellationToken cancellationToken = default);
 }

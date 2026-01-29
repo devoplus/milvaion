@@ -3,7 +3,6 @@ using Milvaion.Application.Dtos.ScheduledJobDtos;
 using Milvasoft.Components.CQRS.Query;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
-using Milvasoft.Core.Helpers;
 using System.Linq.Expressions;
 
 namespace Milvaion.Application.Features.ScheduledJobs.GetScheduledJobList;
@@ -23,43 +22,24 @@ public class GetScheduledJobListQueryHandler(IMilvaionRepositoryBase<ScheduledJo
     {
         Expression<Func<ScheduledJob, bool>> predicate = null;
 
-        var searchTerm = $"%{request.SearchTerm?.Trim()}%";
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-            predicate = c => EF.Functions.ILike(c.DisplayName, searchTerm) ||
-                             EF.Functions.ILike(c.Tags, searchTerm) ||
-                             EF.Functions.ILike(c.JobNameInWorker, searchTerm);
-
-        var response = await _scheduledjobRepository.GetAllAsync(request, condition: predicate, projection: ScheduledJobListDto.Projection, cancellationToken: cancellationToken);
-
-        if (!response.Data.IsNullOrEmpty())
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
-            var jobIds = response.Data.Select(x => x.Id).ToList();
 
-            var relatedLatestOccurrences = await _milvaionDbContextAccessor.GetDbContext()
-                                                                           .Set<JobOccurrence>()
-                                                                           .AsNoTracking()
-                                                                           .Where(o => jobIds.Contains(o.JobId))
-                                                                           .Select(o => new
-                                                                           {
-                                                                               o.JobId,
-                                                                               o.Status,
-                                                                               LatestTime = o.EndTime ?? o.CreatedAt
-                                                                           })
-                                                                           .GroupBy(x => x.JobId)
-                                                                           .Select(g => g.OrderByDescending(x => x.LatestTime).First()
-                                                                           )
-                                                                           .ToDictionaryAsync(x => x.JobId, cancellationToken);
-
-            foreach (var job in response.Data)
+            if (Guid.TryParse(request.SearchTerm, out var guid))
             {
-                if (relatedLatestOccurrences.TryGetValue(job.Id, out var occ))
-                {
-                    job.LatestStatus = occ.Status;
-                    job.LatestRun = occ.LatestTime;
-                }
+                predicate = c => c.Id == guid;
+            }
+            else
+            {
+                string searchTerm = $"%{request.SearchTerm?.Trim()}%";
+
+                predicate = c => EF.Functions.ILike(c.DisplayName, searchTerm) ||
+                                 EF.Functions.ILike(c.Tags, searchTerm) ||
+                                 EF.Functions.ILike(c.JobNameInWorker, searchTerm);
             }
         }
+
+        var response = await _scheduledjobRepository.GetAllAsync(request, condition: predicate, projection: ScheduledJobListDto.Projection, cancellationToken: cancellationToken);
 
         return response;
     }

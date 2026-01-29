@@ -67,7 +67,7 @@ public class JobOccurrenceDetailDto : MilvaionBaseDto<Guid>
     /// Structured logs from job execution stored as JSONB array.
     /// Each entry contains timestamp, level, message, and optional data.
     /// </summary>
-    public List<OccurrenceLog> Logs { get; set; }
+    public List<JobOccurrenceLog> Logs { get; set; }
 
     /// <summary>
     /// Occurrence status change history stored as JSONB array.

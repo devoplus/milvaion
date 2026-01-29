@@ -1,99 +1,67 @@
-# MilvaionWorker
+# Email Worker
 
-A Milvaion console worker project for executing scheduled jobs from the Milvaion Scheduler API.
+Built-in worker for sending emails from Milvaion scheduler.
 
-## Getting Started
+## Job: SendEmailJob
 
-This project was created from the **Milvaion Console Worker** template.
+Sends emails via SMTP with support for attachments and HTML content.
 
-### Prerequisites
-
-- .NET 10.0 SDK or later
-- Access to RabbitMQ instance
-- Access to Redis instance
-- Milvaion Scheduler API running
-
-### Configuration
-
-Update `appsettings.json` with your infrastructure settings:
-
+**Configuration:**
 ```json
-{
-  "Worker": {
-    "WorkerId": "my-worker-01",
-    "RabbitMQ": {
-      "Host": "localhost",
-      "Port": 5672,
-      "Username": "guest",
-      "Password": "guest"
-    },
-    "Redis": {
-      "ConnectionString": "localhost:6379"
-    }
+"EmailWorkerOptions": {
+  "Smtp": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "Username": "your-email@gmail.com",
+    "Password": "your-app-password",
+    "EnableSsl": true,
+    "FromEmail": "noreply@yourapp.com",
+    "FromName": "Your App"
   }
 }
 ```
 
-### Running the Worker
+**Job Data:**
+```json
+{
+  "To": ["user@example.com"],
+  "Cc": ["manager@example.com"],
+  "Bcc": ["admin@example.com"],
+  "Subject": "Test Email",
+  "Body": "<h1>Hello</h1><p>This is a test</p>",
+  "IsHtml": true,
+  "Attachments": [
+    {
+      "FileName": "report.pdf",
+      "ContentBase64": "JVBERi0xLjQK...",
+      "ContentType": "application/pdf"
+    }
+  ]
+}
+```
 
+## Running
+
+### Docker
 ```bash
+docker run -d --name email-worker \
+  --network milvaion_milvaion-network \
+  -e EmailWorkerOptions__Smtp__Host=smtp.gmail.com \
+  -e EmailWorkerOptions__Smtp__Username=your-email@gmail.com \
+  -e EmailWorkerOptions__Smtp__Password=your-password \
+  milvaion-email-worker
+```
+
+### Development
+```bash
+cd src/Workers/EmailWorker
 dotnet run
 ```
 
-Or with Docker:
+## Features
 
-```bash
-docker build -t milvaion-sampleworker .
-
-docker run -d --name worker milvaion-sampleworker
-```
-or with default Milvaion Network:
-```bash
-docker run --name worker --network milvaion_milvaion-network milvaion-sampleworker
-```
-
-### Adding New Jobs
-
-1. Create a new class in the `Jobs/` folder
-2. Implement `IAsyncJob` interface
-3. Add configuration to `appsettings.json` under `JobConsumers`
-
-Example:
-
-```csharp
-public class MyCustomJob : IAsyncJob
-{
-    public async Task ExecuteAsync(IJobContext context)
-    {
-        context.LogInformation("Job started!");
-        
-        // Your business logic here
-        
-        context.LogInformation("Job completed!");
-    }
-}
-```
-
-Add to `appsettings.json`:
-
-```json
-{
-  "JobConsumers": {
-    "MyCustomJob": {
-      "ConsumerId": "mycustom-consumer",
-      "MaxParallelJobs": 10,
-      "ExecutionTimeoutSeconds": 300,
-      "MaxRetries": 3
-    }
-  }
-}
-```
-
-### Documentation
-
-- [Milvaion Documentation](https://github.com/Milvasoft/milvaion)
-- [Worker SDK Guide](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker)
-
-### License
-
-MIT License
+- Multiple recipients (To, Cc, Bcc)
+- HTML and plain text emails
+- File attachments (Base64 encoded)
+- Custom SMTP configuration
+- SSL/TLS support

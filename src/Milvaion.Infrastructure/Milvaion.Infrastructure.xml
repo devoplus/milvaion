@@ -193,7 +193,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService"/> class.
             </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisLockService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions},Milvaion.Application.Interfaces.IDispatcherControlService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisLockService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions},Milvaion.Application.Interfaces.IDispatcherControlService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Background service that dispatches scheduled jobs from Redis to RabbitMQ.
             </summary>
@@ -227,9 +227,9 @@
             <param name="cancellationToken"></param>
             <returns></returns>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.DispatchJobToRabbitMQAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.DispatchJobToRabbitMQAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
             <summary>
-            Dispatches a job to RabbitMQ (worker checks already done).
+            Dispatches a job to RabbitMQ (worker checks and lock already acquired).
             </summary>
             <returns>True if successfully published, false otherwise</returns>
         </member>
@@ -245,6 +245,7 @@
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.PerformStartupRecoveryAsync(System.Threading.CancellationToken)">
             <summary>
             Performs startup recovery (zombie detection and Redis repopulation).
+            Uses distributed lock to ensure only one instance performs recovery at a time (multi-instance safe).
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.WaitForDatabaseReadyAsync(System.Threading.CancellationToken)">
@@ -276,6 +277,19 @@
         <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.ProcessBatchAsync(System.Threading.CancellationToken)">
             <summary>
             Process batch of logs - single DB transaction for all logs.
+            Uses optimistic concurrency control to prevent lost updates when multiple instances run concurrently.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.SafeAckAsync(System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Safe ACK operation that checks channel state before acknowledgment.
+            Prevents "Already closed" exceptions during shutdown.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.SafeNackAsync(System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Safe NACK operation that checks channel state before negative acknowledgment.
+            Prevents "Already closed" exceptions during shutdown.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.StopAsync(System.Threading.CancellationToken)">
@@ -290,7 +304,7 @@
             Consumes job status updates from RabbitMQ and updates JobOccurrence records.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes job status updates from RabbitMQ and updates JobOccurrence records.
             </summary>
@@ -312,6 +326,18 @@
             Increments failure count on failure, resets on success, auto-disables if threshold reached.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.SafeAckAsync(System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Safe ACK operation that checks channel state before acknowledgment.
+            Prevents "Already closed" exceptions during shutdown.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.SafeNackAsync(System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Safe NACK operation that checks channel state before negative acknowledgment.
+            Prevents "Already closed" exceptions during shutdown.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.StopAsync(System.Threading.CancellationToken)">
             <summary>
             Stops the background service and cleans up resources.
@@ -331,7 +357,7 @@
             Stores runtime state in Redis for high performance.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes worker registration and heartbeat messages from RabbitMQ.
             Stores runtime state in Redis for high performance.
@@ -347,6 +373,18 @@
             <param name="stoppingToken"></param>
             <returns></returns>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeAckAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Safe ACK operation that checks channel state before acknowledgment.
+            Prevents "Already closed" exceptions during shutdown.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeNackAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Threading.CancellationToken)">
+            <summary>
+            Safe NACK operation that checks channel state before negative acknowledgment.
+            Prevents "Already closed" exceptions during shutdown.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.StopAsync(System.Threading.CancellationToken)">
             <summary>
             Stops the background service and cleans up resources.
@@ -354,13 +392,24 @@
             <param name="cancellationToken"></param>
             <returns></returns>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.CleanupZombieWorkersAsync(System.Threading.CancellationToken)">
+            <summary>
+            Background task that detects dead worker instances (no heartbeat) and cleans up their consumer counts.
+            Runs every 30 seconds to detect workers that haven't sent heartbeat for 60+ seconds.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.TryGetService``1(System.Threading.CancellationToken)">
+            <summary>
+            Helper to resolve services from DI container (for graceful shutdown cleanup).
+            </summary>
+        </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService">
             <summary>
             Background service that detects and cleans up zombie occurrences (Queued status for too long).
             Prevents job blocking when occurrences are created but never consumed by workers.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ZombieOccurrenceDetectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ZombieOccurrenceDetectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Background service that detects and cleans up zombie occurrences (Queued status for too long).
             Prevents job blocking when occurrences are created but never consumed by workers.
@@ -546,6 +595,23 @@
             <summary>
             Assembly instance.
             </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.InternalJobs.RedisStatSyncJob">
+            <summary>
+            Syncs redis statistics from database periodically.
+            </summary>
+            <param name="scheduleConfig"></param>
+            <param name="scopeFactory"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InternalJobs.RedisStatSyncJob.#ctor(Milvasoft.JobScheduling.IScheduleConfig,Microsoft.Extensions.DependencyInjection.IServiceScopeFactory)">
+            <summary>
+            Syncs redis statistics from database periodically.
+            </summary>
+            <param name="scheduleConfig"></param>
+            <param name="scopeFactory"></param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InternalJobs.RedisStatSyncJob.ExecuteAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.LazyImpl.MilvaionLazy`1">
             <summary>
@@ -895,6 +961,34 @@
             <param name="cancellationToken">Cancellation token</param>
             <returns>Database statistics</returns>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetTableSizesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets top tables by size.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Table sizes</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetIndexEfficiencyAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets index efficiency statistics (unused/underutilized indexes).
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Index efficiency statistics</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetCacheHitRatioAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets database cache hit ratio.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Cache hit ratio statistics</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.AdminService.GetTableBloatAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets table bloat detection (VACUUM recommendation).
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Table bloat statistics</returns>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.AdminService.GetBackgroundServiceMemoryDiagnostics">
             <summary>
             Gets background service memory diagnostics.
@@ -912,6 +1006,21 @@
         <member name="T:Milvaion.Infrastructure.Services.TableSizeRawDto">
             <summary>
             Raw DTO for table size query (matches PostgreSQL column names).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.IndexStatsRawDto">
+            <summary>
+            Raw DTO for index stats query (matches PostgreSQL column names).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.CacheHitRatioRawDto">
+            <summary>
+            Raw DTO for cache hit ratio query (matches PostgreSQL column names).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.BloatedTableRawDto">
+            <summary>
+            Raw DTO for bloated table query (matches PostgreSQL column names).
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.OccurrenceGrowthRawDto">
@@ -1391,6 +1500,23 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.ExtendLockAsync(System.Guid,System.String,System.TimeSpan,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.TryAcquireLocksBulkAsync(System.Collections.Generic.List{System.Guid},System.String,System.TimeSpan,System.Threading.CancellationToken)">
+            <summary>
+            Tries to acquire locks for multiple jobs atomically using Lua script (bulk optimization).
+            Single Redis round-trip for all locks - massive performance improvement for high-throughput scenarios.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.ReleaseLocksBulkAsync(System.Collections.Generic.List{System.Guid},System.String,System.Threading.CancellationToken)">
+            <summary>
+            Releases multiple locks atomically using Lua script (bulk optimization).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.TryAcquireNamedLockAsync(System.String,System.String,System.TimeSpan,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.ReleaseNamedLockAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="T:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService">
             <summary>
             Redis-based job scheduler implementation using ZSET.
@@ -1405,6 +1531,9 @@
             <summary>
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService"/> class.
             </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.MarkAllRunningJobsForWorkerCompletedAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.AddToScheduledSetAsync(System.Guid,System.DateTime,System.Threading.CancellationToken)">
             <inheritdoc/>
@@ -1483,6 +1612,58 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetRunningJobIdsAsync(System.Collections.Generic.IEnumerable{System.Guid},System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.RedisStatsService">
+            <summary>
+            Redis-based real-time statistics service.
+            Uses atomic INCR/DECR operations for thread-safe counters.
+            Multi-instance safe with Lua scripts and distributed locks.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.#ctor(StackExchange.Redis.IConnectionMultiplexer,Milvaion.Infrastructure.Services.Redis.IRedisCircuitBreaker,Microsoft.Extensions.Logging.ILoggerFactory)">
+            <summary>
+            Redis-based real-time statistics service.
+            Uses atomic INCR/DECR operations for thread-safe counters.
+            Multi-instance safe with Lua scripts and distributed locks.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.IncrementTotalOccurrencesAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.IncrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.DecrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.UpdateStatusCountersAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.GetStatisticsAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.ResetCountersAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.SyncCountersFromDatabaseAsync(Milvasoft.DataAccess.EfCore.Bulk.IMilvaBulkDbContextBase,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.TrackExecutionAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.TrackDurationAsync(System.Int64,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.GetExecutionsPerMinuteAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.GetAverageDurationAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Redis.StatsSyncDto">
+            <summary>
+            DTO for stats sync query result.
+            </summary>
+        </member>
         <member name="T:Milvaion.Infrastructure.Services.Redis.RedisWorkerService">
             <summary>
             Redis-based worker tracking implementation.
@@ -1534,6 +1715,9 @@
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.RemoveWorkerAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.RemoveWorkerInstanceAsync(System.String,System.String,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.DetectZombieWorkersAsync(System.TimeSpan,System.Threading.CancellationToken)">

@@ -369,6 +369,12 @@ public class DatabaseMigrator(IServiceProvider serviceProvider)
             if (migrationLog?.MigrationCompleted ?? false)
                 return Response<string>.Error("Already initialized!");
 
+            var indexesSql = await File.ReadAllTextAsync(Path.Combine(GlobalConstant.SqlFilesPath, "indexes.sql"), cancellationToken);
+
+            _dbContext.Database.SetCommandTimeout(TimeSpan.FromMinutes(5));
+
+            await _dbContext.Database.ExecuteSqlRawAsync(indexesSql, cancellationToken);
+
             var rootPass = await SeedDefaultDataAsync(rootPassword, cancellationToken: cancellationToken);
 
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -414,8 +420,10 @@ public class DatabaseMigrator(IServiceProvider serviceProvider)
 
             return Response<string>.Success(rootPass);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Console.WriteLine("Database initialization failed: " + ex.Message);
+
             return Response<string>.Error("Already initialized!");
         }
     }

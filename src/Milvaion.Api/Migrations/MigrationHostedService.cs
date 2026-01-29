@@ -51,7 +51,7 @@ public class MigrationHostedService(IServiceScopeFactory scopeFactory) : IHosted
 
         try
         {
-            Log.Logger.Information("Applying migrations..");
+            Log.Logger.Information("Database initialization started..");
 
             var pendingMigrations = await context.Database.GetPendingMigrationsAsync(cancellationToken);
 
@@ -67,11 +67,15 @@ public class MigrationHostedService(IServiceScopeFactory scopeFactory) : IHosted
             var isTestEnv = Environment.GetEnvironmentVariable("IsTestEnv");
 
             if (string.IsNullOrWhiteSpace(isTestEnv) || isTestEnv == "false")
-                await migrator.InitDatabaseAsync(permissionManager, rootPassword, cancellationToken);
+            {
+                var result = await migrator.InitDatabaseAsync(permissionManager, rootPassword, cancellationToken);
+
+                Console.WriteLine("Database initialization result: " + string.Join('/', result.Messages.Select(i => i.Message)));
+            }
         }
         catch (Exception ex)
         {
-            Log.Logger.Error(ex, "An error occurred while applying migrations.");
+            Log.Logger.Error(ex, "An error occurred while database initialization.");
         }
     }
 

@@ -30,6 +30,28 @@ public class WorkerLogMessage
 }
 
 /// <summary>
+/// Batch message model for multiple worker logs sent in a single RabbitMQ message.
+/// Used for high-throughput scenarios to reduce message overhead.
+/// </summary>
+public class WorkerLogBatchMessage
+{
+    /// <summary>
+    /// Array of log messages in this batch.
+    /// </summary>
+    public List<WorkerLogMessage> Logs { get; set; } = [];
+
+    /// <summary>
+    /// Timestamp when this batch was created (UTC).
+    /// </summary>
+    public DateTime BatchTimestamp { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Number of logs in this batch.
+    /// </summary>
+    public int Count => Logs?.Count ?? 0;
+}
+
+/// <summary>
 /// Message model for job status updates sent from worker to producer via RabbitMQ.
 /// Published to job_status_updates_queue.
 /// </summary>

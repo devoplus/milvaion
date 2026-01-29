@@ -86,4 +86,10 @@ public class WorkerHeartbeatMessage
     /// Heartbeat timestamp.
     /// </summary>
     public DateTime Timestamp { get; set; }
+
+    /// <summary>
+    /// Indicates that this worker instance is shutting down gracefully.
+    /// When true, server should immediately cleanup consumer counts and running jobs.
+    /// </summary>
+    public bool IsStopping { get; set; }
 }

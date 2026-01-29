@@ -324,6 +324,34 @@
             <param name="cancellationToken">Cancellation token</param>
             <returns>Database statistics</returns>
         </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetTableSizesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets top tables by size.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Table sizes</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetIndexEfficiencyAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets index efficiency statistics (unused/underutilized indexes).
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Index efficiency statistics</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetCacheHitRatioAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets database cache hit ratio.
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Cache hit ratio statistics</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.AdminController.GetTableBloatAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets table bloat detection (VACUUM recommendation).
+            </summary>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Table bloat statistics</returns>
+        </member>
         <member name="M:Milvaion.Api.Controllers.AdminController.EmergencyStop(System.String)">
             <summary>
             Emergency stop. Disables the job dispatcher at runtime.

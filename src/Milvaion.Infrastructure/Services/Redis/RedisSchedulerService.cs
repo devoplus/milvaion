@@ -39,6 +39,90 @@ public class RedisSchedulerService : IRedisSchedulerService
     }
 
     /// <inheritdoc/>
+    public Task<long> RemoveAllRunningJobsForWorkerAsync(string workerId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(workerId))
+                        return 0L;
+
+                    // Strategy: We store cached job details keyed by job:{jobId}. Each cached job contains WorkerId.
+                    // Scan known cached keys (approx) is expensive. Instead, we maintain a separate Redis set which maps workerId -> running jobIds.
+                    // If such set does not exist, fallback to scanning running_jobs and try to inspect cached job details.
+
+                    var workerRunningKey = $"{_options.KeyPrefix}running_jobs_by_worker:{workerId}";
+
+                    // If worker-specific set exists, remove those members from global running set and return count
+                    if (await _database.KeyExistsAsync(workerRunningKey))
+                    {
+                        var members = await _database.SetMembersAsync(workerRunningKey);
+
+                        if (members.Length == 0)
+                        {
+                            await _database.KeyDeleteAsync(workerRunningKey);
+                            return 0L;
+                        }
+
+                        // Remove each from global running set using pipeline
+                        var redisValues = members.Select(m => (RedisValue)m.ToString()).ToArray();
+                        var removed = await _database.SetRemoveAsync(RunningJobsKey, redisValues);
+
+                        // Delete worker-specific set
+                        await _database.KeyDeleteAsync(workerRunningKey);
+
+                        _logger.Debug("Removed {Count} running jobs for worker {WorkerId} from Redis running set", removed, workerId);
+                        return removed;
+                    }
+
+                    // Fallback: iterate running_jobs set and check cached job details for workerId match
+                    var runningMembers = await _database.SetMembersAsync(RunningJobsKey);
+
+                    if (runningMembers.Length == 0)
+                        return 0L;
+
+                    var toRemove = new List<RedisValue>();
+
+                    foreach (var member in runningMembers)
+                    {
+                        if (!Guid.TryParse(member.ToString(), out var jobId))
+                            continue;
+
+                        // Cached job key pattern: job:{jobId}
+                        var cachedKey = $"{_options.KeyPrefix}job:{jobId}";
+
+                        if (!await _database.KeyExistsAsync(cachedKey))
+                            continue;
+
+                        var workerField = await _database.HashGetAsync(cachedKey, "WorkerId");
+
+                        if (!workerField.IsNullOrEmpty && workerField.ToString() == workerId)
+                        {
+                            toRemove.Add(member);
+                        }
+                    }
+
+                    if (toRemove.Count > 0)
+                    {
+                        var removed = await _database.SetRemoveAsync(RunningJobsKey, [.. toRemove]);
+                        _logger.Debug("Fallback removed {Count} running jobs for worker {WorkerId}", removed, workerId);
+                        return removed;
+                    }
+
+                    return 0L;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to clean running jobs for worker {WorkerId}", workerId);
+                    return 0L;
+                }
+            },
+            fallback: async () => 0L,
+            operationName: "RemoveAllRunningJobsForWorkerAsync",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
     public Task<bool> AddToScheduledSetAsync(Guid jobId, DateTime executeAt, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
@@ -49,7 +133,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                     var added = await _database.SortedSetAddAsync(_options.ScheduledJobsKey, jobId.ToString(), score);
 
                     if (added)
-                        _logger.Warning("Job {JobId} added to Redis ZSET with score {Score} (ExecuteAt: {ExecuteAt})", jobId, score, executeAt);
+                        _logger.Debug("Job {JobId} added to Redis ZSET with score {Score} (ExecuteAt: {ExecuteAt})", jobId, score, executeAt);
 
                     return added;
                 }
@@ -165,7 +249,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                     // ZADD updates the score if member exists
                     var updated = await _database.SortedSetAddAsync(_options.ScheduledJobsKey, jobId.ToString(), newScore);
 
-                    _logger.Information("Job {JobId} schedule updated to {NewExecuteAt} (score: {NewScore})", jobId, newExecuteAt, newScore);
+                    _logger.Debug("Job {JobId} schedule updated to {NewExecuteAt} (score: {NewScore})", jobId, newExecuteAt, newScore);
 
                     return true;
                 }
@@ -305,12 +389,13 @@ public class RedisSchedulerService : IRedisSchedulerService
                         new("IsActive", job.IsActive.ToString()),
                         new("ConcurrentExecutionPolicy", ((int)job.ConcurrentExecutionPolicy).ToString()),
                         new("WorkerId", job.WorkerId ?? string.Empty),
-                        new("RoutingPattern", job.RoutingPattern ?? string.Empty), // ADDED
+                        new("RoutingPattern", job.RoutingPattern ?? string.Empty),
                         new("ZombieTimeoutMinutes", job.ZombieTimeoutMinutes?.ToString() ?? string.Empty),
                         new("ExecutionTimeoutSeconds", job.ExecutionTimeoutSeconds?.ToString() ?? string.Empty),
                         new("Version", job.Version.ToString()),
                         new("CreationDate", job.CreationDate?.ToString("O") ?? string.Empty),
-                        new("CreatorUserName", job.CreatorUserName ?? string.Empty)
+                        new("CreatorUserName", job.CreatorUserName ?? string.Empty),
+                        new("ExecuteAt", job.ExecuteAt.ToString("O"))
                     };
 
                     // HMSET + EXPIRE in transaction
@@ -546,7 +631,10 @@ public class RedisSchedulerService : IRedisSchedulerService
                     ? version
                     : 1,
                 CreationDate = string.IsNullOrEmpty(dict.GetValueOrDefault("CreationDate")) ? null : DateTime.Parse(dict["CreationDate"]),
-                CreatorUserName = string.IsNullOrEmpty(dict.GetValueOrDefault("CreatorUserName")) ? null : dict["CreatorUserName"]
+                CreatorUserName = string.IsNullOrEmpty(dict.GetValueOrDefault("CreatorUserName")) ? null : dict["CreatorUserName"],
+                ExecuteAt = dict.TryGetValue("ExecuteAt", out var executeAtStr) && DateTime.TryParse(executeAtStr, out var executeAt)
+                    ? executeAt
+                    : DateTime.MinValue
             };
         }
         catch (Exception ex)

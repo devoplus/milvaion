@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import jobService from '../../services/jobService'
-import { formatDateTime } from '../../utils/dateUtils'
 import CronDisplay from '../../components/CronDisplay'
 import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
@@ -178,23 +177,9 @@ function JobList() {
     localStorage.setItem('jobListViewMode', newMode)
   }
 
-  const getLatestStatusBadge = (status) => {
-    if (status === null || status === undefined) return null
-
-    const statusMap = {
-      0: { icon: 'schedule', label: 'Pending', className: 'status-pending' },
-      1: { icon: 'sync', label: 'Running', className: 'status-running' },
-      2: { icon: 'check_circle', label: 'Success', className: 'status-success' },
-      3: { icon: 'cancel', label: 'Failed', className: 'status-failed' },
-      4: { icon: 'warning', label: 'Cancelled', className: 'status-cancelled' },
-    }
-
-    const statusInfo = statusMap[status] || { icon: 'help', label: `Status ${status}`, className: 'status-unknown' }
-    return (
-      <div className={`latest-status ${statusInfo.className}`}>
-        <Icon name={statusInfo.icon} size={16} />
-      </div>
-    )
+  const truncateText = (text, maxLength = 50) => {
+    if (!text || text.length <= maxLength) return text
+    return text.substring(0, maxLength) + '...'
   }
 
   if (loading) return <div className="loading">Loading jobs...</div>
@@ -398,23 +383,12 @@ function JobList() {
                   </div>
 
                   <div className="job-card-body">
-                    {job.latestRun ? (
-                      <div className="job-info-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          {getLatestStatusBadge(job.latestStatus)}
-                          <span className="info-label">Latest Run</span>
-                        </div>
-
-                        <div className="info-value latest-run">
-                          <span className="run-date">{formatDateTime(job.latestRun)}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="job-info-row">
-                        <span className="info-label">Latest Run</span>
-                        <span className="info-value never-run">Never run</span>
-                      </div>
-                    )}
+                    <div className="job-info-row">
+                      <span className="info-label">Description</span>
+                      <span className="info-value job-description">
+                        {job.description ? truncateText(job.description, 20) : <span className="no-description">No description</span>}
+                      </span>
+                    </div>
 
                     <div className="job-info-row">
                       <span className="info-label">Type</span>
@@ -448,8 +422,7 @@ function JobList() {
                     <th>Name</th>
                     <th>Type</th>
                     <th>Schedule</th>
-                    <th>Latest Run</th>
-                    <th>Latest Status</th>
+                    <th>Description</th>
                     <th>Concurrent Policy</th>
                     <th>Actions</th>
                   </tr>
@@ -483,16 +456,9 @@ function JobList() {
                         <CronDisplay expression={job.cronExpression} showTooltip={false} />
                       </td>
                       <td>
-                        {job.latestRun ? (
-                          <span className="latest-run-date">{formatDateTime(job.latestRun)}</span>
-                        ) : (
-                          <span className="never-run">Never run</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="table-status-cell">
-                          {getLatestStatusBadge(job.latestStatus)}
-                        </div>
+                        <span className="job-description-cell" title={job.description || 'No description'}>
+                          {job.description ? truncateText(job.description, 20) : <span className="no-description">-</span>}
+                        </span>
                       </td>
                       <td>
                         <span className="concurrent-policy-text">

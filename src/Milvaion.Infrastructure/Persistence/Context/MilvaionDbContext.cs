@@ -43,6 +43,7 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
     public DbSet<ScheduledJob> ScheduledJobs { get; set; }
     public DbSet<JobOccurrence> JobOccurrences { get; set; }
     public DbSet<FailedOccurrence> FailedOccurrences { get; set; }
+    public DbSet<JobOccurrenceLog> JobOccurrenceLogs { get; set; }
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
@@ -81,6 +82,7 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
     {
         modelBuilder.Entity<ScheduledJob>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<JobOccurrence>().Property(x => x.Id).ValueGeneratedNever();
+        modelBuilder.Entity<JobOccurrenceLog>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<FailedOccurrence>().Property(x => x.Id).ValueGeneratedNever();
 
         base.OnModelCreating(modelBuilder);

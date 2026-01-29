@@ -19,6 +19,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
                                              IRedisSchedulerService redisScheduler,
                                              IRedisWorkerService redisWorkerService,
+                                             IRedisStatsService redisStatsService,
                                              IOptions<ZombieOccurrenceDetectorOptions> options,
                                              ILoggerFactory loggerFactory,
                                              IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
@@ -26,8 +27,17 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly IRedisSchedulerService _redisScheduler = redisScheduler;
     private readonly IRedisWorkerService _redisWorkerService = redisWorkerService;
+    private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<ZombieOccurrenceDetectorService>();
     private readonly ZombieOccurrenceDetectorOptions _options = options.Value;
+    private readonly static List<string> _updatePropNames =
+    [
+        nameof(JobOccurrence.Status),
+        nameof(JobOccurrence.StatusChangeLogs),
+        nameof(JobOccurrence.Exception),
+        nameof(JobOccurrence.EndTime),
+        nameof(JobOccurrence.DurationMs)
+    ];
 
     /// <inheritdoc/>
     protected override string ServiceName => "ZombieOccurrenceDetector";
@@ -70,16 +80,6 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         _logger.Information("Zombie occurrence detection stopped");
     }
 
-    private readonly static List<string> _updatePropNames =
-    [
-        nameof(JobOccurrence.Status),
-        nameof(JobOccurrence.StatusChangeLogs),
-        nameof(JobOccurrence.Logs),
-        nameof(JobOccurrence.Exception),
-        nameof(JobOccurrence.EndTime),
-        nameof(JobOccurrence.DurationMs)
-    ];
-
     /// <summary>
     /// Detects and cleans up problematic occurrences (zombie queued + lost running).
     /// </summary>
@@ -89,14 +89,17 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
         var allProblematicOccurrences = new List<JobOccurrence>();
+        var logsToInsert = new List<JobOccurrenceLog>();
 
         // 1. Detect zombie Queued occurrences
-        var zombieQueued = await DetectZombieQueuedAsync(dbContext, cancellationToken);
+        var (zombieQueued, zombieQueuedLogs) = await DetectZombieQueuedAsync(dbContext, cancellationToken);
         allProblematicOccurrences.AddRange(zombieQueued);
+        logsToInsert.AddRange(zombieQueuedLogs);
 
         // 2. Detect lost Running occurrences
-        var lostRunning = await DetectLostRunningAsync(dbContext, cancellationToken);
+        var (lostRunning, lostRunningLogs) = await DetectLostRunningAsync(dbContext, cancellationToken);
         allProblematicOccurrences.AddRange(lostRunning);
+        logsToInsert.AddRange(lostRunningLogs);
 
         if (allProblematicOccurrences.Count == 0)
             return;
@@ -107,8 +110,17 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _updatePropNames;
         }, cancellationToken: cancellationToken);
 
+        // Bulk insert logs
+        if (logsToInsert.Count > 0)
+        {
+            var jobOccurrenceLogRepository = scope.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
+            await jobOccurrenceLogRepository.BulkAddAsync(logsToInsert, cancellationToken: cancellationToken);
+            _logger.Debug("Bulk inserted {Count} zombie/lost occurrence logs", logsToInsert.Count);
+        }
+
         // Single event publish for all
         var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
+
         await eventPublisher.PublishOccurrenceUpdatedAsync(allProblematicOccurrences, _logger, cancellationToken);
 
         _logger.Debug("Cleaned up {ZombieCount} zombie + {LostCount} lost = {TotalCount} problematic occurrences",
@@ -118,7 +130,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
     /// <summary>
     /// Detects Queued occurrences that exceeded timeout and marks them as Unknown.
     /// </summary>
-    private async Task<List<JobOccurrence>> DetectZombieQueuedAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
+    private async Task<(List<JobOccurrence> occurrences, List<JobOccurrenceLog> logs)> DetectZombieQueuedAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
     {
         var queuedOccurrences = await dbContext.JobOccurrences
                                                .Where(o => o.Status == JobOccurrenceStatus.Queued)
@@ -126,9 +138,10 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
                                                .ToListAsync(cancellationToken);
 
         if (queuedOccurrences.Count == 0)
-            return [];
+            return ([], []);
 
         var zombieOccurrences = new List<JobOccurrence>();
+        var zombieLogs = new List<JobOccurrenceLog>();
 
         foreach (var occurrence in queuedOccurrences)
         {
@@ -151,8 +164,11 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             occurrence.Exception = $"Zombie occurrence detected - stuck in Queued status for {stuckDuration:F1} minutes (timeout: {timeoutMinutes} minutes). Likely causes: Worker never consumed the message, RabbitMQ queue issue, or worker was down during dispatch.";
             occurrence.EndTime = DateTime.UtcNow;
             occurrence.DurationMs = (long)(DateTime.UtcNow - occurrence.CreatedAt).TotalMilliseconds;
-            occurrence.Logs.Add(new OccurrenceLog
+
+            zombieLogs.Add(new JobOccurrenceLog
             {
+                Id = Guid.CreateVersion7(),
+                OccurrenceId = occurrence.Id,
                 Timestamp = DateTime.UtcNow,
                 Level = "Error",
                 Message = $"Zombie occurrence detected and marked as Unknown (stuck in Queued status since {occurrence.CreatedAt:HH:mm:ss})",
@@ -168,19 +184,32 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
 
             await _redisScheduler.MarkJobAsCompletedAsync(occurrence.JobId, cancellationToken);
 
+            // Update stats counters (Queued -> Unknown)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _redisStatsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Queued, JobOccurrenceStatus.Unknown, cancellationToken);
+                }
+                catch
+                {
+                    // Non-critical
+                }
+            }, CancellationToken.None);
+
             zombieOccurrences.Add(occurrence);
 
             _logger.Debug("Zombie occurrence {OccurrenceId} (Job: {JobId}) marked as Unknown - stuck for {Duration:F1}m",
                 occurrence.Id, occurrence.JobId, stuckDuration);
         }
 
-        return zombieOccurrences;
+        return (zombieOccurrences, zombieLogs);
     }
 
     /// <summary>
     /// Detects Running occurrences that lost heartbeat and marks them as Unknown.
     /// </summary>
-    private async Task<List<JobOccurrence>> DetectLostRunningAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
+    private async Task<(List<JobOccurrence> occurrences, List<JobOccurrenceLog> logs)> DetectLostRunningAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
     {
         var heartbeatThreshold = DateTime.UtcNow.AddMinutes(-_options.ZombieTimeoutMinutes);
 
@@ -190,7 +219,9 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
                                              .ToListAsync(cancellationToken);
 
         if (lostOccurrences.Count == 0)
-            return [];
+            return ([], []);
+
+        var lostLogs = new List<JobOccurrenceLog>();
 
         foreach (var occurrence in lostOccurrences)
         {
@@ -209,8 +240,11 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             occurrence.EndTime = DateTime.UtcNow;
             occurrence.DurationMs = occurrence.StartTime.HasValue ? (long)(DateTime.UtcNow - occurrence.StartTime.Value).TotalMilliseconds : null;
             occurrence.Exception = $"Job lost heartbeat after {_options.ZombieTimeoutMinutes}m. Worker status: {workerStatus}. Possible causes: Worker crashed, RabbitMQ connection lost, or network failure.";
-            occurrence.Logs.Add(new OccurrenceLog
+
+            lostLogs.Add(new JobOccurrenceLog
             {
+                Id = Guid.CreateVersion7(),
+                OccurrenceId = occurrence.Id,
                 Timestamp = DateTime.UtcNow,
                 Level = "Warning",
                 Message = $"Job marked as Unknown due to lost heartbeat (timeout: {_options.ZombieTimeoutMinutes}m)",
@@ -228,6 +262,6 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             _logger.Debug("Job {JobId} (Occurrence: {OccurrenceId}) marked as Unknown - no heartbeat since {LastHeartbeat}", occurrence.JobId, occurrence.Id, occurrence.LastHeartbeat?.ToString("O") ?? "never");
         }
 
-        return lostOccurrences;
+        return (lostOccurrences, lostLogs);
     }
 }
