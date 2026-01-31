@@ -1029,8 +1029,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 }
             }
 
-            _logger.Information("Startup recovery completed. Redis ZSET: {Added} added, {Updated} updated. Cache: {Cached} warmed. Total active jobs: {Total}",
-                addedCount, updatedCount, cachedCount, activeJobs.Count);
+            _logger.Information("Startup recovery completed. Redis ZSET: {Added} added, {Updated} updated. Cache: {Cached} warmed. Total active jobs: {Total}", addedCount, updatedCount, cachedCount, activeJobs.Count);
         }
         finally
         {
@@ -1043,7 +1042,11 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
             var redisStatsService = _serviceProvider.GetRequiredService<IRedisStatsService>();
 
-            await redisStatsService.SyncCountersFromDatabaseAsync(dbContext, cancellationToken);
+            _ = Task.Run(async () =>
+            {
+                await redisStatsService.SyncCountersFromDatabaseAsync(dbContext, cancellationToken);
+            }, cancellationToken);
+
         }
     }
 

@@ -199,8 +199,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
 
             zombieOccurrences.Add(occurrence);
 
-            _logger.Debug("Zombie occurrence {OccurrenceId} (Job: {JobId}) marked as Unknown - stuck for {Duration:F1}m",
-                occurrence.Id, occurrence.JobId, stuckDuration);
+            _logger.Debug("Zombie occurrence {OccurrenceId} (Job: {JobId}) marked as Unknown - stuck for {Duration:F1}m", occurrence.Id, occurrence.JobId, stuckDuration);
         }
 
         return (zombieOccurrences, zombieLogs);
@@ -258,6 +257,19 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             });
 
             await _redisScheduler.MarkJobAsCompletedAsync(occurrence.JobId, cancellationToken);
+
+            // Update stats counters (Running -> Unknown)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _redisStatsService.UpdateStatusCountersAsync(JobOccurrenceStatus.Running, JobOccurrenceStatus.Unknown, cancellationToken);
+                }
+                catch
+                {
+                    // Non-critical
+                }
+            }, CancellationToken.None);
 
             _logger.Debug("Job {JobId} (Occurrence: {OccurrenceId}) marked as Unknown - no heartbeat since {LastHeartbeat}", occurrence.JobId, occurrence.Id, occurrence.LastHeartbeat?.ToString("O") ?? "never");
         }

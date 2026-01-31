@@ -29,6 +29,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     private const string _failedKey = _keyPrefix + "failed";
     private const string _cancelledKey = _keyPrefix + "cancelled";
     private const string _timedOutKey = _keyPrefix + "timedout";
+    private const string _unknownKey = _keyPrefix + "unknown";
     private const string _timelineKey = "stats:timeline"; // ZSET for time-based queries
     private const string _durationSumKey = _keyPrefix + "duration_sum"; // Total duration in ms
     private const string _durationCountKey = _keyPrefix + "duration_count"; // Count of completed jobs with duration
@@ -181,7 +182,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             var keys = new RedisKey[]
             {
                 _totalKey, _queuedKey, _runningKey, _completedKey, _failedKey, _cancelledKey, _timedOutKey,
-                _durationSumKey, _durationCountKey
+                _unknownKey, _durationSumKey, _durationCountKey
             };
             var values = await _db.StringGetAsync(keys);
 
@@ -194,8 +195,9 @@ public class RedisStatsService(IConnectionMultiplexer redis,
                 ["Failed"] = values[4].HasValue ? (long)values[4] : 0,
                 ["Cancelled"] = values[5].HasValue ? (long)values[5] : 0,
                 ["TimedOut"] = values[6].HasValue ? (long)values[6] : 0,
-                ["DurationSum"] = values[7].HasValue ? (long)values[7] : 0,
-                ["DurationCount"] = values[8].HasValue ? (long)values[8] : 0
+                ["Unknown"] = values[7].HasValue ? (long)values[7] : 0,
+                ["DurationSum"] = values[8].HasValue ? (long)values[8] : 0,
+                ["DurationCount"] = values[9].HasValue ? (long)values[9] : 0
             };
         },
         fallback: async () => [],
@@ -210,7 +212,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             var keys = new RedisKey[]
             {
                 _totalKey, _queuedKey, _runningKey, _completedKey, _failedKey, _cancelledKey, _timedOutKey,
-                _durationSumKey, _durationCountKey, _timelineKey
+                _unknownKey, _durationSumKey, _durationCountKey, _timelineKey
             };
             await _db.KeyDeleteAsync(keys);
             _logger.Information("All statistics counters reset (including timeline and duration)");
@@ -252,6 +254,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
                          COUNT(*) FILTER (WHERE ""Status"" = 3) AS ""FailedJobs"",
                          COUNT(*) FILTER (WHERE ""Status"" = 4) AS ""CancelledJobs"",
                          COUNT(*) FILTER (WHERE ""Status"" = 5) AS ""TimedOutJobs"",
+                         COUNT(*) FILTER (WHERE ""Status"" = 6) AS ""UnknownJobs"",
                          COALESCE(SUM(""DurationMs"") FILTER (WHERE ""Status"" = 2 AND ""DurationMs"" IS NOT NULL), 0) AS ""TotalDuration"",
                          COUNT(*) FILTER (WHERE ""Status"" = 2 AND ""DurationMs"" IS NOT NULL) AS ""DurationCount""
                      FROM ""JobOccurrences""
@@ -269,6 +272,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
                      s.""FailedJobs"",
                      s.""CancelledJobs"",
                      s.""TimedOutJobs"",
+                     s.""UnknownJobs"",
                      s.""TotalDuration"",
                      s.""DurationCount"",
                      r.""RecentCount""
@@ -282,8 +286,8 @@ public class RedisStatsService(IConnectionMultiplexer redis,
                 return;
             }
 
-            // Calculate completed: Total - (Queued + Running + Failed + Cancelled + TimedOut)
-            var completed = result.TotalExecutions - result.QueuedJobs - result.RunningJobs - result.FailedJobs - result.CancelledJobs - result.TimedOutJobs;
+            // Calculate completed: Total - (Queued + Running + Failed + Cancelled + TimedOut + Unknown)
+            var completed = result.TotalExecutions - result.QueuedJobs - result.RunningJobs - result.FailedJobs - result.CancelledJobs - result.TimedOutJobs - result.UnknownJobs;
             if (completed < 0)
                 completed = 0;
 
@@ -294,7 +298,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             var keys = new RedisKey[]
             {
                 _totalKey, _queuedKey, _runningKey, _completedKey, _failedKey, _cancelledKey, _timedOutKey,
-                _durationSumKey, _durationCountKey, _timelineKey
+                _unknownKey, _durationSumKey, _durationCountKey, _timelineKey
             };
             _ = transaction.KeyDeleteAsync(keys);
 
@@ -306,13 +310,14 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             _ = transaction.StringSetAsync(_failedKey, result.FailedJobs);
             _ = transaction.StringSetAsync(_cancelledKey, result.CancelledJobs);
             _ = transaction.StringSetAsync(_timedOutKey, result.TimedOutJobs);
+            _ = transaction.StringSetAsync(_unknownKey, result.UnknownJobs);
             _ = transaction.StringSetAsync(_durationSumKey, result.TotalDuration);
             _ = transaction.StringSetAsync(_durationCountKey, result.DurationCount);
 
             await transaction.ExecuteAsync();
 
-            _logger.Information("Stats synced (last 7 days). Total: {Total}, Completed: {Completed}, Failed: {Failed}, AvgDuration: {AvgDuration}ms",
-                result.TotalExecutions, completed, result.FailedJobs,
+            _logger.Information("Stats synced (last 7 days). Total: {Total}, Completed: {Completed}, Failed: {Failed}, Unknown: {Unknown}, AvgDuration: {AvgDuration}ms",
+                result.TotalExecutions, completed, result.FailedJobs, result.UnknownJobs,
                 result.DurationCount > 0 ? result.TotalDuration / result.DurationCount : 0);
         }
         catch (Exception ex)
@@ -434,6 +439,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         JobOccurrenceStatus.Failed => _failedKey,
         JobOccurrenceStatus.Cancelled => _cancelledKey,
         JobOccurrenceStatus.TimedOut => _timedOutKey,
+        JobOccurrenceStatus.Unknown => _unknownKey,
         _ => null
     };
 }
@@ -449,6 +455,7 @@ internal class StatsSyncDto
     public long FailedJobs { get; set; }
     public long CancelledJobs { get; set; }
     public long TimedOutJobs { get; set; }
+    public long UnknownJobs { get; set; }
     public long TotalDuration { get; set; }
     public long DurationCount { get; set; }
     public long RecentCount { get; set; }
