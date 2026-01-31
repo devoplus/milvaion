@@ -25,7 +25,7 @@ public interface IRedisWorkerService
     /// <param name="updates">List of worker heartbeat updates (WorkerId, InstanceId, CurrentJobs)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Number of successfully updated instances</returns>
-    Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs)> updates, CancellationToken cancellationToken = default);
+    Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)> updates, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets worker information by WorkerId from Redis.
@@ -68,6 +68,14 @@ public interface IRedisWorkerService
     /// Called when a job completes/fails/times out.
     /// </summary>
     Task DecrementConsumerJobCountAsync(string workerId, string jobType, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates consumer job counts in batch (net change calculation).
+    /// Significantly more efficient than individual increment/decrement calls.
+    /// </summary>
+    /// <param name="updates">Dictionary of consumer keys (workerId:jobType) and their net changes</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task BatchUpdateConsumerJobCountsAsync(Dictionary<string, int> updates, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Detects and marks zombie workers (no heartbeat for threshold time).

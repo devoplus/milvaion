@@ -76,7 +76,7 @@ public class JobExecutor(ILoggerFactory loggerFactory)
             if (outboxService != null && jobHeartbeatIntervalSeconds > 0)
             {
                 heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(executionToken);
-                heartbeatTask = RunJobHeartbeatAsync(outboxService, correlationId, scheduledJob.Id, workerOptions.InstanceId, jobHeartbeatIntervalSeconds, heartbeatCts.Token);
+                heartbeatTask = RunJobHeartbeatAsync(outboxService, correlationId, scheduledJob.Id, workerOptions.WorkerId, workerOptions.InstanceId, jobHeartbeatIntervalSeconds, heartbeatCts.Token);
             }
 
             // Execute the job with timeout-aware cancellation token
@@ -221,6 +221,7 @@ public class JobExecutor(ILoggerFactory loggerFactory)
                                             Guid correlationId,
                                             Guid jobId,
                                             string workerId,
+                                            string instanceId,
                                             int intervalSeconds,
                                             CancellationToken cancellationToken)
     {
@@ -230,7 +231,7 @@ public class JobExecutor(ILoggerFactory loggerFactory)
             {
                 await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), cancellationToken);
 
-                await outboxService.PublishJobHeartbeatAsync(correlationId, jobId, workerId, CancellationToken.None);
+                await outboxService.PublishJobHeartbeatAsync(correlationId, jobId, workerId, instanceId, CancellationToken.None);
 
                 _logger.Debug("Job heartbeat sent for CorrelationId {CorrelationId}", correlationId);
             }

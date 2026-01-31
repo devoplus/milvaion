@@ -60,6 +60,7 @@ public class LocalStateStoreTests : IAsyncDisposable
         var correlationId = Guid.NewGuid();
         var jobId = Guid.NewGuid();
         var workerId = "test-worker";
+        var instanceId = "test-worker-01";
         var status = JobOccurrenceStatus.Running;
 
         // Act
@@ -67,6 +68,7 @@ public class LocalStateStoreTests : IAsyncDisposable
             correlationId,
             jobId,
             workerId,
+            instanceId,
             status,
             startTime: DateTime.UtcNow,
             cancellationToken: CancellationToken.None);
@@ -105,6 +107,7 @@ public class LocalStateStoreTests : IAsyncDisposable
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 "test-worker",
+                "test-worker-01",
                 JobOccurrenceStatus.Running,
                 cancellationToken: CancellationToken.None);
         }
@@ -128,6 +131,7 @@ public class LocalStateStoreTests : IAsyncDisposable
             correlationId,
             jobId,
             "test-worker",
+            "test-worker-01",
             JobOccurrenceStatus.Completed,
             cancellationToken: CancellationToken.None);
 
@@ -154,6 +158,7 @@ public class LocalStateStoreTests : IAsyncDisposable
             correlationId,
             jobId,
             "test-worker",
+            "test-worker-01",
             JobOccurrenceStatus.Running,
             cancellationToken: CancellationToken.None);
 
@@ -320,8 +325,8 @@ public class LocalStateStoreTests : IAsyncDisposable
         await _localStateStore.InitializeAsync();
 
         // Add some status updates
-        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", JobOccurrenceStatus.Running, cancellationToken: CancellationToken.None);
-        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", JobOccurrenceStatus.Completed, cancellationToken: CancellationToken.None);
+        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", "test-worker-01", JobOccurrenceStatus.Running, cancellationToken: CancellationToken.None);
+        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", "test-worker-01", JobOccurrenceStatus.Completed, cancellationToken: CancellationToken.None);
 
         // Add some logs
         var log = new OccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Info", Message = "Test" };
@@ -349,7 +354,7 @@ public class LocalStateStoreTests : IAsyncDisposable
         await _localStateStore.InitializeAsync();
 
         // Add a status update
-        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", JobOccurrenceStatus.Completed, cancellationToken: CancellationToken.None);
+        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", "test-worker-01", JobOccurrenceStatus.Completed, cancellationToken: CancellationToken.None);
 
         // Add a job execution and finalize it
         var correlationId = Guid.NewGuid();

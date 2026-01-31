@@ -9,6 +9,7 @@ using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace Milvaion.Infrastructure.BackgroundServices;
@@ -33,6 +34,12 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     private IChannel _registrationChannel;
     private IChannel _heartbeatChannel;
 
+    // Heartbeat batch processing (prevent memory leak from 1.8M queued heartbeats)
+    private readonly ConcurrentQueue<WorkerHeartbeatMessage> _heartbeatBatch = new();
+    private readonly SemaphoreSlim _batchLock = new(1, 1);
+    private const int _maxBatchSize = 100; // Process 100 heartbeats at once
+    private const int _maxQueueSize = 100000; // Drop heartbeats if queue grows too large
+
     /// <inheritdoc/>
     protected override string ServiceName => "WorkerAutoDiscovery";
 
@@ -51,6 +58,17 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         }
 
         _logger.Information("Worker auto discovery is starting (Redis-based)...");
+
+        // Start batch processor for heartbeats
+        _ = Task.Run(async () =>
+        {
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(100, stoppingToken); // Process every 100ms
+                await ProcessHeartbeatBatchAsync(stoppingToken);
+                TrackMemoryAfterIteration();
+            }
+        }, stoppingToken);
 
         try
         {
@@ -86,6 +104,10 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         // Declare queues
         await _registrationChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, null, cancellationToken: stoppingToken);
         await _heartbeatChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, null, cancellationToken: stoppingToken);
+
+        // Set QoS prefetch to limit in-flight messages and prevent queue buildup during Redis slowdowns
+        await _registrationChannel.BasicQosAsync(0, 10, false, stoppingToken);
+        await _heartbeatChannel.BasicQosAsync(0, 100, false, stoppingToken); // Higher prefetch for high-frequency heartbeats
 
         _logger.Information("Connected to RabbitMQ. Consuming worker registration and heartbeat messages");
 
@@ -170,7 +192,6 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     {
         try
         {
-            // Skip processing if shutdown is requested
             if (cancellationToken.IsCancellationRequested)
             {
                 _logger.Debug("Skipping heartbeat processing due to shutdown");
@@ -185,9 +206,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
             }
 
-            _logger.Debug("Received heartbeat: WorkerId={WorkerId}, InstanceId={InstanceId}, CurrentJobs={CurrentJobs}, IsStopping={IsStopping}", heartbeat.WorkerId, heartbeat.InstanceId, heartbeat.CurrentJobs, heartbeat.IsStopping);
-
-            // If worker is shutting down gracefully, immediately cleanup
+            // Graceful shutdown - immediate processing
             if (heartbeat.IsStopping)
             {
                 _logger.Warning("Worker instance {InstanceId} is shutting down gracefully, performing immediate cleanup", heartbeat.InstanceId);
@@ -208,7 +227,6 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                     }
                 }
 
-                // Cleanup consumer counts and instance metadata
                 var success = await _redisWorkerService.RemoveWorkerInstanceAsync(heartbeat.WorkerId, heartbeat.InstanceId, cancellationToken);
 
                 if (success)
@@ -218,25 +236,65 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
             }
 
-            // Update in Redis (fast, in-memory)
-            var updateSuccess = await _redisWorkerService.UpdateHeartbeatAsync(heartbeat.WorkerId, heartbeat.InstanceId, heartbeat.CurrentJobs, cancellationToken);
-
-            if (!updateSuccess)
+            // Check queue size limit (backpressure)
+            if (_heartbeatBatch.Count >= _maxQueueSize)
             {
-                _logger.Warning("Heartbeat for unknown worker {WorkerId} instance {InstanceId}", heartbeat.WorkerId, heartbeat.InstanceId);
-            }
-            else
-            {
-                _logger.Debug("Heartbeat processed successfully for {WorkerId}/{InstanceId}", heartbeat.WorkerId, heartbeat.InstanceId);
+                _logger.Warning("Heartbeat batch queue full ({Count}). Dropping heartbeat from {WorkerId}/{InstanceId}", _heartbeatBatch.Count, heartbeat.WorkerId, heartbeat.InstanceId);
+                await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, cancellationToken);
+                return;
             }
 
+            // Add to batch queue
+            _heartbeatBatch.Enqueue(heartbeat);
+
+            // ACK immediately (prevent RabbitMQ queue buildup)
             await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, cancellationToken);
+
+            _logger.Debug("Heartbeat queued for batch processing: {WorkerId}/{InstanceId} (Queue: {Count})", heartbeat.WorkerId, heartbeat.InstanceId, _heartbeatBatch.Count);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process worker heartbeat");
-
             await SafeNackAsync(_heartbeatChannel, ea.DeliveryTag, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Process heartbeats in batch.
+    /// </summary>
+    private async Task ProcessHeartbeatBatchAsync(CancellationToken cancellationToken)
+    {
+        if (!await _batchLock.WaitAsync(0, cancellationToken))
+            return;
+
+        try
+        {
+            if (_heartbeatBatch.IsEmpty)
+                return;
+
+            var batch = new List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)>();
+
+            // Dequeue up to 100 heartbeats
+            while (_heartbeatBatch.TryDequeue(out var heartbeat) && batch.Count < _maxBatchSize)
+            {
+                batch.Add((heartbeat.WorkerId, heartbeat.InstanceId, heartbeat.CurrentJobs, heartbeat.Timestamp));
+            }
+
+            if (batch.Count == 0)
+                return;
+
+            // Single Redis batch call (1 network roundtrip for 100 heartbeats)
+            var successCount = await _redisWorkerService.BulkUpdateHeartbeatsAsync(batch, cancellationToken);
+
+            _logger.Debug("Processed {SuccessCount}/{TotalCount} heartbeats in batch", successCount, batch.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to process heartbeat batch");
+        }
+        finally
+        {
+            _batchLock.Release();
         }
     }
 
@@ -300,6 +358,20 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.Information("Worker auto discovery is stopping...");
+
+        // Process remaining heartbeats before shutdown
+        try
+        {
+            await ProcessHeartbeatBatchAsync(CancellationToken.None);
+            _logger.Information("Processed remaining {Count} heartbeats during shutdown", _heartbeatBatch.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to process remaining heartbeats during shutdown");
+        }
+
+        // Dispose batch lock
+        _batchLock?.Dispose();
 
         try
         {
@@ -377,22 +449,14 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                             continue;
 
                         var now = DateTime.UtcNow;
-                        var deadInstances = worker.Instances
-                            .Where(i => i.LastHeartbeat != default && (now - i.LastHeartbeat).TotalSeconds > 60)
-                            .ToList();
+                        var deadInstances = worker.Instances.Where(i => i.LastHeartbeat != default && (now - i.LastHeartbeat).TotalSeconds > 60).ToList();
 
                         foreach (var deadInstance in deadInstances)
                         {
-                            _logger.Warning("Detected dead worker instance: {InstanceId} (last heartbeat: {LastHeartbeat}, {Seconds}s ago)",
-                                deadInstance.InstanceId,
-                                deadInstance.LastHeartbeat,
-                                (now - deadInstance.LastHeartbeat).TotalSeconds);
+                            _logger.Warning("Detected dead worker instance: {InstanceId} (last heartbeat: {LastHeartbeat}, {Seconds}s ago)", deadInstance.InstanceId, deadInstance.LastHeartbeat, (now - deadInstance.LastHeartbeat).TotalSeconds);
 
                             // Cleanup consumer counts and instance metadata
-                            var success = await _redisWorkerService.RemoveWorkerInstanceAsync(
-                                worker.WorkerId,
-                                deadInstance.InstanceId,
-                                stoppingToken);
+                            var success = await _redisWorkerService.RemoveWorkerInstanceAsync(worker.WorkerId, deadInstance.InstanceId, stoppingToken);
 
                             if (success)
                                 _logger.Information("Cleaned up dead worker instance: {InstanceId}", deadInstance.InstanceId);

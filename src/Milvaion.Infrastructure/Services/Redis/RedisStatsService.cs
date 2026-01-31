@@ -82,6 +82,19 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     );
 
     /// <inheritdoc/>
+    public Task IncrementTotalOccurrencesAsync(int count, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+        operation: async () =>
+        {
+            if (count > 0)
+                await _db.StringIncrementAsync(_totalKey, count);
+            return true;
+        },
+        fallback: async () => true,
+        operationName: "IncrementTotalOccurrencesBatch",
+        cancellationToken: cancellationToken
+    );
+
+    /// <inheritdoc/>
     public Task IncrementStatusCounterAsync(JobOccurrenceStatus status, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
         operation: async () =>
         {
@@ -92,6 +105,20 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         },
         fallback: async () => true,
         operationName: "IncrementStatusCounter",
+        cancellationToken: cancellationToken
+    );
+
+    /// <inheritdoc/>
+    public Task IncrementStatusCounterAsync(JobOccurrenceStatus status, int count, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+        operation: async () =>
+        {
+            var key = GetKeyForStatus(status);
+            if (key != null && count > 0)
+                await _db.StringIncrementAsync(key, count);
+            return true;
+        },
+        fallback: async () => true,
+        operationName: "IncrementStatusCounterBatch",
         cancellationToken: cancellationToken
     );
 
@@ -115,17 +142,30 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     );
 
     /// <inheritdoc/>
+    public Task DecrementStatusCounterAsync(JobOccurrenceStatus status, int count, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+        operation: async () =>
+        {
+            var key = GetKeyForStatus(status);
+
+            if (key != null && count > 0)
+                await _db.StringDecrementAsync(key, count);
+
+            return true;
+        },
+        fallback: async () => true,
+        operationName: "DecrementStatusCounterBatch",
+        cancellationToken: cancellationToken
+    );
+
+    /// <inheritdoc/>
     public Task UpdateStatusCountersAsync(JobOccurrenceStatus oldStatus, JobOccurrenceStatus newStatus, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
         operation: async () =>
         {
             var oldKey = GetKeyForStatus(oldStatus);
             var newKey = GetKeyForStatus(newStatus);
 
-            // Use Lua script for atomic update (prevents race conditions between decrement and increment)
-            await _db.ScriptEvaluateAsync(
-                _updateStatusScript,
-                [oldKey ?? "", newKey ?? ""]
-            );
+            // Lua script for atomic update (prevents race conditions between decrement and increment)
+            await _db.ScriptEvaluateAsync(_updateStatusScript, [oldKey ?? "", newKey ?? ""]);
 
             return true;
         },
@@ -309,6 +349,31 @@ public class RedisStatsService(IConnectionMultiplexer redis,
         },
         fallback: async () => true,
         operationName: "TrackExecution",
+        cancellationToken: cancellationToken
+    );
+
+    /// <inheritdoc/>
+    public Task TrackExecutionsAsync(List<Guid> occurrenceIds, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+        operation: async () =>
+        {
+            if (occurrenceIds.Count == 0)
+                return true;
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            // Batch add all occurrences with same timestamp (single ZADD command)
+            var entries = occurrenceIds.Select(id => new SortedSetEntry(id.ToString(), now)).ToArray();
+
+            await _db.SortedSetAddAsync(_timelineKey, entries);
+
+            // Auto-cleanup: Remove entries older than 5 minutes (keep memory bounded)
+            var fiveMinutesAgo = now - (5 * 60 * 1000);
+            await _db.SortedSetRemoveRangeByScoreAsync(_timelineKey, 0, fiveMinutesAgo);
+
+            return true;
+        },
+        fallback: async () => true,
+        operationName: "TrackExecutionsBatch",
         cancellationToken: cancellationToken
     );
 

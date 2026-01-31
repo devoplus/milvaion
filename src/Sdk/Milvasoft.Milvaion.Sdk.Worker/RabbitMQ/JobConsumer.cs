@@ -329,6 +329,7 @@ public class JobConsumer : BackgroundService
                     {
                         await _outboxService.PublishStatusUpdateAsync(correlationId,
                                                                       job.Id,
+                                                                      _options.WorkerId,
                                                                       _options.InstanceId,
                                                                       JobOccurrenceStatus.Running,
                                                                       startTime: DateTime.UtcNow,
@@ -618,6 +619,7 @@ public class JobConsumer : BackgroundService
                 {
                     await _outboxService.PublishStatusUpdateAsync(correlationId,
                                                                   job.Id,
+                                                                  _options.WorkerId,
                                                                   _options.InstanceId,
                                                                   JobOccurrenceStatus.Running,
                                                                   startTime: DateTime.UtcNow,
@@ -657,6 +659,7 @@ public class JobConsumer : BackgroundService
                     {
                         await _outboxService.PublishStatusUpdateAsync(correlationId,
                                                                       job.Id,
+                                                                      _options.WorkerId,
                                                                       _options.InstanceId,
                                                                       JobOccurrenceStatus.Failed,
                                                                       endTime: DateTime.UtcNow,
@@ -1014,6 +1017,7 @@ public class JobConsumer : BackgroundService
 
                 await _outboxService.PublishStatusUpdateAsync(correlationId,
                                                               jobId,
+                                                              _options.WorkerId,
                                                               _options.InstanceId,
                                                               result.Status,
                                                               result.StartTime,

@@ -106,7 +106,7 @@ docker compose up -d
 Open **http://localhost:5000** in your browser.
 
 - Default username: `rootuser`
-- Get password: `docker logs milvaion-api 2>&1 | grep -i "password"`
+- Get password: `admin` (which is defined in docker-compose.yml) or if not defined auto generated password : `docker logs milvaion-api 2>&1 | grep -i "password"`
 
 ### 3. Create Your First Job
 
@@ -189,15 +189,8 @@ git clone https://github.com/Milvasoft/milvaion.git
 cd milvaion
 
 # Start infrastructure (PostgreSQL, Redis, RabbitMQ)
-docker compose -f docker-compose.infra.yml up -d
+docker compose up -d
 
-# Run the API
-cd src/Milvaion.Api
-dotnet run
-
-# Run a worker (in another terminal)
-cd src/Workers/SampleWorker
-dotnet run
 ```
 
 ### Running Tests
@@ -211,21 +204,6 @@ dotnet test tests/Milvaion.IntegrationTests
 
 # All tests with coverage
 dotnet test --collect:"XPlat Code Coverage"
-```
-
-### Building Docker Images
-
-```bash
-cd build
-
-# Build all images
-./build-all.ps1 -Registry "milvasoft" -Tag "1.0.0"
-
-# Build API only
-./build-api.ps1 -Registry "milvasoft" -Tag "1.0.0"
-
-# Build Worker only
-./build-worker.ps1 -Registry "milvasoft" -Tag "1.0.0"
 ```
 
 ---
@@ -317,7 +295,7 @@ public class MyCustomJob : IAsyncJob
 | **Frontend** | React, TypeScript, Vite |
 | **Real-time** | SignalR |
 | **Logging** | Serilog, Seq |
-| **Metrics** | OpenTelemetry, Prometheus, Grafana |
+| **Metrics** | OpenTelemetry, Prometheus |
 | **Testing** | xUnit, FluentAssertions, Testcontainers |
 | **CI/CD** | GitHub Actions, Docker |
 
@@ -351,7 +329,7 @@ We welcome contributions! Please see our [Contributing Guide](./docs/githubdocs/
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
 4. Run tests (`dotnet test`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Commit your changes (`git commit -m 'feat: Add amazing feature.'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
 
@@ -367,7 +345,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- 📖 [Documentation](./docs/portaldocs/00-guide.md)
+- 📖 [Documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
 - 🐛 [Issue Tracker](https://github.com/Milvasoft/milvaion/issues)
 - 💬 [Discussions](https://github.com/Milvasoft/milvaion/discussions)
 

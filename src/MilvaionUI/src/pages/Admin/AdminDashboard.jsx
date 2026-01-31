@@ -234,7 +234,7 @@ function AdminDashboard() {
           <div className="card-header">
             <h3>
               <Icon name="security" size={20} />
-              Redis Circuit Breaker
+              Redis Circuit Breaker (Last 1h)
             </h3>
           </div>
           <div className="card-content">

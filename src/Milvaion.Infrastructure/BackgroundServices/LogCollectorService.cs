@@ -36,6 +36,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     // Batch processing
     private readonly ConcurrentQueue<WorkerLogMessage> _logBatch = new();
     private readonly SemaphoreSlim _batchLock = new(1, 1);
+    private const int _maxQueueSize = 100000; // Prevent unbounded memory growth
 
     /// <inheritdoc/>
     protected override string ServiceName => "LogCollector";
@@ -197,6 +198,14 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 return;
             }
 
+            // Check queue size limit before enqueuing (backpressure)
+            if (_logBatch.Count >= _maxQueueSize)
+            {
+                _logger.Warning("Log batch queue is full ({Count} messages). Dropping message to prevent OOM.", _logBatch.Count);
+                await SafeAckAsync(ea.DeliveryTag, cancellationToken);
+                return;
+            }
+
             // Add to batch queue (NO DB operation here!)
             _logBatch.Enqueue(singleMessage);
 
@@ -233,9 +242,15 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 
             var batch = new List<WorkerLogMessage>();
 
-            // Dequeue all pending logs
-            while (_logBatch.TryDequeue(out var message))
+            // Dequeue logs with max limit to prevent OOM from processing too many at once
+            var maxBatchSize = Math.Min(_options.BatchSize * 10, 10000); // Max 10x batch size or 10k messages
+            var dequeueCount = 0;
+
+            while (_logBatch.TryDequeue(out var message) && dequeueCount < maxBatchSize)
+            {
                 batch.Add(message);
+                dequeueCount++;
+            }
 
             if (batch.Count == 0)
                 return;

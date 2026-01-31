@@ -14,6 +14,13 @@ public interface IRedisStatsService
     Task IncrementTotalOccurrencesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Increments total occurrence counter by specified count (batch operation).
+    /// </summary>
+    /// <param name="count">Number to increment by</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task IncrementTotalOccurrencesAsync(int count, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Increments status-specific counter atomically.
     /// </summary>
     /// <param name="status">Job occurrence status</param>
@@ -21,11 +28,27 @@ public interface IRedisStatsService
     Task IncrementStatusCounterAsync(JobOccurrenceStatus status, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Increments status-specific counter by specified count (batch operation).
+    /// </summary>
+    /// <param name="status">Job occurrence status</param>
+    /// <param name="count">Number to increment by</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task IncrementStatusCounterAsync(JobOccurrenceStatus status, int count, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Decrements status-specific counter atomically.
     /// </summary>
     /// <param name="status">Job occurrence status</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task DecrementStatusCounterAsync(JobOccurrenceStatus status, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Decrements status-specific counter atomically.
+    /// </summary>
+    /// <param name="status">Job occurrence status</param>
+    /// <param name="count"></param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task DecrementStatusCounterAsync(JobOccurrenceStatus status, int count, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Updates counters when status changes (decrement old, increment new).
@@ -58,6 +81,13 @@ public interface IRedisStatsService
     /// Adds occurrence to sorted set with current timestamp as score.
     /// </summary>
     Task TrackExecutionAsync(Guid occurrenceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tracks multiple job executions in timeline (batch operation).
+    /// </summary>
+    /// <param name="occurrenceIds">List of occurrence IDs to track</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task TrackExecutionsAsync(List<Guid> occurrenceIds, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Tracks completed job duration for average calculation.

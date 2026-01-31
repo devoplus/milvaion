@@ -56,9 +56,15 @@ public class RedisSchedulerService : IRedisSchedulerService
                     // If worker-specific set exists, remove those members from global running set and return count
                     if (await _database.KeyExistsAsync(workerRunningKey))
                     {
-                        var members = await _database.SetMembersAsync(workerRunningKey);
+                        var members = new List<RedisValue>();
 
-                        if (members.Length == 0)
+                        // Use SSCAN to avoid loading all members into memory at once
+                        await foreach (var member in _database.SetScanAsync(workerRunningKey, pageSize: 100))
+                        {
+                            members.Add(member);
+                        }
+
+                        if (members.Count == 0)
                         {
                             await _database.KeyDeleteAsync(workerRunningKey);
                             return 0L;
@@ -75,15 +81,10 @@ public class RedisSchedulerService : IRedisSchedulerService
                         return removed;
                     }
 
-                    // Fallback: iterate running_jobs set and check cached job details for workerId match
-                    var runningMembers = await _database.SetMembersAsync(RunningJobsKey);
-
-                    if (runningMembers.Length == 0)
-                        return 0L;
-
+                    // Fallback: iterate running_jobs set using SSCAN and check cached job details for workerId match
                     var toRemove = new List<RedisValue>();
 
-                    foreach (var member in runningMembers)
+                    await foreach (var member in _database.SetScanAsync(RunningJobsKey, pageSize: 100))
                     {
                         if (!Guid.TryParse(member.ToString(), out var jobId))
                             continue;

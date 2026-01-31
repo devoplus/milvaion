@@ -278,18 +278,24 @@ public class AdminService(IServiceProvider serviceProvider) : IAdminService
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-        // Find unused or rarely used indexes
+        // Find unused or rarely used indexes (excluding primary keys and unique constraints)
         var sql = @"
             SELECT 
-                schemaname || '.' || relname AS table_name,
-                indexrelname AS index_name,
-                pg_relation_size(indexrelid) AS size_bytes,
-                idx_scan AS scans,
-                idx_tup_read AS tuples_read
-            FROM pg_stat_user_indexes
-            WHERE schemaname = 'public'
-              AND indexrelname NOT LIKE 'pg_%'
-            ORDER BY pg_relation_size(indexrelid) DESC";
+                ui.schemaname || '.' || ui.relname AS table_name,
+                ui.indexrelname AS index_name,
+                pg_relation_size(ui.indexrelid) AS size_bytes,
+                ui.idx_scan AS scans,
+                ui.idx_tup_read AS tuples_read
+            FROM pg_stat_user_indexes ui
+            JOIN pg_index i ON ui.indexrelid = i.indexrelid
+            WHERE ui.schemaname = 'public'
+              AND ui.indexrelname NOT LIKE 'pg_%'
+              AND ui.indexrelname NOT LIKE 'PK_%'
+              AND ui.indexrelname NOT LIKE 'AK_%'
+              AND i.indisprimary = false
+              AND i.indisunique = false
+              AND ui.relname IN ('JobOccurrences', 'JobOccurrenceLogs', 'ScheduledJobs', 'FailedOccurrences')
+            ORDER BY pg_relation_size(ui.indexrelid) DESC";
 
         var indexesRaw = await dbContext.Database.SqlQueryRaw<IndexStatsRawDto>(sql).ToListAsync(cancellationToken);
 
@@ -320,7 +326,7 @@ public class AdminService(IServiceProvider serviceProvider) : IAdminService
 
         var indexEfficiency = new IndexEfficiencyDto
         {
-            Indexes = [.. unusedIndexes.OrderByDescending(i => i.SizeBytes).Take(10)],
+            Indexes = [.. unusedIndexes.OrderByDescending(i => i.SizeBytes)],
             TotalWastedBytes = totalWastedBytes,
             TotalWastedSpace = FormatBytes(totalWastedBytes),
             Recommendation = recommendation

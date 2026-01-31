@@ -362,6 +362,9 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     // Track jobs that need circuit breaker updates
                     var jobsToUpdateCircuitBreaker = new Dictionary<Guid, (bool isFailed, string exception)>();
 
+                    // Track consumer counter updates (batch processing)
+                    var consumerCounterUpdates = new List<(string workerId, string instanceId, string jobType, JobOccurrenceStatus previousStatus, JobOccurrenceStatus newStatus)>();
+
                     //  Update in memory (NO foreach DB operation!)
                     foreach (var kvp in statusByCorrelation)
                     {
@@ -395,6 +398,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
                             _logger.Debug("Heartbeat received for CorrelationId: {CorrelationId}", kvp.Key);
 
+                            // No need to update Redis counters for heartbeat (status hasn't changed)
                             continue; // Skip other processing
                         }
 
@@ -412,23 +416,23 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                                 To = newStatus
                             });
 
-                        // Update consumer-level counters in Redis when status changes
-                        await UpdateConsumerCountersAsync(message.WorkerId, occurrence.JobName, previousStatus, newStatus, cancellationToken);
+                        // Collect consumer counter updates for batch processing
+                        if (!string.IsNullOrEmpty(message.WorkerId) && !string.IsNullOrEmpty(message.InstanceId) && !string.IsNullOrEmpty(occurrence.JobName) && previousStatus != newStatus)
+                        {
+                            consumerCounterUpdates.Add((message.WorkerId, message.InstanceId, occurrence.JobName, previousStatus, newStatus));
+                        }
 
-                        // Update real-time statistics counters for dashboard
+                        // Update real-time statistics counters for dashboard (SYNCHRONOUS for critical counters)
                         if (previousStatus != newStatus)
                         {
-                            _ = Task.Run(async () =>
+                            try
                             {
-                                try
-                                {
-                                    await _redisStatsService.UpdateStatusCountersAsync(previousStatus, newStatus, cancellationToken);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.Debug(ex, "Failed to update stats counters (non-critical)");
-                                }
-                            }, CancellationToken.None);
+                                await _redisStatsService.UpdateStatusCountersAsync(previousStatus, newStatus, cancellationToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Warning(ex, "Failed to update Redis stats counters. Dashboard stats may be stale. Status: {Old} -> {New}, CorrelationId: {CorrelationId}", previousStatus, newStatus, occurrence.CorrelationId);
+                            }
                         }
 
                         // Track for circuit breaker update
@@ -502,58 +506,55 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     if (jobsToUpdateCircuitBreaker.Count > 0 && _autoDisableOptions.Enabled)
                         await ProcessCircuitBreakerUpdatesAsync(dbContext, jobsToUpdateCircuitBreaker, cancellationToken);
 
-                    // Batch Redis updates instead of one-by-one
-                    var redisUpdateTasks = new List<Task>(occurrences.Count);
+                    // Batch update consumer counters (SINGLE Redis Lua script call!)
+                    if (consumerCounterUpdates.Count > 0)
+                        await UpdateConsumerCountersBatchAsync(consumerCounterUpdates, cancellationToken);
+
+                    // Batch Redis updates efficiently with deduplication
+                    // Group by JobId to avoid duplicate Redis calls for same job
+                    var redisUpdates = new Dictionary<Guid, (JobOccurrenceStatus status, Guid correlationId)>();
 
                     foreach (var occurrence in occurrences)
                     {
-                        // Mark as running when job actually starts (atomic check-and-set)
-                        if (occurrence.Status == JobOccurrenceStatus.Running)
+                        // Last update wins - if same JobId appears multiple times, use latest status
+                        if (occurrence.Status == JobOccurrenceStatus.Running || occurrence.Status.IsFinalStatus())
                         {
-                            // Use TryMarkJobAsRunningAsync for atomic operation
-                            // Fire and forget - don't block on Redis response
-                            redisUpdateTasks.Add(Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    var marked = await _redisScheduler.TryMarkJobAsRunningAsync(occurrence.JobId, occurrence.CorrelationId, cancellationToken);
-
-                                    if (!marked)
-                                    {
-                                        _logger.Debug("Job {JobId} already marked as running by another occurrence (CorrelationId: {CorrelationId})", occurrence.JobId, occurrence.CorrelationId);
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.Debug(ex, "Failed to mark job {JobId} as running (non-critical)", occurrence.JobId);
-                                }
-                            }, cancellationToken));
-                        }
-                        // Mark as completed when job finishes (any final status)
-                        else if (occurrence.Status.IsFinalStatus())
-                        {
-                            redisUpdateTasks.Add(Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    await _redisScheduler.MarkJobAsCompletedAsync(occurrence.JobId, cancellationToken);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.Debug(ex, "Failed to mark job {JobId} as completed (non-critical)", occurrence.JobId);
-                                }
-                            }, cancellationToken));
+                            redisUpdates[occurrence.JobId] = (occurrence.Status, occurrence.CorrelationId);
                         }
                     }
 
-                    // Execute all Redis updates in parallel with timeout
-                    if (redisUpdateTasks.Count > 0)
+                    // Execute deduplicated Redis updates in parallel with timeout
+                    if (redisUpdates.Count > 0)
                     {
+                        var redisUpdateTasks = redisUpdates.Select(kvp => Task.Run(async () =>
+                        {
+                            var (status, correlationId) = kvp.Value;
+                            var jobId = kvp.Key;
+
+                            try
+                            {
+                                if (status == JobOccurrenceStatus.Running)
+                                {
+                                    // TryMarkJobAsRunningAsync is idempotent - no need to log if already marked
+                                    await _redisScheduler.TryMarkJobAsRunningAsync(jobId, correlationId, cancellationToken);
+                                }
+                                else if (status.IsFinalStatus())
+                                {
+                                    await _redisScheduler.MarkJobAsCompletedAsync(jobId, cancellationToken);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // Only log actual errors, not idempotent duplicate calls
+                                _logger.Debug(ex, "Failed to update Redis for job {JobId} (non-critical)", jobId);
+                            }
+                        }, cancellationToken)).ToList();
+
                         var redisTimeout = Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
                         var redisCompleted = await Task.WhenAny(Task.WhenAll(redisUpdateTasks), redisTimeout);
 
                         if (redisCompleted == redisTimeout)
-                            _logger.Warning("Redis updates timed out after 3 seconds for {Count} occurrences", redisUpdateTasks.Count);
+                            _logger.Warning("Redis updates timed out after 3 seconds for {Count} deduplicated operations (from {Total} occurrences)", redisUpdates.Count, occurrences.Count);
                     }
 
                     // Parallel SignalR event publishing with timeout
@@ -730,18 +731,24 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 _logger.Debug("Updated circuit breaker state for {Count} jobs", jobsToUpdate.Count);
             }
 
-            // Remove auto-disabled jobs from Redis scheduler
-            foreach (var job in autoDisabledJobs)
+            // Remove auto-disabled jobs from Redis scheduler (BATCH operation)
+            if (autoDisabledJobs.Count > 0)
             {
                 try
                 {
-                    await _redisScheduler.RemoveFromScheduledSetAsync(job.Id, cancellationToken);
-                    await _redisScheduler.RemoveCachedJobAsync(job.Id, cancellationToken);
-                    _logger.Debug("Removed auto-disabled job {JobId} from Redis scheduler", job.Id);
+                    var autoDisabledJobIds = autoDisabledJobs.Select(j => j.Id).ToList();
+
+                    // Batch remove from scheduled set (single ZREM call)
+                    await _redisScheduler.RemoveFromScheduledSetBulkAsync(autoDisabledJobIds, cancellationToken);
+
+                    // Batch remove from cache (single pipeline)
+                    await _redisScheduler.RemoveCachedJobsBulkAsync(autoDisabledJobIds, cancellationToken);
+
+                    _logger.Debug("Removed {Count} auto-disabled jobs from Redis scheduler in batch", autoDisabledJobs.Count);
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "Failed to remove auto-disabled job {JobId} from Redis (non-critical)", job.Id);
+                    _logger.Warning(ex, "Failed to remove auto-disabled jobs from Redis (non-critical)");
                 }
             }
         }
@@ -870,39 +877,54 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Updates consumer-level job counters in Redis when job status changes.
-    /// Increments when job starts (Queued -> Running), decrements when job ends (Running -> Final).
+    /// Updates consumer-level job counters in Redis (batch operation with Lua script).
+    /// Groups updates by workerId/instanceId/jobType and applies net changes in SINGLE Redis call.
+    /// Example: 100 updates with net change calculation → 1 Lua script call
     /// </summary>
-    private async Task UpdateConsumerCountersAsync(string workerId, string jobType, JobOccurrenceStatus previousStatus, JobOccurrenceStatus newStatus, CancellationToken cancellationToken)
+    private async Task UpdateConsumerCountersBatchAsync(List<(string workerId, string instanceId, string jobType, JobOccurrenceStatus previousStatus, JobOccurrenceStatus newStatus)> updates, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(workerId) || string.IsNullOrEmpty(jobType))
-            return;
-
         try
         {
-            // Get IRedisWorkerService from service provider
             await using var scope = _serviceProvider.CreateAsyncScope();
             var redisWorkerService = scope.ServiceProvider.GetService<IRedisWorkerService>();
 
             if (redisWorkerService == null)
                 return;
 
-            // Increment when job starts running
-            if (previousStatus != JobOccurrenceStatus.Running && newStatus == JobOccurrenceStatus.Running)
+            // Group by workerId:instanceId:jobType and calculate net change
+            // Key format: "workerId:instanceId:jobType" for instance-level tracking
+            var netChanges = new Dictionary<string, int>();
+
+            foreach (var (workerId, instanceId, jobType, previousStatus, newStatus) in updates)
             {
-                await redisWorkerService.IncrementConsumerJobCountAsync(workerId, jobType, cancellationToken);
-                _logger.Debug("Incremented consumer counter for {WorkerId}/{JobType}", workerId, jobType);
+                // Use workerId:instanceId:jobType for instance-level job tracking
+                var key = $"{workerId}:{instanceId}:{jobType}";
+
+                // Increment when job starts running
+                if (previousStatus != JobOccurrenceStatus.Running && newStatus == JobOccurrenceStatus.Running)
+                {
+                    netChanges.TryGetValue(key, out var currentChange);
+                    netChanges[key] = currentChange + 1;
+                }
+                // Decrement when job finishes
+                else if (previousStatus == JobOccurrenceStatus.Running && newStatus.IsFinalStatus())
+                {
+                    netChanges.TryGetValue(key, out var currentChange);
+                    netChanges[key] = currentChange - 1;
+                }
             }
-            // Decrement when job finishes
-            else if (previousStatus == JobOccurrenceStatus.Running && newStatus.IsFinalStatus())
-            {
-                await redisWorkerService.DecrementConsumerJobCountAsync(workerId, jobType, cancellationToken);
-                _logger.Debug("Decremented consumer counter for {WorkerId}/{JobType}", workerId, jobType);
-            }
+
+            if (netChanges.Count == 0)
+                return;
+
+            // SINGLE Redis Lua script call for ALL consumer updates!
+            await redisWorkerService.BatchUpdateConsumerJobCountsAsync(netChanges, cancellationToken);
+
+            _logger.Debug("Batch updated {Count} consumer counters (from {TotalUpdates} status changes)", netChanges.Count, updates.Count);
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "Failed to update consumer counters for {WorkerId}/{JobType} (non-critical)", workerId, jobType);
+            _logger.Warning(ex, "Failed to update consumer counters (non-critical)");
         }
     }
 }

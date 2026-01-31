@@ -35,6 +35,7 @@ public class OutboxService(ILocalStateStore localStore,
     public async Task PublishStatusUpdateAsync(Guid correlationId,
                                                Guid jobId,
                                                string workerId,
+                                               string instanceId,
                                                JobOccurrenceStatus status,
                                                DateTime? startTime = null,
                                                DateTime? endTime = null,
@@ -51,6 +52,7 @@ public class OutboxService(ILocalStateStore localStore,
                 await _statusPublisher.PublishStatusAsync(correlationId,
                                                           jobId,
                                                           workerId,
+                                                          instanceId,
                                                           status,
                                                           startTime,
                                                           endTime,
@@ -75,6 +77,7 @@ public class OutboxService(ILocalStateStore localStore,
         await _localStore.StoreStatusUpdateAsync(correlationId,
                                                  jobId,
                                                  workerId,
+                                                 instanceId,
                                                  status,
                                                  startTime,
                                                  endTime,
@@ -125,6 +128,7 @@ public class OutboxService(ILocalStateStore localStore,
 
     #endregion
 
+
     #region Heartbeat
 
     /// <summary>
@@ -134,6 +138,7 @@ public class OutboxService(ILocalStateStore localStore,
     public async Task PublishJobHeartbeatAsync(Guid correlationId,
                                                Guid jobId,
                                                string workerId,
+                                               string instanceId,
                                                CancellationToken cancellationToken = default)
     {
         // Only attempt if connection is healthy - heartbeat is not critical enough to store locally
@@ -149,6 +154,7 @@ public class OutboxService(ILocalStateStore localStore,
             await _statusPublisher.PublishStatusAsync(correlationId,
                                                       jobId,
                                                       workerId,
+                                                      instanceId,
                                                       JobOccurrenceStatus.Running,
                                                       cancellationToken: cancellationToken);
 
@@ -213,6 +219,7 @@ public class OutboxService(ILocalStateStore localStore,
                     await _statusPublisher.PublishStatusAsync(update.CorrelationId,
                                                               update.JobId,
                                                               update.WorkerId,
+                                                              update.InstanceId,
                                                               update.Status,
                                                               update.StartTime,
                                                               update.EndTime,

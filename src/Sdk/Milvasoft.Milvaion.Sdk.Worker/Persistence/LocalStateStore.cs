@@ -12,7 +12,7 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Persistence;
 public interface ILocalStateStore : IDisposable, IAsyncDisposable
 {
     Task InitializeAsync(CancellationToken cancellationToken = default);
-    Task StoreStatusUpdateAsync(Guid correlationId, Guid jobId, string workerId, JobOccurrenceStatus status, DateTime? startTime = null, DateTime? endTime = null, long? durationMs = null, string result = null, string exception = null, CancellationToken cancellationToken = default);
+    Task StoreStatusUpdateAsync(Guid correlationId, Guid jobId, string workerId, string instanceId, JobOccurrenceStatus status, DateTime? startTime = null, DateTime? endTime = null, long? durationMs = null, string result = null, string exception = null, CancellationToken cancellationToken = default);
     Task<List<StoredStatusUpdate>> GetPendingStatusUpdatesAsync(int maxCount = 100, CancellationToken cancellationToken = default);
     Task MarkStatusUpdateAsSyncedAsync(long id, CancellationToken cancellationToken = default);
     Task IncrementStatusUpdateRetryAsync(long id, CancellationToken cancellationToken = default);
@@ -27,6 +27,7 @@ public interface ILocalStateStore : IDisposable, IAsyncDisposable
     Task<LocalStoreStats> GetStatsAsync(CancellationToken cancellationToken = default);
     Task CleanupSyncedRecordsAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default);
 }
+
 
 /// <summary>
 /// Local SQLite-based storage for job execution state when scheduler/RabbitMQ is unavailable.
@@ -107,6 +108,7 @@ public class LocalStateStore : ILocalStateStore
         }
     }
 
+
     #region Status Updates
 
     /// <summary>
@@ -115,6 +117,7 @@ public class LocalStateStore : ILocalStateStore
     public async Task StoreStatusUpdateAsync(Guid correlationId,
                                              Guid jobId,
                                              string workerId,
+                                             string instanceId,
                                              JobOccurrenceStatus status,
                                              DateTime? startTime = null,
                                              DateTime? endTime = null,
@@ -136,6 +139,7 @@ public class LocalStateStore : ILocalStateStore
             cmd.Parameters.AddWithValue("@CorrelationId", correlationId.ToString());
             cmd.Parameters.AddWithValue("@JobId", jobId.ToString());
             cmd.Parameters.AddWithValue("@WorkerId", workerId);
+            cmd.Parameters.AddWithValue("@InstanceId", instanceId);
             cmd.Parameters.AddWithValue("@Status", (int)status);
             cmd.Parameters.AddWithValue("@StartTime", startTime?.ToString("O") ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@EndTime", endTime?.ToString("O") ?? (object)DBNull.Value);
@@ -169,6 +173,7 @@ public class LocalStateStore : ILocalStateStore
 
         cmd.CommandText = SqlQueries.GetNotSyncedStatusUpdates;
 
+
         cmd.Parameters.AddWithValue("@MaxCount", maxCount);
 
         var updates = new List<StoredStatusUpdate>();
@@ -183,14 +188,15 @@ public class LocalStateStore : ILocalStateStore
                 CorrelationId = Guid.Parse(reader.GetString(1)),
                 JobId = Guid.Parse(reader.GetString(2)),
                 WorkerId = reader.GetString(3),
-                Status = (JobOccurrenceStatus)reader.GetInt32(4),
-                StartTime = reader.IsDBNull(5) ? null : DateTime.Parse(reader.GetString(5)),
-                EndTime = reader.IsDBNull(6) ? null : DateTime.Parse(reader.GetString(6)),
-                DurationMs = reader.IsDBNull(7) ? null : reader.GetInt64(7),
-                Result = reader.IsDBNull(8) ? null : reader.GetString(8),
-                Exception = reader.IsDBNull(9) ? null : reader.GetString(9),
-                CreatedAt = DateTime.Parse(reader.GetString(10)),
-                RetryCount = reader.GetInt32(11)
+                InstanceId = reader.IsDBNull(4) ? null : reader.GetString(4),
+                Status = (JobOccurrenceStatus)reader.GetInt32(5),
+                StartTime = reader.IsDBNull(6) ? null : DateTime.Parse(reader.GetString(6)),
+                EndTime = reader.IsDBNull(7) ? null : DateTime.Parse(reader.GetString(7)),
+                DurationMs = reader.IsDBNull(8) ? null : reader.GetInt64(8),
+                Result = reader.IsDBNull(9) ? null : reader.GetString(9),
+                Exception = reader.IsDBNull(10) ? null : reader.GetString(10),
+                CreatedAt = DateTime.Parse(reader.GetString(11)),
+                RetryCount = reader.GetInt32(12)
             });
         }
 
@@ -668,6 +674,7 @@ public class StoredStatusUpdate
     public Guid CorrelationId { get; set; }
     public Guid JobId { get; set; }
     public string WorkerId { get; set; }
+    public string InstanceId { get; set; }
     public JobOccurrenceStatus Status { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }
@@ -713,6 +720,7 @@ public static class SqlQueries
             CorrelationId TEXT NOT NULL,
             JobId TEXT NOT NULL,
             WorkerId TEXT NOT NULL,
+            InstanceId TEXT,
             Status INTEGER NOT NULL,
             StartTime TEXT,
             EndTime TEXT,
@@ -767,17 +775,17 @@ public static class SqlQueries
 
     public const string InsertStatusUpdate = @"
         INSERT INTO StatusUpdates (
-            CorrelationId, JobId, WorkerId, Status, StartTime, EndTime, 
+            CorrelationId, JobId, WorkerId, InstanceId, Status, StartTime, EndTime, 
             DurationMs, Result, Exception, CreatedAt
         ) VALUES (
-            @CorrelationId, @JobId, @WorkerId, @Status, @StartTime, @EndTime,
+            @CorrelationId, @JobId, @WorkerId, @InstanceId, @Status, @StartTime, @EndTime,
             @DurationMs, @Result, @Exception, @CreatedAt
         );
     ";
 
     public const string GetNotSyncedStatusUpdates = @"
             SELECT 
-                s.Id, s.CorrelationId, s.JobId, s.WorkerId, s.Status, s.StartTime, s.EndTime,
+                s.Id, s.CorrelationId, s.JobId, s.WorkerId, s.InstanceId, s.Status, s.StartTime, s.EndTime,
                 s.DurationMs, s.Result, s.Exception, s.CreatedAt, s.RetryCount
             FROM StatusUpdates s
             LEFT JOIN JobExecutions j ON s.CorrelationId = j.CorrelationId

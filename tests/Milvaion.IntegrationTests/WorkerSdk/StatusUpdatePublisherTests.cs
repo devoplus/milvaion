@@ -53,6 +53,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             correlationId: correlationId,
             jobId: jobId,
             workerId: workerId,
+            instanceId: $"{workerId}-instance",
             status: JobOccurrenceStatus.Running,
             startTime: startTime,
             cancellationToken: cts.Token);
@@ -108,6 +109,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             correlationId: correlationId,
             jobId: jobId,
             workerId: workerId,
+            instanceId: $"{workerId}-instance",
             status: JobOccurrenceStatus.Completed,
             startTime: startTime,
             endTime: endTime,
@@ -162,6 +164,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             correlationId: correlationId,
             jobId: jobId,
             workerId: workerId,
+            instanceId: $"{workerId}-instance",
             status: JobOccurrenceStatus.Failed,
             endTime: DateTime.UtcNow,
             exception: exception,
@@ -211,6 +214,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             correlationId: correlationId,
             jobId: jobId,
             workerId: workerId,
+            instanceId: $"{workerId}-instance",
             status: JobOccurrenceStatus.Cancelled,
             endTime: DateTime.UtcNow,
             result: "Job cancelled by user request",
@@ -260,6 +264,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             correlationId: correlationId,
             jobId: jobId,
             workerId: workerId,
+            instanceId: $"{workerId}-instance",
             status: JobOccurrenceStatus.TimedOut,
             endTime: DateTime.UtcNow,
             exception: "Job execution timed out after 3600 seconds",
@@ -309,6 +314,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             correlationId: correlationId,
             jobId: jobId,
             workerId: "test-worker",
+            instanceId: "test-worker-instance",
             status: JobOccurrenceStatus.Running,
             cancellationToken: cts.Token);
 

@@ -345,10 +345,11 @@
             <param name="cancellationToken"></param>
             <returns></returns>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.UpdateConsumerCountersAsync(System.String,System.String,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.UpdateConsumerCountersBatchAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.String,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus}},System.Threading.CancellationToken)">
             <summary>
-            Updates consumer-level job counters in Redis when job status changes.
-            Increments when job starts (Queued -> Running), decrements when job ends (Running -> Final).
+            Updates consumer-level job counters in Redis (batch operation with Lua script).
+            Groups updates by workerId/instanceId/jobType and applies net changes in SINGLE Redis call.
+            Example: 100 updates with net change calculation → 1 Lua script call
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService">
@@ -373,6 +374,11 @@
             <param name="stoppingToken"></param>
             <returns></returns>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.ProcessHeartbeatBatchAsync(System.Threading.CancellationToken)">
+            <summary>
+            Process heartbeats in batch.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeAckAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Threading.CancellationToken)">
             <summary>
             Safe ACK operation that checks channel state before acknowledgment.
@@ -396,11 +402,6 @@
             <summary>
             Background task that detects dead worker instances (no heartbeat) and cleans up their consumer counts.
             Runs every 30 seconds to detect workers that haven't sent heartbeat for 60+ seconds.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.TryGetService``1(System.Threading.CancellationToken)">
-            <summary>
-            Helper to resolve services from DI container (for graceful shutdown cleanup).
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService">
@@ -1532,7 +1533,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService"/> class.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.MarkAllRunningJobsForWorkerCompletedAsync(System.String,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.RemoveAllRunningJobsForWorkerAsync(System.String,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.AddToScheduledSetAsync(System.Guid,System.DateTime,System.Threading.CancellationToken)">
@@ -1629,10 +1630,19 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.IncrementTotalOccurrencesAsync(System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.IncrementTotalOccurrencesAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.IncrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.IncrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.DecrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.DecrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Int32,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.UpdateStatusCountersAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
@@ -1648,6 +1658,9 @@
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.TrackExecutionAsync(System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.TrackExecutionsAsync(System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisStatsService.TrackDurationAsync(System.Int64,System.Threading.CancellationToken)">
@@ -1684,14 +1697,12 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.UpdateHeartbeatAsync(System.String,System.String,System.Int32,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.BulkUpdateHeartbeatsAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.Int32}},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.BulkUpdateHeartbeatsAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.Int32,System.DateTime}},System.Threading.CancellationToken)">
             <summary>
-            Updates heartbeats for multiple worker instances in a single pipeline operation.
-            Significantly faster than calling UpdateHeartbeatAsync multiple times.
+            Updates heartbeats for multiple worker instances using TRUE Redis pipelining.
+            Single network round-trip for all updates instead of sequential await calls.
+            Uses the actual heartbeat timestamp from the worker, not the processing time.
             </summary>
-            <param name="updates">List of worker heartbeat updates (WorkerId, InstanceId, CurrentJobs)</param>
-            <param name="cancellationToken">Cancellation token</param>
-            <returns>Number of successfully updated instances</returns>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.GetWorkerAsync(System.String,System.Threading.CancellationToken)">
             <inheritdoc/>
@@ -1712,6 +1723,9 @@
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.DecrementConsumerJobCountAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.BatchUpdateConsumerJobCountsAsync(System.Collections.Generic.Dictionary{System.String,System.Int32},System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.RemoveWorkerAsync(System.String,System.Threading.CancellationToken)">

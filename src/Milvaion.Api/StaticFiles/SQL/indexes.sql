@@ -33,6 +33,10 @@ INCLUDE (
     "StartTime", "EndTime", "DurationMs"
 );
 
+CREATE INDEX "IX_JobOccurrences_CreatedAt_Recent"
+ON public."JobOccurrences" ("CreatedAt" DESC)
+INCLUDE ("Id", "JobId", "JobName", "CorrelationId", "WorkerId", "Status", "StartTime", "EndTime", "DurationMs");
+
 -- =================================================
 -- JobOccurrences - Background Services (Zombie Detector)
 -- =================================================

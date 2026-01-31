@@ -5697,6 +5697,14 @@
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQuery,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryHandler.GetValueWithCorrectType``1(System.Object)">
+            <summary>
+            Gets the value with the correct type from the object.
+            </summary>
+            <typeparam name="TActualType"></typeparam>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.EfExtensions.ToListResponseAsync``2(System.Linq.IQueryable{``0},Milvasoft.Components.Rest.Request.ListRequest,System.Linq.Expressions.Expression{System.Func{``0,``1}},System.Nullable{System.Int32},System.Threading.CancellationToken)">
             <summary>
             ToListResponseAsync extension method for IQueryable with filtering, sorting, and pagination.
@@ -7076,7 +7084,7 @@
             <param name="cancellationToken">Cancellation token</param>
             <returns>Set of job IDs that are currently running</returns>
         </member>
-        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.MarkAllRunningJobsForWorkerCompletedAsync(System.String,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.RemoveAllRunningJobsForWorkerAsync(System.String,System.Threading.CancellationToken)">
             <summary>
             Marks all running jobs that are associated with the given worker as completed in Redis.
             This is used on worker shutdown to remove running flags for jobs that were owned by this worker.
@@ -7095,6 +7103,13 @@
             Increments total occurrence counter.
             </summary>
         </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.IncrementTotalOccurrencesAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Increments total occurrence counter by specified count (batch operation).
+            </summary>
+            <param name="count">Number to increment by</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.IncrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
             <summary>
             Increments status-specific counter atomically.
@@ -7102,11 +7117,27 @@
             <param name="status">Job occurrence status</param>
             <param name="cancellationToken">Cancellation token</param>
         </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.IncrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Increments status-specific counter by specified count (batch operation).
+            </summary>
+            <param name="status">Job occurrence status</param>
+            <param name="count">Number to increment by</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.DecrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
             <summary>
             Decrements status-specific counter atomically.
             </summary>
             <param name="status">Job occurrence status</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.DecrementStatusCounterAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Decrements status-specific counter atomically.
+            </summary>
+            <param name="status">Job occurrence status</param>
+            <param name="count"></param>
             <param name="cancellationToken">Cancellation token</param>
         </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.UpdateStatusCountersAsync(Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,System.Threading.CancellationToken)">
@@ -7141,6 +7172,13 @@
             Adds occurrence to sorted set with current timestamp as score.
             </summary>
         </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.TrackExecutionsAsync(System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Tracks multiple job executions in timeline (batch operation).
+            </summary>
+            <param name="occurrenceIds">List of occurrence IDs to track</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisStatsService.TrackDurationAsync(System.Int64,System.Threading.CancellationToken)">
             <summary>
             Tracks completed job duration for average calculation.
@@ -7174,7 +7212,7 @@
             Updates worker heartbeat for specific instance.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisWorkerService.BulkUpdateHeartbeatsAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.Int32}},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisWorkerService.BulkUpdateHeartbeatsAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.Int32,System.DateTime}},System.Threading.CancellationToken)">
             <summary>
             Updates heartbeats for multiple worker instances in a single pipeline operation.
             Significantly faster than calling UpdateHeartbeatAsync multiple times.
@@ -7224,6 +7262,14 @@
             Decrements the running job count for a specific consumer (job type).
             Called when a job completes/fails/times out.
             </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisWorkerService.BatchUpdateConsumerJobCountsAsync(System.Collections.Generic.Dictionary{System.String,System.Int32},System.Threading.CancellationToken)">
+            <summary>
+            Updates consumer job counts in batch (net change calculation).
+            Significantly more efficient than individual increment/decrement calls.
+            </summary>
+            <param name="updates">Dictionary of consumer keys (workerId:jobType) and their net changes</param>
+            <param name="cancellationToken">Cancellation token</param>
         </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisWorkerService.DetectZombieWorkersAsync(System.TimeSpan,System.Threading.CancellationToken)">
             <summary>

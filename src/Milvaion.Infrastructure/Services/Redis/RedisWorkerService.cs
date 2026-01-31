@@ -18,12 +18,12 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                                 IRedisCircuitBreaker circuitBreaker,
                                 ILoggerFactory loggerFactory) : IRedisWorkerService
 {
-    private readonly IConnectionMultiplexer _redis = redis;
     private readonly IRedisCircuitBreaker _circuitBreaker = circuitBreaker;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<RedisWorkerService>();
     private readonly IDatabase _db = redis.GetDatabase();
     private readonly TimeSpan _instanceTTL = TimeSpan.FromMinutes(2); // Auto-expire zombie instances
     private readonly TimeSpan _workerMetadataTTL = TimeSpan.FromMinutes(5); // Worker metadata expires if no active instances
+    private const string _workersIndexKey = "workers:index";
 
     /// <inheritdoc/>
     public Task<bool> RegisterWorkerAsync(WorkerDiscoveryRequest registration, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
@@ -31,42 +31,70 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             {
                 var workerKey = $"workers:{registration.WorkerId}";
                 var instanceKey = $"workers:{registration.WorkerId}:instances:{registration.InstanceId}";
+                var instanceSetKey = $"workers:{registration.WorkerId}:instances";
 
-                // Store worker metadata (static config)
-                var workerData = new Dictionary<string, RedisValue>
+                // Check if worker already exists to preserve registeredAt
+                var existingRegisteredAt = await _db.HashGetAsync(workerKey, "registeredAt");
+                var registeredAt = existingRegisteredAt.HasValue && !existingRegisteredAt.IsNullOrEmpty
+                    ? existingRegisteredAt.ToString()
+                    : DateTime.UtcNow.ToString("O");
+
+                // Check if instance already exists to preserve registeredAt (before creating batch)
+                var existingInstanceRegisteredAt = await _db.HashGetAsync(instanceKey, "registeredAt");
+                var instanceRegisteredAt = existingInstanceRegisteredAt.HasValue && !existingInstanceRegisteredAt.IsNullOrEmpty
+                    ? existingInstanceRegisteredAt.ToString()
+                    : DateTime.UtcNow.ToString("O");
+
+                var batch = _db.CreateBatch();
+
+                // 1. Worker Metadata
+                var workerData = new HashEntry[]
                 {
-                    ["displayName"] = registration.DisplayName,
-                    ["routingPatterns"] = JsonSerializer.Serialize(registration.RoutingPatterns),
-                    ["jobDataDefinitions"] = JsonSerializer.Serialize(registration.JobDataDefinitions),
-                    ["jobNames"] = JsonSerializer.Serialize(registration.JobTypes),
-                    ["maxParallelJobs"] = registration.MaxParallelJobs,
-                    ["version"] = registration.Version,
-                    ["metadata"] = registration.Metadata,
-                    ["registeredAt"] = DateTime.UtcNow.ToString("O")
+                    new("displayName", registration.DisplayName),
+                    new("jobNames", JsonSerializer.Serialize(registration.JobTypes)),
+                    new("maxParallelJobs", registration.MaxParallelJobs),
+                    new("version", registration.Version),
+                    new("metadata", registration.Metadata),
+                    new("registeredAt", registeredAt) // Preserve original registration time
                 };
 
-                await _db.HashSetAsync(workerKey, [.. workerData.Select(kvp => new HashEntry(kvp.Key, kvp.Value))]);
+                var batchTasks = new List<Task>();
+                batchTasks.Add(batch.HashSetAsync(workerKey, workerData));
+                batchTasks.Add(batch.KeyExpireAsync(workerKey, _workerMetadataTTL));
 
-                // Add TTL to worker metadata
-                await _db.KeyExpireAsync(workerKey, _workerMetadataTTL);
-
-                // Store instance data with TTL (auto-expire)
-                var instanceData = new Dictionary<string, RedisValue>
+                // 2. Instance Data
+                var instanceData = new HashEntry[]
                 {
-                    ["hostName"] = registration.HostName,
-                    ["ipAddress"] = registration.IpAddress,
-                    ["currentJobs"] = 0,
-                    ["status"] = WorkerStatus.Active.ToString(),
-                    ["lastHeartbeat"] = DateTime.UtcNow.ToString("O"),
-                    ["registeredAt"] = DateTime.UtcNow.ToString("O")
+                    new("hostName", registration.HostName),
+                    new("currentJobs", 0),
+                    new("status", WorkerStatus.Active.ToString()),
+                    new("lastHeartbeat", DateTime.UtcNow.ToString("O")),
+                    new("registeredAt", instanceRegisteredAt) // Preserve original instance registration time
                 };
 
-                await _db.HashSetAsync(instanceKey, [.. instanceData.Select(kvp => new HashEntry(kvp.Key, kvp.Value))]);
+                batchTasks.Add(batch.HashSetAsync(instanceKey, instanceData));
+                batchTasks.Add(batch.KeyExpireAsync(instanceKey, _instanceTTL));
 
-                // Auto-zombie detection
-                await _db.KeyExpireAsync(instanceKey, _instanceTTL);
+                // 3. Indexes (SETs)
+                batchTasks.Add(batch.SetAddAsync(_workersIndexKey, registration.WorkerId));
+                batchTasks.Add(batch.SetAddAsync(instanceSetKey, registration.InstanceId));
+                batchTasks.Add(batch.KeyExpireAsync(instanceSetKey, _workerMetadataTTL));
 
-                return true;
+                // CRITICAL: Execute batch and await all tasks to complete
+                batch.Execute();
+                await Task.WhenAll(batchTasks);
+
+                var isNewWorker = !existingRegisteredAt.HasValue || existingRegisteredAt.IsNullOrEmpty;
+                var isNewInstance = !existingInstanceRegisteredAt.HasValue || existingInstanceRegisteredAt.IsNullOrEmpty;
+
+                if (isNewWorker && isNewInstance)
+                    _logger.Information($"[REDIS] New worker registered: {registration.WorkerId}:{registration.InstanceId} (TTL: {_instanceTTL.TotalMinutes}min, Host: {registration.HostName})");
+                else if (isNewInstance)
+                    _logger.Information($"[REDIS] New instance registered for existing worker: {registration.WorkerId}:{registration.InstanceId} (TTL: {_instanceTTL.TotalMinutes}min, Host: {registration.HostName})");
+                else
+                    _logger.Debug($"[REDIS] Worker metadata refreshed: {registration.WorkerId}:{registration.InstanceId} (TTL: {_instanceTTL.TotalMinutes}min)");
+
+                return await Task.FromResult(true);
             },
             fallback: async () => false,
             operationName: "RegisterWorker",
@@ -79,11 +107,13 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             {
                 var instanceKey = $"workers:{workerId}:instances:{instanceId}";
                 var workerKey = $"workers:{workerId}";
+                var instanceSetKey = $"workers:{workerId}:instances";
 
                 // Check if instance exists
-                if (!await _db.KeyExistsAsync(instanceKey))
+                var instanceExists = await _db.KeyExistsAsync(instanceKey);
+                if (!instanceExists)
                 {
-                    _logger.Debug($"[REDIS] UpdateHeartbeat FAILED: Instance key '{instanceKey}' does not exist");
+                    _logger.Warning($"[REDIS] UpdateHeartbeat FAILED: Instance key '{instanceKey}' does not exist. Instance may have expired due to missing heartbeats.");
                     return false;
                 }
 
@@ -95,67 +125,83 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     new HashEntry("status", WorkerStatus.Active.ToString())
                 ]);
 
-                // Refresh TTL on both instance and worker metadata (keep alive while instances are active)
-                await _db.KeyExpireAsync(instanceKey, _instanceTTL);
-                await _db.KeyExpireAsync(workerKey, _workerMetadataTTL);
+                // CRITICAL: Re-add to indexes (in case they expired but instance key didn't)
+                // This ensures index membership is always consistent with instance existence
+                await _db.SetAddAsync(_workersIndexKey, workerId);
+                await _db.SetAddAsync(instanceSetKey, instanceId);
 
-                _logger.Debug($"[REDIS] UpdateHeartbeat SUCCESS: {instanceKey} -> currentJobs={currentJobs}");
+                // Refresh TTL on instance, worker metadata, and instance SET (keep alive while instances are active)
+                var instanceTtlSet = await _db.KeyExpireAsync(instanceKey, _instanceTTL);
+                var workerTtlSet = await _db.KeyExpireAsync(workerKey, _workerMetadataTTL);
+                var instanceSetTtlSet = await _db.KeyExpireAsync(instanceSetKey, _workerMetadataTTL);
+
+                if (!instanceTtlSet || !workerTtlSet || !instanceSetTtlSet)
+                {
+                    _logger.Warning($"[REDIS] UpdateHeartbeat: TTL refresh failed for {instanceKey}. InstanceTTL={instanceTtlSet}, WorkerTTL={workerTtlSet}, InstanceSetTTL={instanceSetTtlSet}");
+                }
+
+                _logger.Debug($"[REDIS] UpdateHeartbeat SUCCESS: {instanceKey} -> currentJobs={currentJobs}, TTL refreshed to {_instanceTTL.TotalMinutes}min");
 
                 return true;
             },
-            fallback: async () => false,
+            fallback: async () =>
+            {
+                _logger.Error($"[REDIS] UpdateHeartbeat circuit breaker triggered for {workerId}:{instanceId}");
+                return false;
+            },
             operationName: "UpdateHeartbeat",
             cancellationToken: cancellationToken
         );
 
     /// <summary>
-    /// Updates heartbeats for multiple worker instances in a single pipeline operation.
-    /// Significantly faster than calling UpdateHeartbeatAsync multiple times.
+    /// Updates heartbeats for multiple worker instances using TRUE Redis pipelining.
+    /// Single network round-trip for all updates instead of sequential await calls.
+    /// Uses the actual heartbeat timestamp from the worker, not the processing time.
     /// </summary>
-    /// <param name="updates">List of worker heartbeat updates (WorkerId, InstanceId, CurrentJobs)</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Number of successfully updated instances</returns>
-    public async Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs)> updates, CancellationToken cancellationToken = default)
+    public async Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)> updates, CancellationToken cancellationToken = default)
     {
         if (updates == null || updates.Count == 0)
             return 0;
 
         try
         {
-            var now = DateTime.UtcNow.ToString("O");
-            var successCount = 0;
+            var batch = _db.CreateBatch();
+            var updateTasks = new List<Task>();
 
-            // PIPELINE: Fire all updates in parallel
-            var updateTasks = updates.Select(async update =>
+            foreach (var (WorkerId, InstanceId, CurrentJobs, Timestamp) in updates)
             {
-                var instanceKey = $"workers:{update.WorkerId}:instances:{update.InstanceId}";
-                var workerKey = $"workers:{update.WorkerId}";
+                var instanceKey = $"workers:{WorkerId}:instances:{InstanceId}";
+                var workerKey = $"workers:{WorkerId}";
+                var instanceSetKey = $"workers:{WorkerId}:instances";
 
-                // Check existence first (fast operation)
-                if (!await _db.KeyExistsAsync(instanceKey))
-                    return false;
+                // Use the actual heartbeat timestamp from the worker message, not DateTime.UtcNow
+                var heartbeatTime = Timestamp.ToString("O");
 
-                // Update data
-                await _db.HashSetAsync(instanceKey,
-                [
-                    new HashEntry("lastHeartbeat", now),
-                    new HashEntry("currentJobs", update.CurrentJobs),
-                    new HashEntry("status", WorkerStatus.Active.ToString())
-                ]);
+                // All commands queued in single batch (no network calls yet)
+                updateTasks.Add(batch.HashSetAsync(instanceKey, new HashEntry[]
+                {
+                    new("lastHeartbeat", heartbeatTime), // Use actual timestamp from message!
+                    new("currentJobs", CurrentJobs),
+                    new("status", WorkerStatus.Active.ToString())
+                }));
 
-                // Refresh TTL
-                await _db.KeyExpireAsync(instanceKey, _instanceTTL);
-                await _db.KeyExpireAsync(workerKey, _workerMetadataTTL);
+                // CRITICAL: Re-add to indexes (in case they expired but instance key didn't)
+                // This ensures index membership is always consistent with instance existence
+                updateTasks.Add(batch.SetAddAsync(_workersIndexKey, WorkerId));
+                updateTasks.Add(batch.SetAddAsync(instanceSetKey, InstanceId));
 
-                return true;
-            }).ToList();
+                updateTasks.Add(batch.KeyExpireAsync(instanceKey, _instanceTTL));
+                updateTasks.Add(batch.KeyExpireAsync(workerKey, _workerMetadataTTL));
+                updateTasks.Add(batch.KeyExpireAsync(instanceSetKey, _workerMetadataTTL));
+            }
 
-            var results = await Task.WhenAll(updateTasks);
-            successCount = results.Count(r => r);
+            // Execute all commands in single network round-trip
+            batch.Execute();
+            await Task.WhenAll(updateTasks);
 
-            _logger.Debug($"[REDIS] BulkUpdateHeartbeats: {successCount}/{updates.Count} instances updated via pipeline");
+            _logger.Debug("{Count} instances updated", updates.Count, updateTasks.Count);
 
-            return successCount;
+            return updates.Count;
         }
         catch (Exception ex)
         {
@@ -169,6 +215,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             operation: async () =>
             {
                 var workerKey = $"workers:{workerId}";
+                var instanceSetKey = $"workers:{workerId}:instances";
 
                 // Check if worker metadata exists
                 if (!await _db.KeyExistsAsync(workerKey))
@@ -182,18 +229,17 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
 
                 var workerDict = workerData.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
 
-                // Get all instances
-                var instancesPattern = $"workers:{workerId}:instances:*";
-                var server = _redis.GetServer(_redis.GetEndPoints().First());
-                var instanceKeys = server.Keys(pattern: instancesPattern).ToList();
+                // Get instance IDs
+                var instanceIds = await _db.SetMembersAsync(instanceSetKey);
 
-                if (instanceKeys.Count == 0)
+                if (instanceIds.Length == 0)
                 {
-                    _logger.Warning("[GetWorkerAsync] Worker {WorkerId} has metadata but no active instances. Removing stale metadata.", workerId);
+                    _logger.Warning("[GetWorkerAsync] Worker {WorkerId} has metadata but no active instances in index. Removing stale metadata.", workerId);
 
                     try
                     {
                         await _db.KeyDeleteAsync(workerKey);
+                        await _db.SetRemoveAsync("workers:index", workerId);
                         _logger.Information("Removed stale worker metadata for {WorkerId}", workerId);
                     }
                     catch (Exception ex)
@@ -204,29 +250,45 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     return null;
                 }
 
-                // PIPELINE: Fetch all instance data in parallel
-                var instanceDataTasks = instanceKeys.Select(key =>
-                    _db.HashGetAllAsync(key)
-                ).ToList();
-
+                // Fetch all instance data in parallel
+                var instanceKeys = instanceIds.Select(id => (RedisKey)$"workers:{workerId}:instances:{id}").ToArray();
+                var instanceDataTasks = instanceKeys.Select(key => _db.HashGetAllAsync(key)).ToList();
                 var instanceDataResults = await Task.WhenAll(instanceDataTasks);
 
                 var instances = new List<WorkerInstance>();
 
-                for (int i = 0; i < instanceKeys.Count; i++)
+                for (int i = 0; i < instanceIds.Length; i++)
                 {
                     var instanceData = instanceDataResults[i];
-                    var instanceKey = instanceKeys[i];
+                    var instanceId = instanceIds[i].ToString();
 
                     if (instanceData.Length == 0)
                     {
-                        _logger.Debug("[GetWorkerAsync] Instance key exists but data is empty (likely expired during read): {InstanceKey}", instanceKey);
+                        _logger.Debug("[GetWorkerAsync] Instance expired during read: {InstanceId}", instanceId);
+
+                        // Remove from index
+                        await _db.SetRemoveAsync(instanceSetKey, instanceId);
                         continue;
                     }
 
                     var instanceDict = instanceData.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
 
-                    var instanceId = instanceKey.ToString().Split(':').Last();
+                    // Critical: If lastHeartbeat is missing/invalid, skip this instance (corrupted data)
+                    var lastHeartbeatStr = instanceDict.GetValueOrDefault("lastHeartbeat");
+                    var registeredAtStr = instanceDict.GetValueOrDefault("registeredAt");
+
+                    if (string.IsNullOrWhiteSpace(lastHeartbeatStr) || !DateTime.TryParse(lastHeartbeatStr, out var lastHeartbeat))
+                    {
+                        _logger.Warning("[GetWorkerAsync] Instance {InstanceId} has invalid lastHeartbeat: {Value}. Skipping.", instanceId, lastHeartbeatStr);
+                        await _db.SetRemoveAsync(instanceSetKey, instanceId);
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(registeredAtStr) || !DateTime.TryParse(registeredAtStr, out var registeredAt))
+                    {
+                        _logger.Warning("[GetWorkerAsync] Instance {InstanceId} has invalid registeredAt: {Value}. Using lastHeartbeat as fallback.", instanceId, registeredAtStr);
+                        registeredAt = lastHeartbeat;
+                    }
 
                     var instance = new WorkerInstance
                     {
@@ -235,14 +297,14 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         IpAddress = instanceDict.GetValueOrDefault("ipAddress"),
                         CurrentJobs = int.Parse(instanceDict.GetValueOrDefault("currentJobs", "0")),
                         Status = Enum.Parse<WorkerStatus>(instanceDict.GetValueOrDefault("status", "Active")),
-                        LastHeartbeat = DateTime.Parse(instanceDict.GetValueOrDefault("lastHeartbeat", DateTime.UtcNow.ToString("O"))),
-                        RegisteredAt = DateTime.Parse(instanceDict.GetValueOrDefault("registeredAt", DateTime.UtcNow.ToString("O")))
+                        LastHeartbeat = lastHeartbeat,
+                        RegisteredAt = registeredAt
                     };
 
                     instances.Add(instance);
                 }
 
-                // ⚠️ FIX: If no active instances found after pipeline fetch, remove stale metadata and return null
+                // If no active instances found after pipeline fetch, remove stale metadata
                 if (instances.Count == 0)
                 {
                     _logger.Warning("[GetWorkerAsync] Worker {WorkerId} metadata exists but all instances expired. Removing stale metadata.", workerId);
@@ -250,6 +312,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     try
                     {
                         await _db.KeyDeleteAsync(workerKey);
+                        await _db.KeyDeleteAsync(instanceSetKey);
+                        await _db.SetRemoveAsync("workers:index", workerId);
                         _logger.Information("Removed stale worker metadata for {WorkerId}", workerId);
                     }
                     catch (Exception ex)
@@ -289,27 +353,119 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task<List<CachedWorker>> GetAllWorkersAsync(CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
-                var server = _redis.GetServer(_redis.GetEndPoints().First());
-
-                var workerKeys = server.Keys(pattern: "workers:*").Where(k => !k.ToString().Contains(":instances:")).ToList();
-
-                if (workerKeys.Count == 0)
+                // O(1) fetch from index set
+                var workerIds = await _db.SetMembersAsync(_workersIndexKey);
+                if (workerIds.Length == 0)
                     return [];
 
-                // PIPELINE: Fetch all worker metadata in parallel
-                var workerDataTasks = workerKeys.Select(async workerKey =>
+                // TRUE PIPELINING PHASE 1: Fetch worker metadata + instance SET membership
+                var batch1 = _db.CreateBatch();
+
+                var metadataTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.HashGetAllAsync($"workers:{id}"));
+                var instanceSetTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.SetMembersAsync($"workers:{id}:instances"));
+
+                batch1.Execute();
+                await Task.WhenAll(metadataTasks.Values.Concat(instanceSetTasks.Values.Cast<Task>()));
+
+                // TRUE PIPELINING PHASE 2: Fetch ALL instance Hashes in one batch
+                var batch2 = _db.CreateBatch();
+                var instanceDataTasks = new Dictionary<string, Task<HashEntry[]>>();
+
+                foreach (var workerId in workerIds.Select(x => x.ToString()))
                 {
-                    var workerId = workerKey.ToString().Replace("workers:", "");
-                    var worker = await GetWorkerAsync(workerId, cancellationToken);
-                    return worker;
-                }).ToList();
+                    var instanceIds = await instanceSetTasks[workerId];
 
-                var workers = await Task.WhenAll(workerDataTasks);
+                    foreach (var instanceId in instanceIds)
+                    {
+                        var instanceKey = $"workers:{workerId}:instances:{instanceId}";
+                        instanceDataTasks[instanceKey] = batch2.HashGetAllAsync(instanceKey);
+                    }
+                }
 
-                // Filter out nulls (expired/invalid workers)
-                return [.. workers.Where(w => w != null)];
+                batch2.Execute();
+                await Task.WhenAll(instanceDataTasks.Values);
+
+                // Build worker objects
+                var workers = new List<CachedWorker>();
+
+                foreach (var workerId in workerIds.Select(x => x.ToString()))
+                {
+                    var meta = await metadataTasks[workerId];
+                    if (meta.Length == 0)
+                        continue;
+
+                    var metaDict = meta.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
+
+                    var instanceIds = await instanceSetTasks[workerId];
+                    var instances = new List<WorkerInstance>();
+
+                    foreach (var instanceId in instanceIds)
+                    {
+                        var instanceKey = $"workers:{workerId}:instances:{instanceId}";
+
+                        if (!instanceDataTasks.TryGetValue(instanceKey, out var instanceTask))
+                            continue;
+
+                        var instanceData = await instanceTask;
+
+                        if (instanceData.Length == 0)
+                            continue;
+
+                        var instanceDict = instanceData.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
+
+                        // Critical: If lastHeartbeat is missing/invalid, skip this instance
+                        var lastHeartbeatStr = instanceDict.GetValueOrDefault("lastHeartbeat");
+                        var registeredAtStr = instanceDict.GetValueOrDefault("registeredAt");
+
+                        if (string.IsNullOrWhiteSpace(lastHeartbeatStr) || !DateTime.TryParse(lastHeartbeatStr, out var lastHeartbeat))
+                        {
+                            _logger.Warning("[GetAllWorkersAsync] Instance {InstanceId} has invalid lastHeartbeat: {Value}. Skipping.", instanceId, lastHeartbeatStr);
+                            continue;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(registeredAtStr) || !DateTime.TryParse(registeredAtStr, out var registeredAt))
+                        {
+                            registeredAt = lastHeartbeat;
+                        }
+
+                        instances.Add(new WorkerInstance
+                        {
+                            InstanceId = instanceId.ToString(),
+                            HostName = instanceDict.GetValueOrDefault("hostName"),
+                            IpAddress = instanceDict.GetValueOrDefault("ipAddress"),
+                            CurrentJobs = int.Parse(instanceDict.GetValueOrDefault("currentJobs", "0")),
+                            Status = Enum.Parse<WorkerStatus>(instanceDict.GetValueOrDefault("status", "Active")),
+                            LastHeartbeat = lastHeartbeat,
+                            RegisteredAt = registeredAt
+                        });
+                    }
+
+                    if (instances.Count == 0)
+                        continue;
+
+                    workers.Add(new CachedWorker
+                    {
+                        WorkerId = workerId,
+                        DisplayName = metaDict.GetValueOrDefault("displayName"),
+                        RoutingPatterns = DeserializeDictionaryOrDefault(metaDict.GetValueOrDefault("routingPatterns")),
+                        JobDataDefinitions = DeserializeDictionaryOrDefault(metaDict.GetValueOrDefault("jobDataDefinitions")),
+                        JobNames = JsonSerializer.Deserialize<List<string>>(metaDict.GetValueOrDefault("jobNames", "[]")),
+                        MaxParallelJobs = int.Parse(metaDict.GetValueOrDefault("maxParallelJobs", "0")),
+                        Version = metaDict.GetValueOrDefault("version"),
+                        Metadata = metaDict.GetValueOrDefault("metadata"),
+                        RegisteredAt = DateTime.Parse(metaDict.GetValueOrDefault("registeredAt", DateTime.UtcNow.ToString("O"))),
+                        Status = instances.Any(i => i.Status == WorkerStatus.Active) ? WorkerStatus.Active : WorkerStatus.Zombie,
+                        LastHeartbeat = instances.Max(i => i.LastHeartbeat),
+                        CurrentJobs = instances.Sum(i => i.CurrentJobs),
+                        Instances = instances
+                    });
+                }
+
+                _logger.Debug("Fetched {Count} workers with {InstanceCount} total instances via 2-phase pipelining", workers.Count, workers.Sum(w => w.Instances.Count));
+
+                return workers;
             },
-            fallback: async () => new List<CachedWorker>(),
+            fallback: async () => [],
             operationName: "GetAllWorkers",
             cancellationToken: cancellationToken
         );
@@ -359,19 +515,19 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             {
                 try
                 {
-                    var worker = await GetWorkerAsync(workerId, cancellationToken);
+                    var workerKey = $"workers:{workerId}";
+                    var jobCountsKey = $"workers:{workerId}:job_counts";
 
-                    if (worker == null)
-                        return (0, (int?)null);
+                    // Get worker metadata to extract consumer-specific MaxParallelJobs
+                    var metadataValue = await _db.HashGetAsync(workerKey, "metadata");
 
-                    // Get consumer max parallel jobs from metadata
                     int? consumerMaxParallel = null;
 
-                    if (!string.IsNullOrEmpty(worker.Metadata))
+                    if (metadataValue.HasValue && !string.IsNullOrEmpty(metadataValue.ToString()))
                     {
                         try
                         {
-                            var metadata = JsonSerializer.Deserialize<WorkerMetadata>(worker.Metadata);
+                            var metadata = JsonSerializer.Deserialize<WorkerMetadata>(metadataValue.ToString());
                             var consumerConfig = metadata?.JobConfigs?.FirstOrDefault(c => c.JobType == jobType);
 
                             if (consumerConfig != null)
@@ -383,28 +539,12 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         }
                     }
 
-                    // Get current running jobs for this consumer across ALL instances
-                    // Worker instances write keys like: consumer:{workerId}-{instanceSuffix}:{jobType}:count
-                    // We need to sum all instances for this worker group
-                    var pattern = $"consumer:{workerId}-*:{jobType}:count";
-                    var server = _redis.GetServer(_redis.GetEndPoints().First());
-                    var keys = server.Keys(pattern: pattern, pageSize: 100).ToList();
+                    // Get current job count for this specific consumer (jobType)
+                    var currentCount = await _db.HashGetAsync(jobCountsKey, jobType);
 
-                    var totalCurrentJobs = 0;
+                    int current = currentCount.HasValue && int.TryParse(currentCount.ToString(), out var c) ? c : 0;
 
-                    if (keys.Count > 0)
-                    {
-                        // Batch get all values
-                        var values = await _db.StringGetAsync([.. keys]);
-
-                        foreach (var value in values)
-                        {
-                            if (value.HasValue && int.TryParse(value.ToString(), out var count))
-                                totalCurrentJobs += count;
-                        }
-                    }
-
-                    return (totalCurrentJobs, consumerMaxParallel);
+                    return (current, consumerMaxParallel);
                 }
                 catch (Exception ex)
                 {
@@ -421,21 +561,13 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task IncrementConsumerJobCountAsync(string workerId, string jobType, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
-                try
-                {
-                    var consumerKey = $"consumer:{workerId}:{jobType}:count";
-                    await _db.StringIncrementAsync(consumerKey);
-                    await _db.KeyExpireAsync(consumerKey, TimeSpan.FromHours(1)); // Auto-cleanup
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "Failed to increment consumer job count for {WorkerId}/{JobType}", workerId, jobType);
-                    throw;
-                }
+                var key = $"workers:{workerId}:job_counts";
+                await _db.HashIncrementAsync(key, jobType, 1);
+                await _db.KeyExpireAsync(key, _workerMetadataTTL);
+                return true;
             },
             fallback: async () => true,
-            operationName: "IncrementConsumerJobCount",
+            operationName: "IncrementConsumer",
             cancellationToken: cancellationToken
         );
 
@@ -443,25 +575,113 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task DecrementConsumerJobCountAsync(string workerId, string jobType, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
+                var key = $"workers:{workerId}:job_counts";
+                var newVal = await _db.HashIncrementAsync(key, jobType, -1);
+
+                if (newVal < 0)
+                    await _db.HashSetAsync(key, jobType, 0);
+
+                return true;
+            },
+            fallback: async () => true,
+            operationName: "DecrementConsumer",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task BatchUpdateConsumerJobCountsAsync(Dictionary<string, int> updates, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                if (updates.Count == 0)
+                    return true;
+
                 try
                 {
-                    var consumerKey = $"consumer:{workerId}:{jobType}:count";
-                    var newValue = await _db.StringDecrementAsync(consumerKey);
+                    // Group updates by workerId:instanceId (each instance has its own job_counts HASH)
+                    // Key format from StatusTrackerService: "workerId:instanceId:jobType"
+                    var instanceGroups = new Dictionary<string, Dictionary<string, int>>();
 
-                    // Prevent negative values
-                    if (newValue < 0)
-                        await _db.StringSetAsync(consumerKey, 0);
+                    foreach (var (key, netChange) in updates)
+                    {
+                        // key format: "workerId:instanceId:jobType"
+                        var parts = key.Split(':');
+                        if (parts.Length != 3)
+                            continue;
+
+                        var workerId = parts[0];
+                        var instanceId = parts[1];
+                        var jobType = parts[2];
+
+                        // Group key: "workerId:instanceId"
+                        var groupKey = $"{workerId}:{instanceId}";
+
+                        if (!instanceGroups.ContainsKey(groupKey))
+                            instanceGroups[groupKey] = new Dictionary<string, int>();
+
+                        instanceGroups[groupKey][jobType] = netChange;
+                    }
+
+                    // Lua script for HASH-based batch update with floor check
+                    var luaScript = @"
+                        local hashKey = KEYS[1]
+                        local argIndex = 1
+                        
+                        while argIndex <= #ARGV do
+                            local jobType = ARGV[argIndex]
+                            local netChange = tonumber(ARGV[argIndex + 1])
+                            
+                            if netChange ~= 0 then
+                                local current = tonumber(redis.call('HGET', hashKey, jobType) or 0)
+                                local newValue = current + netChange
+                                
+                                if newValue < 0 then
+                                    newValue = 0
+                                end
+                                
+                                redis.call('HSET', hashKey, jobType, newValue)
+                            end
+                            
+                            argIndex = argIndex + 2
+                        end
+                        
+                        redis.call('EXPIRE', hashKey, 3600)
+                        return 1";
+
+                    // Execute Lua script for each instance's HASH
+                    foreach (var (groupKey, jobUpdates) in instanceGroups)
+                    {
+                        // groupKey is "workerId:instanceId"
+                        var parts = groupKey.Split(':');
+                        var workerId = parts[0];
+                        var instanceId = parts[1];
+
+                        // Key pattern: workers:{workerId}:instances:{instanceId}:job_counts
+                        var hashKey = $"workers:{workerId}:instances:{instanceId}:job_counts";
+                        var keys = new RedisKey[] { hashKey };
+
+                        // Build ARGV array: [jobType1, netChange1, jobType2, netChange2, ...]
+                        var args = new List<RedisValue>();
+                        foreach (var (jobType, netChange) in jobUpdates)
+                        {
+                            args.Add(jobType);
+                            args.Add(netChange);
+                        }
+
+                        await _db.ScriptEvaluateAsync(luaScript, keys, args.ToArray());
+                    }
+
+                    _logger.Debug("Batch updated consumer counters for {InstanceCount} instances ({TotalUpdates} total updates)", instanceGroups.Count, updates.Count);
 
                     return true;
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error(ex, "Failed to decrement consumer job count for {WorkerId}/{JobType}", workerId, jobType);
+                    _logger.Error(ex, "Failed to batch update consumer job counts");
                     throw;
                 }
             },
             fallback: async () => true,
-            operationName: "DecrementConsumerJobCount",
+            operationName: "BatchUpdateConsumerJobCounts",
             cancellationToken: cancellationToken
         );
 
@@ -472,13 +692,30 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 try
                 {
                     var workerKey = $"workers:{workerId}";
+                    var instanceSetKey = $"workers:{workerId}:instances";
 
-                    var deleted = await _db.KeyDeleteAsync(workerKey);
+                    // ✅ Get all instance IDs from INDEX SET
+                    var instanceIds = await _db.SetMembersAsync(instanceSetKey);
 
-                    if (deleted)
-                        _logger.Information("Worker {WorkerId} removed from Redis", workerId);
+                    // Delete all instance keys
+                    if (instanceIds.Length > 0)
+                    {
+                        var instanceKeys = instanceIds.Select(id => (RedisKey)$"workers:{workerId}:instances:{id}").ToArray();
+                        await _db.KeyDeleteAsync(instanceKeys);
+                    }
 
-                    return deleted;
+                    // Delete worker metadata
+                    await _db.KeyDeleteAsync(workerKey);
+
+                    // Delete instance SET
+                    await _db.KeyDeleteAsync(instanceSetKey);
+
+                    // ✅ Remove from worker index
+                    await _db.SetRemoveAsync("workers:index", workerId);
+
+                    _logger.Information("Worker {WorkerId} and {InstanceCount} instances removed from Redis", workerId, instanceIds.Length);
+
+                    return true;
                 }
                 catch (Exception ex)
                 {
@@ -498,22 +735,20 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 try
                 {
                     var instanceKey = $"workers:{workerId}:instances:{instanceId}";
-                    
+                    var instanceSetKey = $"workers:{workerId}:instances";
+
                     // Delete instance metadata
                     await _db.KeyDeleteAsync(instanceKey);
 
-                    // Clean up all consumer count keys for this instance
-                    // Pattern: consumer:{instanceId}:*:count
-                    var server = _redis.GetServer(_redis.GetEndPoints().First());
-                    var consumerKeys = server.Keys(pattern: $"consumer:{instanceId}:*:count").ToArray();
-                    
-                    if (consumerKeys.Length > 0)
-                    {
-                        await _db.KeyDeleteAsync(consumerKeys);
-                        _logger.Information("Cleaned up {Count} consumer count keys for instance {InstanceId}", consumerKeys.Length, instanceId);
-                    }
+                    // ✅ Remove from instance index SET
+                    await _db.SetRemoveAsync(instanceSetKey, instanceId);
+
+                    // ✅ Clean up consumer count key for this instance (single key, no SCAN!)
+                    // Pattern changed: consumer:{workerId}:{jobType}:count (shared across all instances)
+                    // No per-instance keys anymore, so no cleanup needed here
 
                     _logger.Information("Worker instance {InstanceId} removed from Redis", instanceId);
+
                     return true;
                 }
                 catch (Exception ex)

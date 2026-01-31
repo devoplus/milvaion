@@ -46,6 +46,7 @@ public class OutboxServiceTests
         var correlationId = Guid.NewGuid();
         var jobId = Guid.NewGuid();
         var workerId = "test-worker";
+        var instanceId = "test-worker-01";
         var status = JobOccurrenceStatus.Running;
 
         _connectionMonitorMock.Setup(x => x.IsRabbitMQHealthy).Returns(true);
@@ -53,6 +54,7 @@ public class OutboxServiceTests
         _statusPublisherMock.Setup(x => x.PublishStatusAsync(
             It.IsAny<Guid>(),
             It.IsAny<Guid>(),
+            It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<JobOccurrenceStatus>(),
             It.IsAny<DateTime?>(),
@@ -69,6 +71,7 @@ public class OutboxServiceTests
             correlationId,
             jobId,
             workerId,
+            instanceId,
             status,
             cancellationToken: CancellationToken.None);
 
@@ -77,6 +80,7 @@ public class OutboxServiceTests
             correlationId,
             jobId,
             workerId,
+            instanceId,
             status,
             It.IsAny<DateTime?>(),
             It.IsAny<DateTime?>(),
@@ -93,6 +97,7 @@ public class OutboxServiceTests
         var correlationId = Guid.NewGuid();
         var jobId = Guid.NewGuid();
         var workerId = "test-worker";
+        var instanceId = "test-worker-01";
         var status = JobOccurrenceStatus.Running;
 
         _connectionMonitorMock.Setup(x => x.IsRabbitMQHealthy).Returns(false);
@@ -100,6 +105,7 @@ public class OutboxServiceTests
         _localStoreMock.Setup(x => x.StoreStatusUpdateAsync(
             It.IsAny<Guid>(),
             It.IsAny<Guid>(),
+            It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<JobOccurrenceStatus>(),
             It.IsAny<DateTime?>(),
@@ -116,6 +122,7 @@ public class OutboxServiceTests
             correlationId,
             jobId,
             workerId,
+            instanceId,
             status,
             cancellationToken: CancellationToken.None);
 
@@ -124,6 +131,7 @@ public class OutboxServiceTests
             correlationId,
             jobId,
             workerId,
+            instanceId,
             status,
             It.IsAny<DateTime?>(),
             It.IsAny<DateTime?>(),
@@ -140,6 +148,7 @@ public class OutboxServiceTests
         var correlationId = Guid.NewGuid();
         var jobId = Guid.NewGuid();
         var workerId = "test-worker";
+        var instanceId = "test-worker-01";
         var status = JobOccurrenceStatus.Completed;
 
         _connectionMonitorMock.Setup(x => x.IsRabbitMQHealthy).Returns(true);
@@ -147,6 +156,7 @@ public class OutboxServiceTests
         _statusPublisherMock.Setup(x => x.PublishStatusAsync(
             It.IsAny<Guid>(),
             It.IsAny<Guid>(),
+            It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<JobOccurrenceStatus>(),
             It.IsAny<DateTime?>(),
@@ -159,6 +169,7 @@ public class OutboxServiceTests
         _localStoreMock.Setup(x => x.StoreStatusUpdateAsync(
             It.IsAny<Guid>(),
             It.IsAny<Guid>(),
+            It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<JobOccurrenceStatus>(),
             It.IsAny<DateTime?>(),
@@ -175,6 +186,7 @@ public class OutboxServiceTests
             correlationId,
             jobId,
             workerId,
+            instanceId,
             status,
             cancellationToken: CancellationToken.None);
 
@@ -183,6 +195,7 @@ public class OutboxServiceTests
             correlationId,
             jobId,
             workerId,
+            instanceId,
             status,
             It.IsAny<DateTime?>(),
             It.IsAny<DateTime?>(),
@@ -332,6 +345,7 @@ public class OutboxServiceTests
             It.IsAny<Guid>(),
             It.IsAny<Guid>(),
             It.IsAny<string>(),
+            It.IsAny<string>(),
             It.IsAny<JobOccurrenceStatus>(),
             It.IsAny<DateTime?>(),
             It.IsAny<DateTime?>(),
@@ -390,6 +404,7 @@ public class OutboxServiceTests
         _statusPublisherMock.Verify(x => x.PublishStatusAsync(
             It.IsAny<Guid>(),
             It.IsAny<Guid>(),
+            It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<JobOccurrenceStatus>(),
             It.IsAny<DateTime?>(),

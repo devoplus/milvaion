@@ -359,27 +359,16 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         {
             await jobOccurrenceRepository.BulkAddAsync(occurrences, cancellationToken: cancellationToken);
 
-            // Update Redis statistics counters (fire-and-forget)
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    // Increment total counter and track timeline for EPM calculation
-                    for (int i = 0; i < occurrences.Count; i++)
-                    {
-                        await _redisStatsService.IncrementTotalOccurrencesAsync(cancellationToken);
-                        await _redisStatsService.TrackExecutionAsync(occurrences[i].Id, cancellationToken);
-                    }
+                await _redisStatsService.IncrementTotalOccurrencesAsync(occurrences.Count, cancellationToken);
 
-                    // All new occurrences start as Queued
-                    for (int i = 0; i < occurrences.Count; i++)
-                        await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug(ex, "Failed to update stats counters (non-critical)");
-                }
-            }, CancellationToken.None);
+                await _redisStatsService.TrackExecutionsAsync([.. occurrences.Select(o => o.Id)], cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Failed to update stats counters (non-critical)");
+            }
 
             var eventPublisher = scope2.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
 
@@ -426,6 +415,23 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         catch (Exception)
         {
             throw;
+        }
+
+        // Increment Redis Queued counter ONLY for successfully dispatched jobs (batch operation)
+        var successfulDispatchCount = occurrences.Count;
+
+        if (successfulDispatchCount > 0)
+        {
+            try
+            {
+                // Single Redis call for all successful dispatches
+                await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, successfulDispatchCount, cancellationToken);
+                _logger.Debug("Incremented Queued counter by {Count} for successfully dispatched jobs", successfulDispatchCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Failed to increment Queued counter (non-critical)");
+            }
         }
 
         #region Dispatch To Rabbit
@@ -487,6 +493,17 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         // Recurring jobs will be rescheduled by HandleRecurringJobAsync
         if (!failedToDispatchOccurrences.IsEmpty)
         {
+            try
+            {
+                // Single Redis call for all successful dispatches
+                await _redisStatsService.DecrementStatusCounterAsync(JobOccurrenceStatus.Queued, failedToDispatchOccurrences.Count, cancellationToken);
+                _logger.Debug("Decremented Queued counter by {Count} for failed to dispatch jobs", failedToDispatchOccurrences.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Failed to decrement Queued counter (non-critical)");
+            }
+
             foreach (var failedOccurrence in failedToDispatchOccurrences)
             {
                 // Calculate next retry time with exponential backoff
@@ -576,46 +593,47 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                                                          Dictionary<string, (int currentJobs, int? maxParallelJobs)> workerCapacities,
                                                          Dictionary<string, (int currentJobs, int? maxParallelJobs)> consumerCapacities)
     {
-        // Worker availability and capacity before creating occurrence
-        if (!string.IsNullOrWhiteSpace(job.WorkerId))
+        if (string.IsNullOrWhiteSpace(job.WorkerId))
+            return true;
+
+        // Check if worker is active
+        if (!workerCapacities.TryGetValue(job.WorkerId, out var workerCapacity))
         {
-            // Check if worker is active
-            if (!workerCapacities.TryGetValue(job.WorkerId, out var workerCapacity))
-            {
-                _logger.Warning("Job {JobId} assigned to non-existent worker {WorkerId} (not in pre-fetch). Skipping.", job.Id, job.WorkerId);
-                return false;
-            }
-
-            // Check if worker is inactive (-1 marker)
-            if (workerCapacity.currentJobs == -1)
-            {
-                _logger.Debug("Job {JobId} assigned to inactive worker {WorkerId}. Skipping for this iteration.", job.Id, job.WorkerId);
-                return false;
-            }
-
-            // Check worker-level capacity (total) - using pre-fetched data
-            if (workerCapacity.maxParallelJobs.HasValue && workerCapacity.currentJobs >= workerCapacity.maxParallelJobs.Value)
-            {
-                _logger.Debug("Worker {WorkerId} at capacity ({CurrentJobs}/{MaxJobs}), job {JobId} skipped",
-                              job.WorkerId, workerCapacity.currentJobs, workerCapacity.maxParallelJobs.Value, job.Id);
-                return false;
-            }
-
-            // Check consumer-level capacity (per job type) - using pre-fetched data
-            var consumerKey = $"{job.WorkerId}:{job.JobNameInWorker}";
-
-            if (consumerCapacities.TryGetValue(consumerKey, out var consumerCapacity))
-            {
-                if (consumerCapacity.maxParallelJobs.HasValue && consumerCapacity.currentJobs >= consumerCapacity.maxParallelJobs.Value)
-                {
-                    _logger.Debug("Consumer {WorkerId}/{JobType} at capacity ({CurrentJobs}/{MaxJobs}), job {JobId} skipped", job.WorkerId, job.JobNameInWorker, consumerCapacity.currentJobs, consumerCapacity.maxParallelJobs.Value, job.Id);
-
-                    return false;
-                }
-            }
-
-            _logger.Debug("Worker {WorkerId} capacity check passed ({CurrentJobs}/{MaxJobs})", job.WorkerId, workerCapacity.currentJobs, workerCapacity.maxParallelJobs?.ToString() ?? "unlimited");
+            _logger.Warning("Job {JobId} assigned to non-existent worker {WorkerId} (not in pre-fetch). Skipping.", job.Id, job.WorkerId);
+            return false;
         }
+
+        // Check if worker is inactive (-1 marker)
+        if (workerCapacity.currentJobs == -1)
+        {
+            _logger.Debug("Job {JobId} assigned to inactive worker {WorkerId}. Skipping for this iteration.", job.Id, job.WorkerId);
+            return false;
+        }
+
+        // Check worker-level capacity (total) - using pre-fetched data
+        if (workerCapacity.maxParallelJobs.HasValue && workerCapacity.currentJobs >= workerCapacity.maxParallelJobs.Value)
+        {
+            _logger.Debug("Worker {WorkerId} at capacity ({CurrentJobs}/{MaxJobs}), job {JobId} skipped", job.WorkerId, workerCapacity.currentJobs, workerCapacity.maxParallelJobs.Value, job.Id);
+            return false;
+        }
+
+        // Check consumer-level capacity (per job type, across all instances) - using pre-fetched data
+        var consumerKey = $"{job.WorkerId}:{job.JobNameInWorker}";
+
+        if (consumerCapacities.TryGetValue(consumerKey, out var consumerCapacity))
+        {
+            // MaxParallelJobsPerWorker: Global limit for this job type across all worker instances
+            // If null, no global consumer limit (only per-instance limit applies)
+            if (consumerCapacity.maxParallelJobs.HasValue && consumerCapacity.currentJobs >= consumerCapacity.maxParallelJobs.Value)
+            {
+                _logger.Debug("Consumer {WorkerId}/{JobType} at global capacity ({CurrentJobs}/{MaxJobsPerWorker}), job {JobId} skipped",
+                    job.WorkerId, job.JobNameInWorker, consumerCapacity.currentJobs, consumerCapacity.maxParallelJobs.Value, job.Id);
+
+                return false;
+            }
+        }
+
+        _logger.Debug("Worker {WorkerId} capacity check passed ({CurrentJobs}/{MaxJobs})", job.WorkerId, workerCapacity.currentJobs, workerCapacity.maxParallelJobs?.ToString() ?? "unlimited");
 
         return true;
     }
@@ -864,11 +882,11 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                     {
                         _logger.Warning("Found {Count} stale jobs in Redis (not active in DB), removing...", staleJobIds.Count);
 
-                        foreach (var staleId in staleJobIds)
-                        {
-                            await _redisScheduler.RemoveFromScheduledSetAsync(staleId, cancellationToken);
-                            await _redisScheduler.RemoveCachedJobAsync(staleId, cancellationToken);
-                        }
+                        // Batch remove from scheduled set (single Redis call)
+                        await _redisScheduler.RemoveFromScheduledSetBulkAsync(staleJobIds, cancellationToken);
+
+                        // Batch remove cached jobs (single Redis pipeline)
+                        await _redisScheduler.RemoveCachedJobsBulkAsync(staleJobIds, cancellationToken);
 
                         _logger.Information("Cleaned up {Count} stale Redis entries", staleJobIds.Count);
                     }
@@ -1263,6 +1281,20 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 var jobOccurrenceLogRepository = scope.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
                 await jobOccurrenceLogRepository.BulkAddAsync(retryLogs, cancellationToken: cancellationToken);
                 _logger.Debug("Bulk inserted {Count} retry logs", retryLogs.Count);
+            }
+
+            // Increment Redis Queued counter for successful retries (batch operation)
+            if (successfulRetries.Count > 0)
+            {
+                try
+                {
+                    await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, successfulRetries.Count, cancellationToken);
+                    _logger.Debug("Incremented Queued counter by {Count} for successful retries", successfulRetries.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex, "Failed to increment Queued counter for retries (non-critical)");
+                }
             }
 
             _logger.Information("Dispatch retry completed: {Success} successful, {Failed} failed", successfulRetries.Count, failedRetries.Count);

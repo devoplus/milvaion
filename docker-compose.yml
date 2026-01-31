@@ -123,7 +123,7 @@
       dockerfile: src/Milvaion.Api/Dockerfile
     container_name: milvaion-api
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - MILVAION_ROOT_PASSWORD=admin
       - MILVA_ENV=dev

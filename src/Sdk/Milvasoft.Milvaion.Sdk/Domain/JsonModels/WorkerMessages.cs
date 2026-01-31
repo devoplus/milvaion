@@ -68,9 +68,14 @@ public class JobStatusUpdateMessage
     public Guid JobId { get; set; }
 
     /// <summary>
-    /// Worker identifier processing this job.
+    /// Worker identifier (e.g., "test-worker"). Used for worker-level tracking.
     /// </summary>
     public string WorkerId { get; set; }
+
+    /// <summary>
+    /// Instance identifier (e.g., "test-worker-bf06453b"). Used for instance-level job counts.
+    /// </summary>
+    public string InstanceId { get; set; }
 
     /// <summary>
     /// New status of the job occurrence.
