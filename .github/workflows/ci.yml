@@ -211,20 +211,10 @@ jobs:
           name: integration-test-results
           path: ./TestResults/Integration
 
-      - name: List coverage files
-        run: |
-          echo "=== Coverage files found ==="
-          find ./TestResults -name "*.xml" -o -name "*.cobertura.xml" -o -name "coverage.*" | head -20
-          echo "=== Directory structure ==="
-          ls -la ./TestResults/ || true
-          ls -la ./TestResults/Unit/ || true
-          ls -la ./TestResults/Integration/ || true
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./TestResults/**/coverage.cobertura.xml
-          flags: unittests,integrationtests
+          directory: ./TestResults
           fail_ci_if_error: false
           verbose: true

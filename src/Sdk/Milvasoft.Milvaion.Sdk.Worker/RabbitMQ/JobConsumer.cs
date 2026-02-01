@@ -63,7 +63,7 @@ public class JobConsumer : BackgroundService
 
     // Heartbeat debounce: prevent flooding RabbitMQ with immediate heartbeats
     private DateTime _lastImmediateHeartbeat = DateTime.MinValue;
-    private readonly object _heartbeatDebouncelock = new();
+    private readonly Lock _heartbeatDebouncelock = new();
 
     public JobConsumer(IServiceProvider serviceProvider,
                        IOptions<WorkerOptions> options,
@@ -630,8 +630,8 @@ public class JobConsumer : BackgroundService
                                                                   startTime: DateTime.UtcNow,
                                                                   cancellationToken: CancellationToken.None);
 
-                                                                  // Flush logs after Running status
-                                                                  var logPublisher = _serviceProvider.GetService<ILogPublisher>();
+                    // Flush logs after Running status
+                    var logPublisher = _serviceProvider.GetService<ILogPublisher>();
                     if (logPublisher != null)
                     {
                         try
@@ -886,11 +886,13 @@ public class JobConsumer : BackgroundService
         lock (_heartbeatDebouncelock)
         {
             var now = DateTime.UtcNow;
+
             if ((now - _lastImmediateHeartbeat).TotalMilliseconds < 1000)
             {
                 _logger?.Debug("Skipping immediate heartbeat (debounced, last sent {Ms}ms ago)", (now - _lastImmediateHeartbeat).TotalMilliseconds);
                 return;
             }
+
             _lastImmediateHeartbeat = now;
         }
 

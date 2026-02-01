@@ -299,7 +299,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
             // Snapshot and clear the dictionary atomically
             var snapshot = new List<(string InstanceId, WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag)>();
-            
+
             foreach (var kvp in _latestHeartbeats)
             {
                 if (_latestHeartbeats.TryRemove(kvp.Key, out var entry))
@@ -317,10 +317,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             var successCount = await _redisWorkerService.BulkUpdateHeartbeatsAsync(batch, cancellationToken);
 
             // ACK each message individually (can't use bulk ACK with deduplication since delivery tags aren't sequential)
-            foreach (var item in snapshot)
-            {
-                await SafeAckAsync(_heartbeatChannel, item.DeliveryTag, false, cancellationToken);
-            }
+            foreach (var (InstanceId, Heartbeat, DeliveryTag) in snapshot)
+                await SafeAckAsync(_heartbeatChannel, DeliveryTag, false, cancellationToken);
 
             // Record metrics
             _metrics.RecordWorkerHeartbeats(successCount);

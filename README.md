@@ -17,6 +17,7 @@ A distributed job scheduling system built on .NET 10
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Sdk.Worker?style=flat-square&label=downloads)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
 
 [![CI](https://github.com/Milvasoft/milvaion/actions/workflows/ci.yml/badge.svg)](https://github.com/Milvasoft/milvaion/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Milvasoft/milvaion/branch/master/graph/badge.svg)](https://codecov.io/gh/Milvasoft/milvaion)
 [![Release](https://github.com/Milvasoft/milvaion/actions/workflows/release.yml/badge.svg)](https://github.com/Milvasoft/milvaion/releases)
 [![GitHub release](https://img.shields.io/github/v/release/Milvasoft/milvaion?include_prereleases&style=flat-square)](https://github.com/Milvasoft/milvaion/releases)
 
@@ -286,12 +287,11 @@ public class MyCustomJob : IAsyncJob
 
 | Document | Description |
 |----------|-------------|
-| [Contributing](./docs/githubdocs/CONTRIBUTING.md) | How to contribute |
+| [Contributing](./CONTRIBUTING.md) | How to contribute |
 | [Architecture](./docs/githubdocs/ARCHITECTURE.md) | Technical architecture deep-dive |
 | [Development](./docs/githubdocs/DEVELOPMENT.md) | Development environment setup |
-| [API Reference](./docs/githubdocs/API-REFERENCE.md) | REST API documentation |
 | [Worker SDK](./docs/githubdocs/WORKER-SDK.md) | Worker SDK reference |
-| [Security](./docs/githubdocs/SECURITY.md) | Security policies |
+| [Security](./SECURITY.md) | Security policies |
 
 ---
 
@@ -332,7 +332,7 @@ public class MyCustomJob : IAsyncJob
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./docs/githubdocs/CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
 
 ### Quick Contribution Steps
 

@@ -140,7 +140,7 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
 
         var logBatchMessage = new WorkerLogBatchMessage
         {
-            Logs = new List<WorkerLogMessage>(),
+            Logs = [],
             BatchTimestamp = DateTime.UtcNow
         };
 

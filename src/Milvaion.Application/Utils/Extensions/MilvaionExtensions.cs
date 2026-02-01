@@ -1,7 +1,12 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Milvasoft.Components.Rest.MilvaResponse;
+using Milvasoft.Components.Rest.Request;
 using Milvasoft.Core.Utils.Constants;
+using Milvasoft.DataAccess.EfCore.Utils;
 using System.Globalization;
+using System.Linq.Expressions;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -150,6 +155,49 @@ public static partial class MilvaionExtensions
         var array = Convert.FromBase64String(base64String);
 
         return array;
+    }
+
+    /// <summary>
+    /// ToListResponseAsync extension method for IQueryable with filtering, sorting, and pagination.
+    /// </summary>
+    /// <typeparam name="TEntity"></typeparam>
+    /// <typeparam name="TDto"></typeparam>
+    /// <param name="query"></param>
+    /// <param name="listRequest"></param>
+    /// <param name="projection"></param>
+    /// <param name="manualTotalCount"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public static async Task<ListResponse<TDto>> ToListResponseAsync<TEntity, TDto>(this IQueryable<TEntity> query,
+                                                                                    ListRequest listRequest,
+                                                                                    Expression<Func<TEntity, TDto>> projection,
+                                                                                    int? manualTotalCount = null,
+                                                                                    CancellationToken cancellationToken = default) where TEntity : class
+    {
+        // TODO implement in Milvasoft.DataAccess.EfCore project
+
+        if (query == null)
+            return ListResponse<TDto>.Success();
+
+        listRequest ??= new ListRequest();
+        query = query.WithFilteringAndSorting(listRequest);
+
+        int? totalDataCount = manualTotalCount;
+        int? totalPageCount = null;
+
+        if (listRequest.PageNumber.HasValue && listRequest.RowCount.HasValue)
+        {
+            if (!totalDataCount.HasValue)
+                totalDataCount = await query.CountAsync(cancellationToken);
+
+            totalPageCount = listRequest.CalculatePageCountAndCompareWithRequested(totalDataCount);
+
+            query = query.Skip((listRequest.PageNumber.Value - 1) * listRequest.RowCount.Value).Take(listRequest.RowCount.Value);
+        }
+
+        var list = await query.Select(projection).ToListAsync(cancellationToken);
+
+        return ListResponse<TDto>.Success(list, "Operation successful!", listRequest.PageNumber, totalPageCount, totalDataCount);
     }
 
     [GeneratedRegex(@"^data:(?<mediatype>[\w/+.-]+);base64,(?<data>[a-zA-Z0-9+/]+={0,2})$")]

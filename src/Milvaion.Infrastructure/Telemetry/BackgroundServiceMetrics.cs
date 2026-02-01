@@ -222,8 +222,13 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordJobDispatched(string jobType = null, string priority = null)
     {
         var tags = new TagList();
-        if (jobType != null) tags.Add("job_type", jobType);
-        if (priority != null) tags.Add("priority", priority);
+
+        if (jobType != null)
+            tags.Add("job_type", jobType);
+
+        if (priority != null)
+            tags.Add("priority", priority);
+
         _jobsDispatched.Add(1, tags);
     }
 
@@ -233,7 +238,10 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordJobsDispatched(int count, string jobType = null)
     {
         var tags = new TagList();
-        if (jobType != null) tags.Add("job_type", jobType);
+
+        if (jobType != null)
+            tags.Add("job_type", jobType);
+
         _jobsDispatched.Add(count, tags);
     }
 
@@ -243,17 +251,17 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordDispatchFailure(string reason = null)
     {
         var tags = new TagList();
-        if (reason != null) tags.Add("reason", reason);
+
+        if (reason != null)
+            tags.Add("reason", reason);
+
         _jobDispatchFailures.Add(1, tags);
     }
 
     /// <summary>
     /// Records the duration of a dispatch operation.
     /// </summary>
-    public void RecordDispatchDuration(double durationMs, int jobCount = 1)
-    {
-        _dispatchDuration.Record(durationMs, new TagList { { "job_count", jobCount.ToString() } });
-    }
+    public void RecordDispatchDuration(double durationMs, int jobCount = 1) => _dispatchDuration.Record(durationMs, new TagList { { "job_count", jobCount.ToString() } });
 
     /// <summary>
     /// Updates the pending jobs count.
@@ -267,18 +275,12 @@ public sealed class BackgroundServiceMetrics : IDisposable
     /// <summary>
     /// Records processed status updates.
     /// </summary>
-    public void RecordStatusUpdatesProcessed(int count)
-    {
-        _statusUpdatesProcessed.Add(count);
-    }
+    public void RecordStatusUpdatesProcessed(int count) => _statusUpdatesProcessed.Add(count);
 
     /// <summary>
     /// Records a status update by its final status.
     /// </summary>
-    public void RecordStatusUpdateByStatus(string status)
-    {
-        _statusUpdatesByStatus.Add(1, new TagList { { "status", status } });
-    }
+    public void RecordStatusUpdateByStatus(string status) => _statusUpdatesByStatus.Add(1, new TagList { { "status", status } });
 
     /// <summary>
     /// Records a status update failure.
@@ -286,17 +288,17 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordStatusUpdateFailure(string reason = null)
     {
         var tags = new TagList();
-        if (reason != null) tags.Add("reason", reason);
+
+        if (reason != null)
+            tags.Add("reason", reason);
+
         _statusUpdateFailures.Add(1, tags);
     }
 
     /// <summary>
     /// Records the duration of a status update batch.
     /// </summary>
-    public void RecordStatusUpdateDuration(double durationMs, int batchSize)
-    {
-        _statusUpdateDuration.Record(durationMs, new TagList { { "batch_size", batchSize.ToString() } });
-    }
+    public void RecordStatusUpdateDuration(double durationMs, int batchSize) => _statusUpdateDuration.Record(durationMs, new TagList { { "batch_size", batchSize.ToString() } });
 
     /// <summary>
     /// Updates the current status batch size.
@@ -313,7 +315,10 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordLogsCollected(int count, string logLevel = null)
     {
         var tags = new TagList();
-        if (logLevel != null) tags.Add("level", logLevel);
+
+        if (logLevel != null)
+            tags.Add("level", logLevel);
+
         _logsCollected.Add(count, tags);
     }
 
@@ -323,17 +328,17 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordLogCollectionFailure(string reason = null)
     {
         var tags = new TagList();
-        if (reason != null) tags.Add("reason", reason);
+
+        if (reason != null)
+            tags.Add("reason", reason);
+
         _logCollectionFailures.Add(1, tags);
     }
 
     /// <summary>
     /// Records the duration of a log batch processing.
     /// </summary>
-    public void RecordLogBatchDuration(double durationMs, int batchSize)
-    {
-        _logBatchDuration.Record(durationMs, new TagList { { "batch_size", batchSize.ToString() } });
-    }
+    public void RecordLogBatchDuration(double durationMs, int batchSize) => _logBatchDuration.Record(durationMs, new TagList { { "batch_size", batchSize.ToString() } });
 
     /// <summary>
     /// Updates the current log batch size.
@@ -350,17 +355,17 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordWorkerRegistration(string workerType = null)
     {
         var tags = new TagList();
-        if (workerType != null) tags.Add("worker_type", workerType);
+
+        if (workerType != null)
+            tags.Add("worker_type", workerType);
+
         _workerRegistrations.Add(1, tags);
     }
 
     /// <summary>
     /// Records worker heartbeats.
     /// </summary>
-    public void RecordWorkerHeartbeats(int count)
-    {
-        _workerHeartbeats.Add(count);
-    }
+    public void RecordWorkerHeartbeats(int count) => _workerHeartbeats.Add(count);
 
     /// <summary>
     /// Records a heartbeat processing failure.
@@ -368,17 +373,17 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordHeartbeatFailure(string reason = null)
     {
         var tags = new TagList();
-        if (reason != null) tags.Add("reason", reason);
+
+        if (reason != null)
+            tags.Add("reason", reason);
+
         _workerHeartbeatFailures.Add(1, tags);
     }
 
     /// <summary>
     /// Records the duration of heartbeat batch processing.
     /// </summary>
-    public void RecordHeartbeatProcessDuration(double durationMs, int batchSize)
-    {
-        _heartbeatProcessDuration.Record(durationMs, new TagList { { "batch_size", batchSize.ToString() } });
-    }
+    public void RecordHeartbeatProcessDuration(double durationMs, int batchSize) => _heartbeatProcessDuration.Record(durationMs, new TagList { { "batch_size", batchSize.ToString() } });
 
     /// <summary>
     /// Updates the active workers count.
@@ -392,26 +397,17 @@ public sealed class BackgroundServiceMetrics : IDisposable
     /// <summary>
     /// Records detected zombie occurrences.
     /// </summary>
-    public void RecordZombiesDetected(int count)
-    {
-        _zombieOccurrencesDetected.Add(count);
-    }
+    public void RecordZombiesDetected(int count) => _zombieOccurrencesDetected.Add(count);
 
     /// <summary>
     /// Records recovered zombie occurrences.
     /// </summary>
-    public void RecordZombiesRecovered(int count)
-    {
-        _zombieOccurrencesRecovered.Add(count);
-    }
+    public void RecordZombiesRecovered(int count) => _zombieOccurrencesRecovered.Add(count);
 
     /// <summary>
     /// Records the duration of a zombie detection scan.
     /// </summary>
-    public void RecordZombieDetectionDuration(double durationMs)
-    {
-        _zombieDetectionDuration.Record(durationMs);
-    }
+    public void RecordZombieDetectionDuration(double durationMs) => _zombieDetectionDuration.Record(durationMs);
 
     #endregion
 
@@ -420,26 +416,17 @@ public sealed class BackgroundServiceMetrics : IDisposable
     /// <summary>
     /// Records processed failed occurrences.
     /// </summary>
-    public void RecordFailedOccurrencesProcessed(int count)
-    {
-        _failedOccurrencesProcessed.Add(count);
-    }
+    public void RecordFailedOccurrencesProcessed(int count) => _failedOccurrencesProcessed.Add(count);
 
     /// <summary>
     /// Records retried failed occurrences.
     /// </summary>
-    public void RecordFailedOccurrencesRetried(int count)
-    {
-        _failedOccurrencesRetried.Add(count);
-    }
+    public void RecordFailedOccurrencesRetried(int count) => _failedOccurrencesRetried.Add(count);
 
     /// <summary>
     /// Records the duration of failed occurrence processing.
     /// </summary>
-    public void RecordFailedOccurrenceProcessDuration(double durationMs)
-    {
-        _failedOccurrenceProcessDuration.Record(durationMs);
-    }
+    public void RecordFailedOccurrenceProcessDuration(double durationMs) => _failedOccurrenceProcessDuration.Record(durationMs);
 
     #endregion
 
@@ -448,10 +435,7 @@ public sealed class BackgroundServiceMetrics : IDisposable
     /// <summary>
     /// Records a service iteration.
     /// </summary>
-    public void RecordServiceIteration(string serviceName)
-    {
-        _serviceIterations.Add(1, new TagList { { "service", serviceName } });
-    }
+    public void RecordServiceIteration(string serviceName) => _serviceIterations.Add(1, new TagList { { "service", serviceName } });
 
     /// <summary>
     /// Records a service error.
@@ -459,17 +443,17 @@ public sealed class BackgroundServiceMetrics : IDisposable
     public void RecordServiceError(string serviceName, string errorType = null)
     {
         var tags = new TagList { { "service", serviceName } };
-        if (errorType != null) tags.Add("error_type", errorType);
+
+        if (errorType != null)
+            tags.Add("error_type", errorType);
+
         _serviceErrors.Add(1, tags);
     }
 
     /// <summary>
     /// Records the duration of a service iteration.
     /// </summary>
-    public void RecordIterationDuration(string serviceName, double durationMs)
-    {
-        _iterationDuration.Record(durationMs, new TagList { { "service", serviceName } });
-    }
+    public void RecordIterationDuration(string serviceName, double durationMs) => _iterationDuration.Record(durationMs, new TagList { { "service", serviceName } });
 
     /// <summary>
     /// Creates a stopwatch for measuring duration, returns an IDisposable that records on dispose.

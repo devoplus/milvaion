@@ -5705,19 +5705,6 @@
             <param name="value"></param>
             <returns></returns>
         </member>
-        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.EfExtensions.ToListResponseAsync``2(System.Linq.IQueryable{``0},Milvasoft.Components.Rest.Request.ListRequest,System.Linq.Expressions.Expression{System.Func{``0,``1}},System.Nullable{System.Int32},System.Threading.CancellationToken)">
-            <summary>
-            ToListResponseAsync extension method for IQueryable with filtering, sorting, and pagination.
-            </summary>
-            <typeparam name="TEntity"></typeparam>
-            <typeparam name="TDto"></typeparam>
-            <param name="query"></param>
-            <param name="listRequest"></param>
-            <param name="projection"></param>
-            <param name="manualTotalCount"></param>
-            <param name="cancellationToken"></param>
-            <returns></returns>
-        </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQueryValidator">
             <summary>
             Account detail query validations. 
@@ -7756,6 +7743,19 @@
             Converts data uri base64 string to plain text base64 string.
             </summary>
             <param name="dataUriBase64"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.ToListResponseAsync``2(System.Linq.IQueryable{``0},Milvasoft.Components.Rest.Request.ListRequest,System.Linq.Expressions.Expression{System.Func{``0,``1}},System.Nullable{System.Int32},System.Threading.CancellationToken)">
+            <summary>
+            ToListResponseAsync extension method for IQueryable with filtering, sorting, and pagination.
+            </summary>
+            <typeparam name="TEntity"></typeparam>
+            <typeparam name="TDto"></typeparam>
+            <param name="query"></param>
+            <param name="listRequest"></param>
+            <param name="projection"></param>
+            <param name="manualTotalCount"></param>
+            <param name="cancellationToken"></param>
             <returns></returns>
         </member>
         <member name="M:Milvaion.Application.Utils.Extensions.MilvaionExtensions.DataUriRegex">
