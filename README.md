@@ -6,7 +6,11 @@
   <img src="https://portal.milvasoft.com/assets/images/logo256-e8d874bf50d543bf1319f5cbd1effba5.png" alt="MilvaionLogo"  />
 </p>
 
+<p align="center">
 A distributed job scheduling system built on .NET 10
+</p>
+
+<div align="center">
 
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-APACHE2.0-green?style=flat-square)](LICENSE)
@@ -21,8 +25,9 @@ A distributed job scheduling system built on .NET 10
 [🚀 Getting Started](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/quick-start) |
 [📦 Packages](https://www.nuget.org/packages?q=Milvaion&includeComputedFrameworks=true&prerel=true) |
 [🐳 Docker](https://hub.docker.com/r/milvasoft/milvaion-api)
+</div>
 
----
+<br>
 
 ## What is Milvaion?
 
