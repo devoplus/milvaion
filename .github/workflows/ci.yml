@@ -35,10 +35,16 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: |
+          dotnet restore src/Milvaion.Api/Milvaion.Api.csproj
+          dotnet restore tests/Milvaion.UnitTests/Milvaion.UnitTests.csproj
+          dotnet restore tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj
 
-      - name: Build solution
-        run: dotnet build --no-restore --configuration Release
+      - name: Build projects
+        run: |
+          dotnet build src/Milvaion.Api/Milvaion.Api.csproj --no-restore --configuration Release
+          dotnet build tests/Milvaion.UnitTests/Milvaion.UnitTests.csproj --no-restore --configuration Release
+          dotnet build tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj --no-restore --configuration Release
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -72,7 +78,7 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore tests/Milvaion.UnitTests/Milvaion.UnitTests.csproj
 
       - name: Run Unit Tests
         run: dotnet test tests/Milvaion.UnitTests/Milvaion.UnitTests.csproj --no-restore --configuration Release --logger "trx;LogFileName=unit-test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
@@ -156,7 +162,7 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj
 
       - name: Run Integration Tests
         run: dotnet test tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj --no-restore --configuration Release --logger "trx;LogFileName=integration-test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
