@@ -24,6 +24,8 @@ A distributed job scheduling system built on .NET 10
 
 Milvaion is a **distributed job scheduling system** that separates the *scheduler* (API that decides when jobs run) from the *workers* (processes that execute jobs), connected via Redis and RabbitMQ.
 
+![Milvaion Real Time](https://portal.milvasoft.com/assets/images/executions-4b5918b7fca1b603f54be133c7880397.gif)
+
 ```
 ┌─────────────────┐        ┌─────────────────┐       ┌─────────────────┐
 │  Milvaion API   │        │    RabbitMQ     │       │    Workers      │
