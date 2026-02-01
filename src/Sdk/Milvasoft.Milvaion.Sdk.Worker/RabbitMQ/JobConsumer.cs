@@ -99,8 +99,7 @@ public class JobConsumer : BackgroundService
 
         try
         {
-            // Setup RabbitMQ connection with explicit heartbeat configuration
-            // Critical for long-running jobs (3+ hours) to prevent connection drops
+            // RabbitMQ connection with heartbeat for long-running jobs
             var factory = new ConnectionFactory
             {
                 HostName = _options.RabbitMQ.Host,
@@ -350,7 +349,7 @@ public class JobConsumer : BackgroundService
 
                         await _outboxService.PublishLogAsync(correlationId, _options.InstanceId, redeliveryLog, CancellationToken.None);
 
-                        // CRITICAL: Flush redelivery logs immediately to prevent loss
+                        // Flush redelivery logs immediately
                         var logPublisher = _serviceProvider.GetService<ILogPublisher>();
                         if (logPublisher != null)
                         {
@@ -451,7 +450,7 @@ public class JobConsumer : BackgroundService
 
     /// <summary>
     /// Thread-safe ACK operation. IChannel is NOT thread-safe, so we serialize operations.
-    /// CRITICAL: ACK must NEVER be cancelled - it's a protocol-level finalizer.
+    /// ACK must not be cancelled - it's a protocol-level finalizer.
     /// </summary>
     private async Task SafeAckAsync(ulong deliveryTag, IMilvaLogger logger, Guid jobId)
     {
@@ -492,7 +491,7 @@ public class JobConsumer : BackgroundService
 
     /// <summary>
     /// Thread-safe NACK operation. IChannel is NOT thread-safe, so we serialize operations.
-    /// CRITICAL: NACK must NEVER be cancelled - it's a protocol-level finalizer.
+    /// NACK must not be cancelled - it's a protocol-level finalizer.
     /// </summary>
     private async Task SafeNackAsync(ulong deliveryTag, IMilvaLogger logger, Guid correlationId)
     {
@@ -625,9 +624,8 @@ public class JobConsumer : BackgroundService
                                                                   startTime: DateTime.UtcNow,
                                                                   cancellationToken: CancellationToken.None);
 
-                    // CRITICAL: Flush logs after Running status to ensure initial logs are sent
-                    // This prevents loss of early logs if worker crashes or completes quickly
-                    var logPublisher = _serviceProvider.GetService<ILogPublisher>();
+                                                                  // Flush logs after Running status
+                                                                  var logPublisher = _serviceProvider.GetService<ILogPublisher>();
                     if (logPublisher != null)
                     {
                         try
@@ -726,7 +724,7 @@ public class JobConsumer : BackgroundService
 
                             await _outboxService.PublishLogAsync(correlationId, _options.InstanceId, retryLog, CancellationToken.None);
 
-                            // CRITICAL: Flush retry logs immediately to ensure they're not lost
+                            // Flush retry logs immediately
                             var logPublisher = _serviceProvider.GetService<ILogPublisher>();
                             if (logPublisher != null)
                             {
@@ -999,8 +997,7 @@ public class JobConsumer : BackgroundService
         {
             try
             {
-                // CRITICAL: Flush all buffered logs BEFORE publishing final status
-                // This ensures all job logs are sent before SignalR disconnects
+                // Flush all buffered logs before publishing final status
                 var logPublisher = _serviceProvider.GetService<ILogPublisher>();
                 if (logPublisher != null)
                 {

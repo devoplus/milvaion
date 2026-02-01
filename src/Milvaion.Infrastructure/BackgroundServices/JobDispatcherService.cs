@@ -250,7 +250,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             workerConsumerCapacities[key] = capacity;
         }
 
-        // This prevents FK constraint violations
+        // Create new scope for repository operations
         await using var scope2 = _serviceProvider.CreateAsyncScope();
         var jobOccurrenceRepository = scope2.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrence>>();
         var jobOccurrenceLogRepository = scope2.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
@@ -276,7 +276,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             if (!CanDispatchBasedOnConcurrencyPolicy(runningJobIdsSet, job))
                 continue;
 
-            if (!CanDispatchBasedOnWorkerCapacityBatched(job, workerCapacities, workerConsumerCapacities))
+            if (!CanDispatchBasedOnWorkerCapacity(job, workerCapacities, workerConsumerCapacities))
                 continue;
 
             jobsPassedValidation.Add(job);
@@ -424,7 +424,6 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         {
             try
             {
-                // Single Redis call for all successful dispatches
                 await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, successfulDispatchCount, cancellationToken);
                 _logger.Debug("Incremented Queued counter by {Count} for successfully dispatched jobs", successfulDispatchCount);
             }
@@ -495,7 +494,6 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         {
             try
             {
-                // Single Redis call for all successful dispatches
                 await _redisStatsService.DecrementStatusCounterAsync(JobOccurrenceStatus.Queued, failedToDispatchOccurrences.Count, cancellationToken);
                 _logger.Debug("Decremented Queued counter by {Count} for failed to dispatch jobs", failedToDispatchOccurrences.Count);
             }
@@ -589,9 +587,9 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         return true;
     }
 
-    private bool CanDispatchBasedOnWorkerCapacityBatched(ScheduledJob job,
-                                                         Dictionary<string, (int currentJobs, int? maxParallelJobs)> workerCapacities,
-                                                         Dictionary<string, (int currentJobs, int? maxParallelJobs)> consumerCapacities)
+    private bool CanDispatchBasedOnWorkerCapacity(ScheduledJob job,
+                                                  Dictionary<string, (int currentJobs, int? maxParallelJobs)> workerCapacities,
+                                                  Dictionary<string, (int currentJobs, int? maxParallelJobs)> consumerCapacities)
     {
         if (string.IsNullOrWhiteSpace(job.WorkerId))
             return true;
@@ -742,12 +740,10 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 });
 
                 return false;
-            }
+                }
 
-            // CRITICAL: Reschedule recurring job IMMEDIATELY after successful publish
-            // This prevents race condition where dispatcher picks up the same job again
-            // before worker finishes execution (job completes at T+10s, but dispatcher checks at T+5s)
-            await HandleRecurringJobAsync(job, cancellationToken);
+                // Reschedule recurring job after successful publish
+                await HandleRecurringJobAsync(job, cancellationToken);
 
             _logger.Debug("Job {JobId} ({JobType}) dispatched successfully with CorrelationId {CorrelationId}", job.Id, job.JobNameInWorker, occurrence.Id);
 

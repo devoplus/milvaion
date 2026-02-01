@@ -190,7 +190,7 @@ public class ConnectionMonitor : IConnectionMonitor
         {
             // Already disposed, ignore
         }
-        
+
         _backgroundCheckTask?.GetAwaiter().GetResult();
         DisposeConnectionAsync().GetAwaiter().GetResult();
         _cts?.Dispose();
@@ -213,7 +213,7 @@ public class ConnectionMonitor : IConnectionMonitor
         {
             // Already disposed, ignore
         }
-        
+
         if (_backgroundCheckTask != null)
             await _backgroundCheckTask;
         await DisposeConnectionAsync();

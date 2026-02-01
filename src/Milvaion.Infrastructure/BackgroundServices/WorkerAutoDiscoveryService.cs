@@ -285,11 +285,9 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             if (batch.Count == 0)
                 return;
 
-            // Single Redis batch call (1 network roundtrip for 100 heartbeats)
             var successCount = await _redisWorkerService.BulkUpdateHeartbeatsAsync(batch, cancellationToken);
 
-            // Bulk ACK: ACK the highest delivery tag with multiple=true
-            // This ACKs all messages up to and including maxDeliveryTag in single call
+            // Bulk ACK all processed messages
             await SafeAckAsync(_heartbeatChannel, maxDeliveryTag, true, cancellationToken);
 
             _logger.Debug("Processed {SuccessCount}/{TotalCount} heartbeats in batch (bulk ACK up to {DeliveryTag})", successCount, batch.Count, maxDeliveryTag);

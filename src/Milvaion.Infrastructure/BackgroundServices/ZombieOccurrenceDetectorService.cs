@@ -104,7 +104,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         if (allProblematicOccurrences.Count == 0)
             return;
 
-        // Single bulk update for all
+        // Bulk update occurrences
         await dbContext.BulkUpdateAsync(allProblematicOccurrences, (bc) =>
         {
             bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _updatePropNames;
@@ -118,7 +118,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
             _logger.Debug("Bulk inserted {Count} zombie/lost occurrence logs", logsToInsert.Count);
         }
 
-        // Single event publish for all
+        // Publish status change events
         var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
 
         await eventPublisher.PublishOccurrenceUpdatedAsync(allProblematicOccurrences, _logger, cancellationToken);

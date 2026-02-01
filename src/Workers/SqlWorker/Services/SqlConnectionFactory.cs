@@ -1,9 +1,9 @@
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
+using MySqlConnector;
+using Npgsql;
 using SqlWorker.Options;
 using System.Data.Common;
-using Microsoft.Data.SqlClient;
-using Npgsql;
-using MySqlConnector;
-using Microsoft.Extensions.Options;
 
 namespace SqlWorker.Services;
 

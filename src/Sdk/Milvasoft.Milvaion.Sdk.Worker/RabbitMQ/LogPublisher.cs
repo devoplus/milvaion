@@ -160,7 +160,7 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
             {
                 _logger?.Error(ex, "Failed to flush logs batch. Re-queuing {Count} logs for retry.", batch.Count);
 
-                // CRITICAL: Re-queue logs on failure to prevent data loss
+                // Re-queue logs on failure to prevent data loss
                 foreach (var log in batch)
                 {
                     _logBuffer.Enqueue(log);

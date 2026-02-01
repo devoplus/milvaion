@@ -65,13 +65,13 @@ public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsy
         if (settings.VacuumAfterCleanup && (totalDeleted >= settings.VacuumThreshold || totalLogsDeleted >= (settings.VacuumThreshold * 5)))
         {
             context.LogInformation($"[VACUUM] Running VACUUM ANALYZE to reclaim space (deleted {totalDeleted} occurrences, {totalLogsDeleted} logs)...");
-            
+
             try
             {
                 // VACUUM ANALYZE both tables to reclaim space and update statistics
                 await connection.ExecuteAsync("VACUUM ANALYZE \"JobOccurrences\"");
                 context.LogInformation("  [OK] VACUUM JobOccurrences completed");
-                
+
                 await connection.ExecuteAsync("VACUUM ANALYZE \"JobOccurrenceLogs\"");
                 context.LogInformation("  [OK] VACUUM JobOccurrenceLogs completed");
             }

@@ -1507,8 +1507,7 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.TryAcquireLocksBulkAsync(System.Collections.Generic.List{System.Guid},System.String,System.TimeSpan,System.Threading.CancellationToken)">
             <summary>
-            Tries to acquire locks for multiple jobs atomically using Lua script (bulk optimization).
-            Single Redis round-trip for all locks - massive performance improvement for high-throughput scenarios.
+            Tries to acquire locks for multiple jobs atomically using Lua script.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisLockService.ReleaseLocksBulkAsync(System.Collections.Generic.List{System.Guid},System.String,System.Threading.CancellationToken)">
@@ -1703,9 +1702,7 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.BulkUpdateHeartbeatsAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.Int32,System.DateTime}},System.Threading.CancellationToken)">
             <summary>
-            Updates heartbeats for multiple worker instances using TRUE Redis pipelining.
-            Single network round-trip for all updates instead of sequential await calls.
-            Uses the actual heartbeat timestamp from the worker, not the processing time.
+            Updates heartbeats for multiple worker instances in batch.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.GetWorkerAsync(System.String,System.Threading.CancellationToken)">

@@ -28,7 +28,6 @@ public interface ILocalStateStore : IDisposable, IAsyncDisposable
     Task CleanupSyncedRecordsAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default);
 }
 
-
 /// <summary>
 /// Local SQLite-based storage for job execution state when scheduler/RabbitMQ is unavailable.
 /// Implements outbox pattern for reliable message delivery.
@@ -108,7 +107,6 @@ public class LocalStateStore : ILocalStateStore
         }
     }
 
-
     #region Status Updates
 
     /// <summary>
@@ -172,7 +170,6 @@ public class LocalStateStore : ILocalStateStore
         await using var cmd = connection.CreateCommand();
 
         cmd.CommandText = SqlQueries.GetNotSyncedStatusUpdates;
-
 
         cmd.Parameters.AddWithValue("@MaxCount", maxCount);
 

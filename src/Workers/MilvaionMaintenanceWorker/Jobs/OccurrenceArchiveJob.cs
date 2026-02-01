@@ -105,13 +105,13 @@ public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsync
         if (settings.VacuumAfterArchive && (totalArchived >= settings.VacuumThreshold || totalLogsArchived >= (settings.VacuumThreshold * 5)))
         {
             context.LogInformation($"[VACUUM] Running VACUUM ANALYZE to reclaim space (archived {totalArchived} occurrences, {totalLogsArchived} logs)...");
-            
+
             try
             {
                 // VACUUM ANALYZE both tables to reclaim space after archive
                 await connection.ExecuteAsync("VACUUM ANALYZE \"JobOccurrences\"");
                 context.LogInformation("  [OK] VACUUM JobOccurrences completed");
-                
+
                 await connection.ExecuteAsync("VACUUM ANALYZE \"JobOccurrenceLogs\"");
                 context.LogInformation("  [OK] VACUUM JobOccurrenceLogs completed");
             }
@@ -286,7 +286,7 @@ public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsync
                 (SELECT COUNT(*) FROM archived_logs) as archived_logs";
 
         var result = await connection.QueryFirstOrDefaultAsync<(int, int)>(
-            archiveSql, 
+            archiveSql,
             new { CutoffDate = cutoffDate, BatchSize = batchSize });
 
         // Delete occurrences after logs are archived

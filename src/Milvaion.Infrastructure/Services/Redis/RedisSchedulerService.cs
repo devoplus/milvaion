@@ -221,7 +221,6 @@ public class RedisSchedulerService : IRedisSchedulerService
                     // Convert GUIDs to RedisValue array
                     var redisValues = jobIdsList.Select(id => (RedisValue)id.ToString()).ToArray();
 
-                    // Single ZREM command with multiple members
                     var removed = await _database.SortedSetRemoveAsync(_options.ScheduledJobsKey, redisValues);
 
                     _logger.Debug("Removed {Count}/{Total} jobs from Redis ZSET (bulk)", removed, jobIdsList.Count);
@@ -541,7 +540,6 @@ public class RedisSchedulerService : IRedisSchedulerService
                     // Convert to RedisKey array
                     var cacheKeys = jobIdsList.Select(id => (RedisKey)GetJobCacheKey(id)).ToArray();
 
-                    // Single DEL command with multiple keys
                     var deleted = await _database.KeyDeleteAsync(cacheKeys);
 
                     _logger.Debug("Removed {Count}/{Total} jobs from Redis cache (bulk)", deleted, jobIdsList.Count);
@@ -655,8 +653,7 @@ public class RedisSchedulerService : IRedisSchedulerService
             {
                 try
                 {
-                    // SADD returns true if added (wasn't in set), false if already exists
-                    // This is ATOMIC - prevents race conditions
+                    // SADD returns true if added, false if already exists
                     var added = await _database.SetAddAsync(RunningJobsKey, jobId.ToString());
 
                     if (added)

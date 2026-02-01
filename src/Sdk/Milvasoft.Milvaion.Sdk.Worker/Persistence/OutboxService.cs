@@ -128,7 +128,6 @@ public class OutboxService(ILocalStateStore localStore,
 
     #endregion
 
-
     #region Heartbeat
 
     /// <summary>

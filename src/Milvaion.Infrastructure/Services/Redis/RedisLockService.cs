@@ -192,8 +192,7 @@ public class RedisLockService : IRedisLockService
         );
 
     /// <summary>
-    /// Tries to acquire locks for multiple jobs atomically using Lua script (bulk optimization).
-    /// Single Redis round-trip for all locks - massive performance improvement for high-throughput scenarios.
+    /// Tries to acquire locks for multiple jobs atomically using Lua script.
     /// </summary>
     public Task<Dictionary<Guid, bool>> TryAcquireLocksBulkAsync(List<Guid> jobIds, string workerId, TimeSpan ttl, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>

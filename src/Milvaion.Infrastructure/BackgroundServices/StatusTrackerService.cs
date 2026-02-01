@@ -332,7 +332,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     await using var scope = _serviceProvider.CreateAsyncScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-                    // Use Dictionary instead of GroupBy (last update wins)
+                    // Deduplicate by CorrelationId (last update wins)
                     var statusByCorrelation = new Dictionary<Guid, JobStatusUpdateMessage>(batch.Count);
 
                     // Last update wins - overwrite if already exists
@@ -917,7 +917,6 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             if (netChanges.Count == 0)
                 return;
 
-            // SINGLE Redis Lua script call for ALL consumer updates!
             await redisWorkerService.BatchUpdateConsumerJobCountsAsync(netChanges, cancellationToken);
 
             _logger.Debug("Batch updated {Count} consumer counters (from {TotalUpdates} status changes)", netChanges.Count, updates.Count);

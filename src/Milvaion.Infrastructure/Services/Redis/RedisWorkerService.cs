@@ -58,9 +58,11 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     new("registeredAt", registeredAt) // Preserve original registration time
                 };
 
-                var batchTasks = new List<Task>();
-                batchTasks.Add(batch.HashSetAsync(workerKey, workerData));
-                batchTasks.Add(batch.KeyExpireAsync(workerKey, _workerMetadataTTL));
+                var batchTasks = new List<Task>
+                {
+                    batch.HashSetAsync(workerKey, workerData),
+                    batch.KeyExpireAsync(workerKey, _workerMetadataTTL)
+                };
 
                 // 2. Instance Data
                 var instanceData = new HashEntry[]
@@ -80,7 +82,6 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 batchTasks.Add(batch.SetAddAsync(instanceSetKey, registration.InstanceId));
                 batchTasks.Add(batch.KeyExpireAsync(instanceSetKey, _workerMetadataTTL));
 
-                // CRITICAL: Execute batch and await all tasks to complete
                 batch.Execute();
                 await Task.WhenAll(batchTasks);
 
@@ -125,8 +126,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     new HashEntry("status", WorkerStatus.Active.ToString())
                 ]);
 
-                // CRITICAL: Re-add to indexes (in case they expired but instance key didn't)
-                // This ensures index membership is always consistent with instance existence
+                // Re-add to indexes to ensure consistency
                 await _db.SetAddAsync(_workersIndexKey, workerId);
                 await _db.SetAddAsync(instanceSetKey, instanceId);
 
@@ -154,9 +154,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
         );
 
     /// <summary>
-    /// Updates heartbeats for multiple worker instances using TRUE Redis pipelining.
-    /// Single network round-trip for all updates instead of sequential await calls.
-    /// Uses the actual heartbeat timestamp from the worker, not the processing time.
+    /// Updates heartbeats for multiple worker instances in batch.
     /// </summary>
     public async Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)> updates, CancellationToken cancellationToken = default)
     {
@@ -174,30 +172,26 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 var workerKey = $"workers:{WorkerId}";
                 var instanceSetKey = $"workers:{WorkerId}:instances";
 
-                // Use the actual heartbeat timestamp from the worker message, not DateTime.UtcNow
                 var heartbeatTime = Timestamp.ToString("O");
 
-                // All commands queued in single batch (no network calls yet)
-                updateTasks.Add(batch.HashSetAsync(instanceKey, new HashEntry[]
-                {
-                    new("lastHeartbeat", heartbeatTime), // Use actual timestamp from message!
+                updateTasks.Add(batch.HashSetAsync(instanceKey,
+                [
+                    new("lastHeartbeat", heartbeatTime),
                     new("currentJobs", CurrentJobs),
                     new("status", WorkerStatus.Active.ToString())
-                }));
+                ]));
 
-                // CRITICAL: Re-add to indexes (in case they expired but instance key didn't)
-                // This ensures index membership is always consistent with instance existence
+                // Re-add to indexes to ensure consistency
                 updateTasks.Add(batch.SetAddAsync(_workersIndexKey, WorkerId));
                 updateTasks.Add(batch.SetAddAsync(instanceSetKey, InstanceId));
 
                 updateTasks.Add(batch.KeyExpireAsync(instanceKey, _instanceTTL));
                 updateTasks.Add(batch.KeyExpireAsync(workerKey, _workerMetadataTTL));
                 updateTasks.Add(batch.KeyExpireAsync(instanceSetKey, _workerMetadataTTL));
-            }
+                }
 
-            // Execute all commands in single network round-trip
-            batch.Execute();
-            await Task.WhenAll(updateTasks);
+                batch.Execute();
+                await Task.WhenAll(updateTasks);
 
             _logger.Debug("{Count} instances updated", updates.Count, updateTasks.Count);
 
@@ -273,7 +267,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
 
                     var instanceDict = instanceData.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
 
-                    // Critical: If lastHeartbeat is missing/invalid, skip this instance (corrupted data)
+                    // Skip instances with invalid data
                     var lastHeartbeatStr = instanceDict.GetValueOrDefault("lastHeartbeat");
                     var registeredAtStr = instanceDict.GetValueOrDefault("registeredAt");
 
@@ -358,8 +352,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 if (workerIds.Length == 0)
                     return [];
 
-                // TRUE PIPELINING PHASE 1: Fetch worker metadata + instance SET membership
-                var batch1 = _db.CreateBatch();
+                    // Phase 1: Fetch worker metadata and instance sets
+                    var batch1 = _db.CreateBatch();
 
                 var metadataTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.HashGetAllAsync($"workers:{id}"));
                 var instanceSetTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.SetMembersAsync($"workers:{id}:instances"));
@@ -367,7 +361,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 batch1.Execute();
                 await Task.WhenAll(metadataTasks.Values.Concat(instanceSetTasks.Values.Cast<Task>()));
 
-                // TRUE PIPELINING PHASE 2: Fetch ALL instance Hashes in one batch
+                // Phase 2: Fetch all instance data
                 var batch2 = _db.CreateBatch();
                 var instanceDataTasks = new Dictionary<string, Task<HashEntry[]>>();
 
@@ -413,7 +407,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
 
                         var instanceDict = instanceData.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
 
-                        // Critical: If lastHeartbeat is missing/invalid, skip this instance
+                        // Skip instances with invalid data
                         var lastHeartbeatStr = instanceDict.GetValueOrDefault("lastHeartbeat");
                         var registeredAtStr = instanceDict.GetValueOrDefault("registeredAt");
 
@@ -461,7 +455,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     });
                 }
 
-                _logger.Debug("Fetched {Count} workers with {InstanceCount} total instances via 2-phase pipelining", workers.Count, workers.Sum(w => w.Instances.Count));
+                _logger.Debug("Fetched {Count} workers with {InstanceCount} total instances", workers.Count, workers.Sum(w => w.Instances.Count));
 
                 return workers;
             },
@@ -616,7 +610,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         var groupKey = $"{workerId}:{instanceId}";
 
                         if (!instanceGroups.ContainsKey(groupKey))
-                            instanceGroups[groupKey] = new Dictionary<string, int>();
+                            instanceGroups[groupKey] = [];
 
                         instanceGroups[groupKey][jobType] = netChange;
                     }
@@ -625,25 +619,25 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     var luaScript = @"
                         local hashKey = KEYS[1]
                         local argIndex = 1
-                        
+
                         while argIndex <= #ARGV do
                             local jobType = ARGV[argIndex]
                             local netChange = tonumber(ARGV[argIndex + 1])
-                            
+
                             if netChange ~= 0 then
                                 local current = tonumber(redis.call('HGET', hashKey, jobType) or 0)
                                 local newValue = current + netChange
-                                
+
                                 if newValue < 0 then
                                     newValue = 0
                                 end
-                                
+
                                 redis.call('HSET', hashKey, jobType, newValue)
                             end
-                            
+
                             argIndex = argIndex + 2
                         end
-                        
+
                         redis.call('EXPIRE', hashKey, 3600)
                         return 1";
 
@@ -667,7 +661,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                             args.Add(netChange);
                         }
 
-                        await _db.ScriptEvaluateAsync(luaScript, keys, args.ToArray());
+                        await _db.ScriptEvaluateAsync(luaScript, keys, [.. args]);
                     }
 
                     _logger.Debug("Batch updated consumer counters for {InstanceCount} instances ({TotalUpdates} total updates)", instanceGroups.Count, updates.Count);

@@ -165,7 +165,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             var oldKey = GetKeyForStatus(oldStatus);
             var newKey = GetKeyForStatus(newStatus);
 
-            // Lua script for atomic update (prevents race conditions between decrement and increment)
+            // Atomic status update using Lua script
             await _db.ScriptEvaluateAsync(_updateStatusScript, [oldKey ?? "", newKey ?? ""]);
 
             return true;
@@ -244,7 +244,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
             var sevenDaysAgo = now.AddDays(-7);
             var thirtySecondsAgo = now.AddSeconds(-30);
 
-            // Use the same query logic as original dashboard (last 7 days, completed calculated)
+            // Query stats for the last 7 days
             var sql = $@"
                  WITH stats AS (
                      SELECT
