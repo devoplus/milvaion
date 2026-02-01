@@ -65,6 +65,9 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("status update message should be received");
         receivedMessage.Should().NotBeNull();
@@ -73,9 +76,6 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
         receivedMessage.WorkerId.Should().Be(workerId);
         receivedMessage.Status.Should().Be(JobOccurrenceStatus.Running);
         receivedMessage.StartTime.Should().NotBeNull();
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -124,6 +124,9 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("completed status message should be received");
         receivedMessage.Should().NotBeNull();
@@ -131,9 +134,6 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
         receivedMessage.EndTime.Should().NotBeNull();
         receivedMessage.DurationMs.Should().Be(durationMs);
         receivedMessage.Result.Should().Be(result);
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -177,14 +177,14 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("failed status message should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.Status.Should().Be(JobOccurrenceStatus.Failed);
         receivedMessage.Exception.Should().Contain("NullReferenceException");
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -227,14 +227,14 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("cancelled status message should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.Status.Should().Be(JobOccurrenceStatus.Cancelled);
         receivedMessage.Result.Should().Contain("cancelled");
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -277,14 +277,14 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("timed out status message should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.Status.Should().Be(JobOccurrenceStatus.TimedOut);
         receivedMessage.Exception.Should().Contain("timed out");
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -325,14 +325,14 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("status message should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.MessageTimestamp.Should().BeAfter(beforePublish.AddSeconds(-1));
         receivedMessage.MessageTimestamp.Should().BeBefore(DateTime.UtcNow.AddSeconds(1));
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     private async Task PurgeStatusUpdatesQueueAsync()

@@ -47,9 +47,10 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         WorkerLogMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
-                receivedMessage = msg;
-        }, cts.Token);
+            var log = msg?.Logs.FirstOrDefault();
+            if (log?.CorrelationId == correlationId)
+                receivedMessage = log;
+        }, correlationId, cts.Token);
 
         await using var publisher = CreateLogPublisher();
 
@@ -60,12 +61,17 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             log: log,
             cancellationToken: cts.Token);
 
+        await publisher.FlushAsync(cts.Token);
+
         // Wait for message
         var found = await WaitForConditionAsync(
             () => Task.FromResult(receivedMessage != null),
             timeout: TimeSpan.FromSeconds(10),
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
+
+        await channel.CloseAsync();
+        await connection.CloseAsync();
 
         // Assert
         found.Should().BeTrue("log message should be received");
@@ -76,9 +82,6 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         receivedMessage.Log.Level.Should().Be("Information");
         receivedMessage.Log.Message.Should().Be(uniqueMessage);
         receivedMessage.Log.Category.Should().Be("BatchProcessor");
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -108,9 +111,10 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         WorkerLogMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
-                receivedMessage = msg;
-        }, cts.Token);
+            var log = msg?.Logs.FirstOrDefault();
+            if (log?.CorrelationId == correlationId)
+                receivedMessage = log;
+        }, correlationId, cts.Token);
 
         await using var publisher = CreateLogPublisher();
 
@@ -121,6 +125,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             log: log,
             cancellationToken: cts.Token);
 
+        await publisher.FlushAsync(cts.Token);
+
         // Wait for message
         var found = await WaitForConditionAsync(
             () => Task.FromResult(receivedMessage != null),
@@ -128,15 +134,15 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("error log message should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.Log.Level.Should().Be("Error");
         receivedMessage.Log.Data.Should().NotBeNull();
         receivedMessage.Log.Data.Should().ContainKey("RetryCount");
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -161,9 +167,10 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         WorkerLogMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
-                receivedMessage = msg;
-        }, cts.Token);
+            var log = msg?.Logs.FirstOrDefault();
+            if (log?.CorrelationId == correlationId)
+                receivedMessage = log;
+        }, correlationId, cts.Token);
 
         await using var publisher = CreateLogPublisher();
 
@@ -174,21 +181,23 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             log: log,
             cancellationToken: cts.Token);
 
+        await publisher.FlushAsync(cts.Token);
+
         // Wait for message
         var found = await WaitForConditionAsync(
             () => Task.FromResult(receivedMessage != null),
             timeout: TimeSpan.FromSeconds(10),
-            pollInterval: TimeSpan.FromMilliseconds(300),
+            pollInterval: TimeSpan.FromMilliseconds(600),
             cancellationToken: cts.Token);
+
+        await channel.CloseAsync();
+        await connection.CloseAsync();
 
         // Assert
         found.Should().BeTrue("warning log message should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.Log.Level.Should().Be("Warning");
         receivedMessage.Log.Message.Should().Contain("Rate limit");
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -213,9 +222,10 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         WorkerLogMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
-                receivedMessage = msg;
-        }, cts.Token);
+            var log = msg?.Logs.FirstOrDefault();
+            if (log?.CorrelationId == correlationId)
+                receivedMessage = log;
+        }, correlationId, cts.Token);
 
         await using var publisher = CreateLogPublisher();
 
@@ -226,6 +236,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             log: log,
             cancellationToken: cts.Token);
 
+        await publisher.FlushAsync(cts.Token);
+
         // Wait for message
         var found = await WaitForConditionAsync(
             () => Task.FromResult(receivedMessage != null),
@@ -233,13 +245,13 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("debug log message should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.Log.Level.Should().Be("Debug");
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -273,9 +285,10 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         WorkerLogMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
-                receivedMessage = msg;
-        }, cts.Token);
+            var log = msg?.Logs.FirstOrDefault();
+            if (log?.CorrelationId == correlationId)
+                receivedMessage = log;
+        }, correlationId, cts.Token);
 
         await using var publisher = CreateLogPublisher();
 
@@ -286,6 +299,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             log: log,
             cancellationToken: cts.Token);
 
+        await publisher.FlushAsync(cts.Token);
+
         // Wait for message
         var found = await WaitForConditionAsync(
             () => Task.FromResult(receivedMessage != null),
@@ -293,15 +308,15 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("log message with data should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.Log.Data.Should().NotBeNull();
         receivedMessage.Log.Data.Should().ContainKey("RecordsProcessed");
         receivedMessage.Log.Data.Should().ContainKey("BatchId");
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -327,9 +342,10 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         WorkerLogMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
-                receivedMessage = msg;
-        }, cts.Token);
+            var log = msg?.Logs.FirstOrDefault();
+            if (log?.CorrelationId == correlationId)
+                receivedMessage = log;
+        }, correlationId, cts.Token);
 
         await using var publisher = CreateLogPublisher();
 
@@ -340,6 +356,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             log: log,
             cancellationToken: cts.Token);
 
+        await publisher.FlushAsync(cts.Token);
+
         // Wait for message
         var found = await WaitForConditionAsync(
             () => Task.FromResult(receivedMessage != null),
@@ -347,14 +365,14 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("log message should be received");
         receivedMessage.Should().NotBeNull();
         receivedMessage!.MessageTimestamp.Should().BeAfter(beforePublish.AddSeconds(-1));
         receivedMessage.MessageTimestamp.Should().BeBefore(DateTime.UtcNow.AddSeconds(1));
-
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -370,11 +388,10 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
-        var receivedMessages = new List<WorkerLogMessage>();
+        var receivedMessages = new WorkerLogBatchMessage();
         (IChannel channel, IConnection connection) = await SetupMultipleLogConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
-                receivedMessages.Add(msg);
+            receivedMessages = msg;
         }, cts.Token);
 
         await using var publisher = CreateLogPublisher();
@@ -397,6 +414,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
                 cancellationToken: cts.Token);
         }
 
+        await publisher.FlushAsync(cts.Token);
+
         // Wait for all 3 messages
         var found = await WaitForConditionAsync(
             () => Task.FromResult(receivedMessages.Count >= 3),
@@ -404,15 +423,15 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             pollInterval: TimeSpan.FromMilliseconds(300),
             cancellationToken: cts.Token);
 
-        // Assert
-        found.Should().BeTrue("all 3 log messages should be received");
-        receivedMessages.Should().HaveCount(3);
-        receivedMessages.Select(m => m.Log.Message).Should().Contain("Log message 0");
-        receivedMessages.Select(m => m.Log.Message).Should().Contain("Log message 1");
-        receivedMessages.Select(m => m.Log.Message).Should().Contain("Log message 2");
-
         await channel.CloseAsync();
         await connection.CloseAsync();
+
+        // Assert
+        found.Should().BeTrue("all 3 log messages should be received");
+        receivedMessages.Logs.Should().HaveCount(3);
+        receivedMessages.Logs.Select(m => m.Log.Message).Should().Contain("Log message 0");
+        receivedMessages.Logs.Select(m => m.Log.Message).Should().Contain("Log message 1");
+        receivedMessages.Logs.Select(m => m.Log.Message).Should().Contain("Log message 2");
     }
 
     private async Task PurgeLogsQueueAsync()
@@ -463,7 +482,7 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         return new LogPublisher(options, _serviceProvider.GetRequiredService<ILoggerFactory>());
     }
 
-    private async Task<(IChannel, IConnection)> SetupLogConsumerAsync(Action<WorkerLogMessage> onMessage, CancellationToken cancellationToken)
+    private async Task<(IChannel, IConnection)> SetupLogConsumerAsync(Action<WorkerLogBatchMessage> onMessage, Guid correlationId, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory
         {
@@ -492,11 +511,14 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             {
                 var body = ea.Body.ToArray();
                 var json = Encoding.UTF8.GetString(body);
-                var message = JsonSerializer.Deserialize<WorkerLogMessage>(json, _jsonOptions);
+                var message = JsonSerializer.Deserialize<WorkerLogBatchMessage>(json, _jsonOptions);
 
-                onMessage(message);
+                if (message?.Logs?.Any(l => l.CorrelationId == correlationId) ?? true)
+                {
+                    await channel.BasicAckAsync(ea.DeliveryTag, false);
 
-                await channel.BasicAckAsync(ea.DeliveryTag, false);
+                    onMessage(message);
+                }
             }
             catch
             {
@@ -530,7 +552,7 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         return (channel, connection);
     }
 
-    private async Task<(IChannel, IConnection)> SetupMultipleLogConsumerAsync(Action<WorkerLogMessage> onMessage, CancellationToken cancellationToken)
+    private async Task<(IChannel, IConnection)> SetupMultipleLogConsumerAsync(Action<WorkerLogBatchMessage> onMessage, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory
         {
@@ -559,7 +581,7 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             {
                 var body = ea.Body.ToArray();
                 var json = Encoding.UTF8.GetString(body);
-                var message = JsonSerializer.Deserialize<WorkerLogMessage>(json, _jsonOptions);
+                var message = JsonSerializer.Deserialize<WorkerLogBatchMessage>(json, _jsonOptions);
 
                 onMessage(message);
 

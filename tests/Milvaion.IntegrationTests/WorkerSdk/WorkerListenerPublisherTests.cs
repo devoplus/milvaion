@@ -64,16 +64,16 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
 
         await service.StopAsync(cts.Token);
 
+        await PurgeQueuesAsync();
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("registration message should be received");
         receivedRegistration.Should().NotBeNull();
         receivedRegistration!.WorkerId.Should().Be(uniqueWorkerId);
         receivedRegistration.JobTypes.Should().Contain("TestJob");
         receivedRegistration.MaxParallelJobs.Should().BeGreaterThan(0);
-
-        await PurgeQueuesAsync();
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -121,6 +121,10 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
 
         await service.StopAsync(cts.Token);
 
+        await PurgeQueuesAsync();
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("registration message should be received");
         receivedRegistration.Should().NotBeNull();
@@ -128,10 +132,6 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         receivedRegistration.JobTypes.Should().Contain("TestJob");
         receivedRegistration.JobTypes.Should().Contain("EmailJob");
         receivedRegistration.JobTypes.Should().Contain("ReportJob");
-
-        await PurgeQueuesAsync();
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -177,16 +177,16 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
 
         await service.StopAsync(cts.Token);
 
+        await PurgeQueuesAsync();
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("registration message should be received");
         receivedRegistration.Should().NotBeNull();
         receivedRegistration!.RoutingPatterns.Should().NotBeEmpty();
         receivedRegistration.RoutingPatterns.Should().ContainKey("TestJob");
         receivedRegistration.RoutingPatterns["TestJob"].Should().Be("test.routing.pattern");
-
-        await PurgeQueuesAsync();
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -230,14 +230,14 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
 
         await service.StopAsync(cts.Token);
 
+        await PurgeQueuesAsync();
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("heartbeat messages should be received");
         receivedHeartbeats.Should().HaveCountGreaterOrEqualTo(1);
         receivedHeartbeats.All(h => h.WorkerId == uniqueWorkerId).Should().BeTrue();
-
-        await PurgeQueuesAsync();
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -280,16 +280,16 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
 
         await service.StopAsync(cts.Token);
 
+        await PurgeQueuesAsync();
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("heartbeat message should be received");
         receivedHeartbeats.Should().NotBeEmpty();
         var heartbeat = receivedHeartbeats.First();
         heartbeat.CurrentJobs.Should().BeGreaterOrEqualTo(0);
         heartbeat.Timestamp.Should().BeAfter(DateTime.UtcNow.AddMinutes(-1));
-
-        await PurgeQueuesAsync();
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -330,15 +330,15 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
 
         await service.StopAsync(cts.Token);
 
+        await PurgeQueuesAsync();
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("registration message should be received");
         receivedRegistration.Should().NotBeNull();
         receivedRegistration!.InstanceId.Should().NotBeNullOrEmpty();
         receivedRegistration.InstanceId.Should().StartWith(uniqueWorkerId + "-");
-
-        await PurgeQueuesAsync();
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     [Fact]
@@ -379,15 +379,15 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
 
         await service.StopAsync(cts.Token);
 
+        await PurgeQueuesAsync();
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
         // Assert
         found.Should().BeTrue("registration message should be received");
         receivedRegistration.Should().NotBeNull();
         receivedRegistration!.Metadata.Should().NotBeNullOrEmpty();
         receivedRegistration.Metadata.Should().Contain("ProcessorCount");
-
-        await PurgeQueuesAsync();
-        await channel.CloseAsync();
-        await connection.CloseAsync();
     }
 
     private WorkerListenerPublisher CreateWorkerListenerPublisher(Dictionary<string, JobConsumerConfig> jobConfigs = null, WorkerOptions options = null)

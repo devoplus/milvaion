@@ -392,10 +392,10 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
             async () =>
             {
                 var dbContext = GetDbContext();
-                var occurrence = await dbContext.JobOccurrences
+                var occurrenceLogExists = await dbContext.JobOccurrenceLogs
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(o => o.JobId == job.Id, cts.Token);
-                return occurrence?.Logs?.Any(l => l.Category == "Dispatcher") == true;
+                    .AnyAsync(l => l.Category == "Dispatcher", cts.Token);
+                return occurrenceLogExists == true;
             },
             timeout: TimeSpan.FromSeconds(15),
             pollInterval: TimeSpan.FromMilliseconds(500),
@@ -409,6 +409,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         var dbContextAssert = GetDbContext();
         var createdOccurrence = await dbContextAssert.JobOccurrences
             .AsNoTracking()
+            .Include(l => l.Logs)
             .FirstOrDefaultAsync(o => o.JobId == job.Id, cts.Token);
 
         createdOccurrence.Should().NotBeNull();

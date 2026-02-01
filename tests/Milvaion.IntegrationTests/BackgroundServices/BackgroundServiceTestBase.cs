@@ -238,7 +238,7 @@ public abstract class BackgroundServiceTestBase(CustomWebApplicationFactory fact
     protected Task<JobOccurrence> GetOccurrenceAsync(Guid occurrenceId, CancellationToken cancellationToken = default)
     {
         var dbContext = GetDbContext();
-        return dbContext.JobOccurrences.AsNoTracking().FirstOrDefaultAsync(o => o.Id == occurrenceId, cancellationToken);
+        return dbContext.JobOccurrences.AsNoTracking().Include(i => i.Logs).FirstOrDefaultAsync(o => o.Id == occurrenceId, cancellationToken);
     }
 
     /// <summary>

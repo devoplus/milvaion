@@ -43,19 +43,24 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
         // Unique message to avoid cross-test interference
         var uniqueMessage = $"Test log message from worker {Guid.NewGuid():N}";
 
-        var logMessage = new WorkerLogMessage
+        var logMessage = new WorkerLogBatchMessage
         {
-            CorrelationId = occurrence.CorrelationId,
-            WorkerId = "test-worker",
-            Log = new OccurrenceLog
-            {
-                Timestamp = DateTime.UtcNow,
-                Level = "Information",
-                Message = uniqueMessage,
-                Category = "TestCategory",
-                Data = new Dictionary<string, object> { ["key"] = "value" }
-            },
-            MessageTimestamp = DateTime.UtcNow
+            Logs =
+            [
+                new() {
+                    CorrelationId = occurrence.CorrelationId,
+                    WorkerId = "test-worker",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Information",
+                        Message = uniqueMessage,
+                        Category = "TestCategory"
+                    },
+                    MessageTimestamp = DateTime.UtcNow
+                }
+            ],
+            BatchTimestamp = DateTime.UtcNow
         };
 
         // Act - Start the collector first
@@ -132,6 +137,12 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
 
         await Task.Delay(3000, cts.Token);
 
+        var logBatchMessage = new WorkerLogBatchMessage
+        {
+            Logs = new List<WorkerLogMessage>(),
+            BatchTimestamp = DateTime.UtcNow
+        };
+
         // Publish multiple log messages
         for (int i = 0; i < 5; i++)
         {
@@ -149,8 +160,10 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
                 MessageTimestamp = DateTime.UtcNow
             };
 
-            await PublishLogMessageAsync(logMessage, cts.Token);
+            logBatchMessage.Logs.Add(logMessage);
         }
+
+        await PublishLogMessageAsync(logBatchMessage, cts.Token);
 
         // Wait for all 5 logs
         var found = await WaitForConditionAsync(
@@ -221,30 +234,42 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
         await Task.Delay(3000, cts.Token);
 
         // Publish logs for both occurrences
-        await PublishLogMessageAsync(new WorkerLogMessage
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
         {
-            CorrelationId = occurrence1.CorrelationId,
-            WorkerId = "worker-1",
-            Log = new OccurrenceLog
-            {
-                Timestamp = DateTime.UtcNow,
-                Level = "Information",
-                Message = message1,
-                Category = uniqueCategory
-            }
+            BatchTimestamp = DateTime.UtcNow,
+            Logs = [
+                new WorkerLogMessage
+                {
+                    CorrelationId = occurrence1.CorrelationId,
+                    WorkerId = "worker-1",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Information",
+                        Message = message1,
+                        Category = uniqueCategory
+                    }
+                }
+            ]
         }, cts.Token);
 
-        await PublishLogMessageAsync(new WorkerLogMessage
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
         {
-            CorrelationId = occurrence2.CorrelationId,
-            WorkerId = "worker-2",
-            Log = new OccurrenceLog
-            {
-                Timestamp = DateTime.UtcNow,
-                Level = "Warning",
-                Message = message2,
-                Category = uniqueCategory
-            }
+            BatchTimestamp = DateTime.UtcNow,
+            Logs = [
+                new WorkerLogMessage
+                {
+                    CorrelationId = occurrence2.CorrelationId,
+                    WorkerId = "worker-2",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Warning",
+                        Message = message2,
+                        Category = uniqueCategory
+                    }
+                }
+            ]
         }, cts.Token);
 
         // Wait for both logs
@@ -313,17 +338,23 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
 
         foreach (var level in logLevels)
         {
-            await PublishLogMessageAsync(new WorkerLogMessage
+            await PublishLogMessageAsync(new WorkerLogBatchMessage
             {
-                CorrelationId = occurrence.CorrelationId,
-                WorkerId = "test-worker",
-                Log = new OccurrenceLog
-                {
-                    Timestamp = DateTime.UtcNow,
-                    Level = level,
-                    Message = $"{level} level log",
-                    Category = uniqueCategory
-                }
+                BatchTimestamp = DateTime.UtcNow,
+                Logs = [
+                    new WorkerLogMessage
+                    {
+                        CorrelationId = occurrence.CorrelationId,
+                        WorkerId = "test-worker",
+                        Log = new OccurrenceLog
+                        {
+                            Timestamp = DateTime.UtcNow,
+                            Level = level,
+                            Message = $"{level} level log",
+                            Category = uniqueCategory
+                        }
+                    }
+                ]
             }, cts.Token);
         }
 
@@ -391,18 +422,24 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
 
         await Task.Delay(3000, cts.Token);
 
-        await PublishLogMessageAsync(new WorkerLogMessage
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
         {
-            CorrelationId = occurrence.CorrelationId,
-            WorkerId = "test-worker",
-            Log = new OccurrenceLog
-            {
-                Timestamp = DateTime.UtcNow,
-                Level = "Information",
-                Message = "Processing complete",
-                Category = uniqueCategory,
-                Data = logData
-            }
+            BatchTimestamp = DateTime.UtcNow,
+            Logs = [
+                new WorkerLogMessage
+                {
+                    CorrelationId = occurrence.CorrelationId,
+                    WorkerId = "test-worker",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Information",
+                        Message = "Log with data",
+                        Category = uniqueCategory,
+                        Data = logData
+                    }
+                }
+            ]
         }, cts.Token);
 
         // Wait for log
@@ -443,12 +480,12 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
             {
                 Enabled = true,
                 BatchSize = 1,
-                BatchIntervalMs = 300 // Faster batch processing for tests
+                BatchIntervalMs = 100 // Faster batch processing for tests
             }),
             _serviceProvider.GetRequiredService<ILoggerFactory>()
         );
 
-    private async Task PublishLogMessageAsync(WorkerLogMessage message, CancellationToken cancellationToken)
+    private async Task PublishLogMessageAsync(WorkerLogBatchMessage message, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory
         {

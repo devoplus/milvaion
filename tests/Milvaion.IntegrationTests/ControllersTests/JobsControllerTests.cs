@@ -12,6 +12,7 @@ using Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList;
 using Milvaion.Application.Features.ScheduledJobs.GetScheduledJobList;
 using Milvaion.Application.Features.ScheduledJobs.TriggerScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
+using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.IntegrationTests.TestBase;
@@ -438,6 +439,9 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         await SeedRootUserAndSuperAdminRoleAsync();
         var job = await SeedSingleScheduledJobAsync("JobWithManyOccurrences", "Has many occurrences");
         await SeedJobOccurrencesAsync(job.Id, 10);
+        var redisStatsService = _serviceProvider.GetRequiredService<IRedisStatsService>();
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        await redisStatsService.SyncCountersFromDatabaseAsync(dbContext);
         var client = await _factory.CreateClient().LoginAsync();
         var request = new GetJobOccurrenceListQuery
         {

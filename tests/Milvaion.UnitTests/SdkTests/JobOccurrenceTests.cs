@@ -28,7 +28,7 @@ public class JobOccurrenceTests
         occurrence.DurationMs.Should().BeNull();
         occurrence.Result.Should().BeNull();
         occurrence.Exception.Should().BeNull();
-        occurrence.Logs.Should().BeEmpty();
+        occurrence.Logs.Should().BeNull();
         occurrence.DispatchRetryCount.Should().Be(0);
         occurrence.NextDispatchRetryAt.Should().BeNull();
         occurrence.LastHeartbeat.Should().BeNull();
@@ -88,6 +88,7 @@ public class JobOccurrenceTests
         var log2 = new JobOccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Warning", Message = "Log 2" };
 
         // Act
+        occurrence.Logs = [];
         occurrence.Logs.Add(log1);
         occurrence.Logs.Add(log2);
 
