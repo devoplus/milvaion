@@ -376,7 +376,8 @@
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.ProcessHeartbeatBatchAsync(System.Threading.CancellationToken)">
             <summary>
-            Process heartbeats in batch.
+            Process heartbeats in batch from the deduplication dictionary.
+            Only the latest heartbeat per instance is processed, reducing Redis load significantly.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeAckAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Boolean,System.Threading.CancellationToken)">

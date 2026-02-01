@@ -61,6 +61,10 @@ public class JobConsumer : BackgroundService
     // Offline resilience (optional - null if disabled)
     private readonly OutboxService _outboxService;
 
+    // Heartbeat debounce: prevent flooding RabbitMQ with immediate heartbeats
+    private DateTime _lastImmediateHeartbeat = DateTime.MinValue;
+    private readonly object _heartbeatDebouncelock = new();
+
     public JobConsumer(IServiceProvider serviceProvider,
                        IOptions<WorkerOptions> options,
                        IOptions<JobConsumerOptions> jobConsumerOptions,
@@ -602,6 +606,8 @@ public class JobConsumer : BackgroundService
         jobTracker.IncrementJobCount(_options.InstanceId);
         _logger?.Debug("[JOB START] Current job count: {JobCount}", jobTracker.GetJobCount(_options.InstanceId));
 
+        // Send immediate heartbeat (with debouncing to prevent queue flooding)
+        // This ensures Redis has accurate CurrentJobs for load balancing decisions
         await SendImmediateHeartbeatAsync();
 
         using var jobCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -871,9 +877,23 @@ public class JobConsumer : BackgroundService
 
     /// <summary>
     /// Sends an immediate heartbeat to update Redis with current job count.
+    /// Uses debouncing to prevent flooding RabbitMQ when many jobs complete simultaneously.
     /// </summary>
     private async Task SendImmediateHeartbeatAsync()
     {
+        // Debounce: skip if last heartbeat was sent within 1 second
+        // This prevents queue flooding when multiple jobs complete simultaneously
+        lock (_heartbeatDebouncelock)
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _lastImmediateHeartbeat).TotalMilliseconds < 1000)
+            {
+                _logger?.Debug("Skipping immediate heartbeat (debounced, last sent {Ms}ms ago)", (now - _lastImmediateHeartbeat).TotalMilliseconds);
+                return;
+            }
+            _lastImmediateHeartbeat = now;
+        }
+
         try
         {
             var workerPublisher = _serviceProvider.GetServices<IHostedService>().OfType<WorkerListenerPublisher>().FirstOrDefault();

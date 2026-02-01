@@ -34,11 +34,12 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     private IChannel _registrationChannel;
     private IChannel _heartbeatChannel;
 
-    // Heartbeat batch processing (prevent memory leak from 1.8M queued heartbeats)
-    private readonly ConcurrentQueue<(WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag)> _heartbeatBatch = new();
+    // Heartbeat batch processing with per-instance deduplication
     private readonly SemaphoreSlim _batchLock = new(1, 1);
-    private const int _maxBatchSize = 100; // Process 100 heartbeats at once
-    private const int _maxQueueSize = 10000; // Drop heartbeats if queue grows too large
+
+    // Per-instance deduplication: only keep latest heartbeat per instance
+    // This dramatically reduces Redis load when workers send many heartbeats rapidly
+    private readonly ConcurrentDictionary<string, (WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag, DateTime ReceivedAt)> _latestHeartbeats = new();
 
     /// <inheritdoc/>
     protected override string ServiceName => "WorkerAutoDiscovery";
@@ -107,7 +108,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
         // Set QoS prefetch to limit in-flight messages and prevent queue buildup during Redis slowdowns
         await _registrationChannel.BasicQosAsync(0, 10, false, stoppingToken);
-        await _heartbeatChannel.BasicQosAsync(0, 100, false, stoppingToken); // Higher prefetch for high-frequency heartbeats
+        await _heartbeatChannel.BasicQosAsync(0, 500, false, stoppingToken); // High prefetch for high-frequency heartbeats
 
         _logger.Information("Connected to RabbitMQ. Consuming worker registration and heartbeat messages");
 
@@ -236,18 +237,35 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
             }
 
-            // Check queue size limit (backpressure)
-            if (_heartbeatBatch.Count >= _maxQueueSize)
-            {
-                _logger.Warning("Heartbeat batch queue full ({Count}). Dropping heartbeat from {WorkerId}/{InstanceId}", _heartbeatBatch.Count, heartbeat.WorkerId, heartbeat.InstanceId);
-                await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, false, cancellationToken);
-                return;
-            }
+            // Per-instance deduplication: only keep the latest heartbeat per instance
+            // This prevents queue flooding when workers send many heartbeats rapidly
+            var instanceKey = heartbeat.InstanceId;
+            var now = DateTime.UtcNow;
 
-            // Add to batch queue with delivery tag (ACK will be done in batch)
-            _heartbeatBatch.Enqueue((heartbeat, ea.DeliveryTag));
+            // Try to update existing entry or add new one
+            _latestHeartbeats.AddOrUpdate(
+                instanceKey,
+                // Add new entry
+                (heartbeat, ea.DeliveryTag, now),
+                // Update existing: keep newer heartbeat, ACK older delivery tag immediately
+                (key, existing) =>
+                {
+                    // ACK the older message immediately (fire-and-forget, non-blocking)
+                    if (heartbeat.Timestamp >= existing.Heartbeat.Timestamp)
+                    {
+                        // New heartbeat is newer - ACK the old one
+                        _ = SafeAckAsync(_heartbeatChannel, existing.DeliveryTag, false, cancellationToken);
+                        return (heartbeat, ea.DeliveryTag, now);
+                    }
+                    else
+                    {
+                        // Existing heartbeat is newer - ACK the incoming one
+                        _ = SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, false, cancellationToken);
+                        return existing;
+                    }
+                });
 
-            _logger.Debug("Heartbeat queued for batch processing: {WorkerId}/{InstanceId} (Queue: {Count})", heartbeat.WorkerId, heartbeat.InstanceId, _heartbeatBatch.Count);
+            _logger.Debug("Heartbeat stored for batch processing: {WorkerId}/{InstanceId} (Unique instances: {Count})", heartbeat.WorkerId, heartbeat.InstanceId, _latestHeartbeats.Count);
         }
         catch (Exception ex)
         {
@@ -257,40 +275,46 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     }
 
     /// <summary>
-    /// Process heartbeats in batch.
+    /// Process heartbeats in batch from the deduplication dictionary.
+    /// Only the latest heartbeat per instance is processed, reducing Redis load significantly.
     /// </summary>
     private async Task ProcessHeartbeatBatchAsync(CancellationToken cancellationToken)
     {
-        if (!await _batchLock.WaitAsync(0, cancellationToken))
+        // Wait up to 50ms for lock (don't skip immediately, but don't block too long either)
+        if (!await _batchLock.WaitAsync(50, cancellationToken))
             return;
 
         try
         {
-            if (_heartbeatBatch.IsEmpty)
+            if (_latestHeartbeats.IsEmpty)
                 return;
 
-            var batch = new List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)>();
-            ulong maxDeliveryTag = 0;
-
-            // Dequeue up to 100 heartbeats
-            while (_heartbeatBatch.TryDequeue(out var item) && batch.Count < _maxBatchSize)
+            // Snapshot and clear the dictionary atomically
+            var snapshot = new List<(string InstanceId, WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag)>();
+            
+            foreach (var kvp in _latestHeartbeats)
             {
-                batch.Add((item.Heartbeat.WorkerId, item.Heartbeat.InstanceId, item.Heartbeat.CurrentJobs, item.Heartbeat.Timestamp));
-
-                // Track highest delivery tag for bulk ACK
-                if (item.DeliveryTag > maxDeliveryTag)
-                    maxDeliveryTag = item.DeliveryTag;
+                if (_latestHeartbeats.TryRemove(kvp.Key, out var entry))
+                {
+                    snapshot.Add((kvp.Key, entry.Heartbeat, entry.DeliveryTag));
+                }
             }
 
-            if (batch.Count == 0)
+            if (snapshot.Count == 0)
                 return;
+
+            // Build batch for Redis (deduplicated - one per instance)
+            var batch = snapshot.Select(s => (s.Heartbeat.WorkerId, s.Heartbeat.InstanceId, s.Heartbeat.CurrentJobs, s.Heartbeat.Timestamp)).ToList();
 
             var successCount = await _redisWorkerService.BulkUpdateHeartbeatsAsync(batch, cancellationToken);
 
-            // Bulk ACK all processed messages
-            await SafeAckAsync(_heartbeatChannel, maxDeliveryTag, true, cancellationToken);
+            // ACK each message individually (can't use bulk ACK with deduplication since delivery tags aren't sequential)
+            foreach (var item in snapshot)
+            {
+                await SafeAckAsync(_heartbeatChannel, item.DeliveryTag, false, cancellationToken);
+            }
 
-            _logger.Debug("Processed {SuccessCount}/{TotalCount} heartbeats in batch (bulk ACK up to {DeliveryTag})", successCount, batch.Count, maxDeliveryTag);
+            _logger.Debug("Processed {SuccessCount}/{TotalCount} heartbeats in batch (deduplicated from {InstanceCount} instances)", successCount, batch.Count, snapshot.Count);
         }
         catch (Exception ex)
         {
@@ -371,7 +395,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         try
         {
             await ProcessHeartbeatBatchAsync(CancellationToken.None);
-            _logger.Information("Processed remaining {Count} heartbeats during shutdown", _heartbeatBatch.Count);
+            _logger.Information("Processed remaining {Count} heartbeats during shutdown", _latestHeartbeats.Count);
         }
         catch (Exception ex)
         {
