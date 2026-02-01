@@ -371,15 +371,6 @@ dotnet add package Milvasoft.Milvaion.Sdk.Worker
 dotnet new install Milvasoft.Templates.Milvaion
 ```
 
-### GitHub Packages
-
-Packages are also available on [GitHub Packages](https://github.com/orgs/Milvasoft/packages?repo_name=milvaion).
-
-```bash
-# Add GitHub Packages source
-dotnet nuget add source "https://nuget.pkg.github.com/Milvasoft/index.json" --name github --username YOUR_GITHUB_USERNAME --password YOUR_GITHUB_TOKEN
-```
-
 ---
 
 ## Docker
