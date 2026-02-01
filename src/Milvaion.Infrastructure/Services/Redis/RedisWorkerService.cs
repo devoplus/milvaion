@@ -51,6 +51,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 var workerData = new HashEntry[]
                 {
                     new("displayName", registration.DisplayName),
+                    new("routingPatterns", JsonSerializer.Serialize(registration.RoutingPatterns)),
+                    new("jobDataDefinitions", JsonSerializer.Serialize(registration.JobDataDefinitions)),
                     new("jobNames", JsonSerializer.Serialize(registration.JobTypes)),
                     new("maxParallelJobs", registration.MaxParallelJobs),
                     new("version", registration.Version),
@@ -71,7 +73,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     new("currentJobs", 0),
                     new("status", WorkerStatus.Active.ToString()),
                     new("lastHeartbeat", DateTime.UtcNow.ToString("O")),
-                    new("registeredAt", instanceRegisteredAt) // Preserve original instance registration time
+                    new("registeredAt", instanceRegisteredAt), // Preserve original instance registration time
+                    new("ipAddress", registration.IpAddress)
                 };
 
                 batchTasks.Add(batch.HashSetAsync(instanceKey, instanceData));
@@ -188,10 +191,10 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 updateTasks.Add(batch.KeyExpireAsync(instanceKey, _instanceTTL));
                 updateTasks.Add(batch.KeyExpireAsync(workerKey, _workerMetadataTTL));
                 updateTasks.Add(batch.KeyExpireAsync(instanceSetKey, _workerMetadataTTL));
-                }
+            }
 
-                batch.Execute();
-                await Task.WhenAll(updateTasks);
+            batch.Execute();
+            await Task.WhenAll(updateTasks);
 
             _logger.Debug("{Count} instances updated", updates.Count, updateTasks.Count);
 
@@ -352,8 +355,8 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 if (workerIds.Length == 0)
                     return [];
 
-                    // Phase 1: Fetch worker metadata and instance sets
-                    var batch1 = _db.CreateBatch();
+                // Phase 1: Fetch worker metadata and instance sets
+                var batch1 = _db.CreateBatch();
 
                 var metadataTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.HashGetAllAsync($"workers:{id}"));
                 var instanceSetTasks = workerIds.ToDictionary(id => id.ToString(), id => batch1.SetMembersAsync($"workers:{id}:instances"));
