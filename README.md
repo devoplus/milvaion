@@ -8,19 +8,19 @@
 
 A distributed job scheduling system built on .NET 10
 
-[![CI](https://github.com/Milvasoft/milvaion/actions/workflows/ci.yml/badge.svg)](https://github.com/Milvasoft/milvaion/actions/workflows/ci.yml)
-[![Release](https://github.com/Milvasoft/milvaion/actions/workflows/release.yml/badge.svg)](https://github.com/Milvasoft/milvaion/releases)
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-APACHE2.0-green?style=flat-square)](LICENSE)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Sdk.Worker?style=flat-square&label=downloads)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
+
+[![CI](https://github.com/Milvasoft/milvaion/actions/workflows/ci.yml/badge.svg)](https://github.com/Milvasoft/milvaion/actions/workflows/ci.yml)
+[![Release](https://github.com/Milvasoft/milvaion/actions/workflows/release.yml/badge.svg)](https://github.com/Milvasoft/milvaion/releases)
 [![GitHub release](https://img.shields.io/github/v/release/Milvasoft/milvaion?include_prereleases&style=flat-square)](https://github.com/Milvasoft/milvaion/releases)
 
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Sdk.Worker?style=flat-square&label=downloads)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
-[![Documentation](https://img.shields.io/badge/docs-milva%20portal-blue?style=flat-square)](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
 
 [📚 Documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide) |
-[🚀 Getting Started](#quick-start) |
-[📦 Packages](#packages) |
-[🐳 Docker](#docker)
+[🚀 Getting Started](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/quick-start) |
+[📦 Packages](https://www.nuget.org/packages?q=Milvaion&includeComputedFrameworks=true&prerel=true) |
+[🐳 Docker](https://hub.docker.com/r/milvasoft/milvaion-api)
 
 ---
 

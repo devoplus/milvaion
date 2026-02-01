@@ -1,4 +1,4 @@
-name: Release
+﻿name: Release
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
         run: |
           # Get the previous tag
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          
+
           if [ -z "$PREVIOUS_TAG" ]; then
             echo "notes=Initial release" >> $GITHUB_OUTPUT
           else
@@ -61,35 +61,35 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
           name: "Milvaion v${{ steps.get_version.outputs.version }}"
           body: |
-            ## ?? Milvaion v${{ steps.get_version.outputs.version }}
-            
+            ## 🚀 Milvaion v${{ steps.get_version.outputs.version }}
+
             ### What's Changed
             ${{ steps.release_notes.outputs.notes }}
-            
-            ### ?? Packages
+
+            ### 📦 Packages
             - `Milvasoft.Milvaion.Sdk` - [NuGet](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk/${{ steps.get_version.outputs.version }})
             - `Milvasoft.Milvaion.Sdk.Worker` - [NuGet](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/${{ steps.get_version.outputs.version }})
             - `Milvasoft.Templates.Milvaion` - [NuGet](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/${{ steps.get_version.outputs.version }})
-            
-            ### ?? Docker Images
+
+            ### 🐳 Docker Images
             - `milvasoft/milvaion-api:${{ steps.get_version.outputs.version }}`
             - `milvasoft/milvaion-api:latest`
-            
-            ### ?? Documentation
+
+            ### 📖 Documentation
             See the [documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide) for usage instructions.
-            
+
             ### Installation
-            
+
             **SDK (for shared types):**
             ```bash
             dotnet add package Milvasoft.Milvaion.Sdk --version ${{ steps.get_version.outputs.version }}
             ```
-            
+
             **Worker SDK:**
             ```bash
             dotnet add package Milvasoft.Milvaion.Sdk.Worker --version ${{ steps.get_version.outputs.version }}
             ```
-            
+
             **Worker Template:**
             ```bash
             dotnet new install Milvasoft.Templates.Milvaion::${{ steps.get_version.outputs.version }}
