@@ -2,9 +2,9 @@ Milvaion Worker Templates
   
 
   
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Milvasoft/Milvaion/blob/master/LICENSE) 
-[![NuGet](https://img.shields.io/nuget/v/Milvasoft.Milvaion.Templates)](https://www.nuget.org/packages/Milvasoft.Milvaion.Templates/)   
-[![NuGet](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Templates)](https://www.nuget.org/packages/Milvasoft.Milvaion.Templates/)
+[![license](https://img.shields.io/badge/license-Apache2.0-blue.svg)](https://github.com/Milvasoft/Milvaion/blob/master/LICENSE) 
+[![NuGet](https://img.shields.io/nuget/v/Milvasoft.Templates.Milvaion)](https://github.com/Milvasoft/milvaion)   
+[![NuGet](https://img.shields.io/nuget/dt/Milvasoft.Templates.Milvaion)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/)
 
 This package contains project templates for creating Milvaion Workers.
 
