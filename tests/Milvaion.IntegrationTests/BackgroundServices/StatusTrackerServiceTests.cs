@@ -7,6 +7,7 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
+using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
@@ -520,7 +521,8 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
                 ConsecutiveFailureThreshold = 5,
                 FailureWindowMinutes = 60
             }),
-            _serviceProvider.GetRequiredService<ILoggerFactory>()
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
 
     private async Task PublishStatusUpdateAsync(JobStatusUpdateMessage message, CancellationToken cancellationToken)

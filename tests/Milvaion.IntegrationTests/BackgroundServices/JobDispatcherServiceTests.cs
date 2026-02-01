@@ -8,6 +8,7 @@ using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
+using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
@@ -508,6 +509,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
                 EnableStartupRecovery = false // Disable for testing
             }),
             _serviceProvider.GetRequiredService<IDispatcherControlService>(),
-            _serviceProvider.GetRequiredService<ILoggerFactory>()
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
 }

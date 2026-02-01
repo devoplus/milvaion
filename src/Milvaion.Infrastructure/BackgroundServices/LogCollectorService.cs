@@ -7,12 +7,14 @@ using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Milvaion.Infrastructure.BackgroundServices;
@@ -24,12 +26,14 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                                  IOptions<RabbitMQOptions> rabbitOptions,
                                  IOptions<LogCollectorOptions> logCollectorOptions,
                                  ILoggerFactory loggerFactory,
+                                 BackgroundServiceMetrics metrics,
                                  IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, logCollectorOptions.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogCollectorService>();
     private readonly RabbitMQOptions _rabbitOptions = rabbitOptions.Value;
     private readonly LogCollectorOptions _options = logCollectorOptions.Value;
+    private readonly BackgroundServiceMetrics _metrics = metrics;
     private IConnection _connection;
     private IChannel _channel;
 
@@ -235,6 +239,8 @@ public class LogCollectorService(IServiceProvider serviceProvider,
         if (!await _batchLock.WaitAsync(0, cancellationToken))
             return;
 
+        var sw = Stopwatch.StartNew();
+
         try
         {
             if (_logBatch.IsEmpty)
@@ -254,6 +260,8 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 
             if (batch.Count == 0)
                 return;
+
+            _metrics.SetLogBatchSize(batch.Count);
 
             // Retry logic for optimistic concurrency conflicts
             const int maxRetries = 3;
@@ -307,6 +315,10 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                     }
 
                     #endregion
+
+                    // Record metrics
+                    _metrics.RecordLogsCollected(batch.Count);
+                    _metrics.RecordLogBatchDuration(sw.Elapsed.TotalMilliseconds, batch.Count);
 
                     _logger.Debug("Processed {Count} logs in batch (RetryCount: {RetryCount})", batch.Count, retryCount);
 

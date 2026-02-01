@@ -7,6 +7,7 @@ using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
 using Milvaion.Infrastructure.Services.RabbitMQ;
+using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
@@ -346,7 +347,8 @@ public class FailedOccurrenceHandlerTests(CustomWebApplicationFactory factory, I
             {
                 Enabled = true
             }),
-            _serviceProvider.GetRequiredService<ILoggerFactory>()
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
 
     private async Task PublishToDlqAsync(

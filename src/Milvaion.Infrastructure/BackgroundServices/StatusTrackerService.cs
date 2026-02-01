@@ -8,10 +8,12 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Milvaion.Infrastructure.BackgroundServices;
@@ -26,6 +28,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                                   IOptions<StatusTrackerOptions> options,
                                   IOptions<JobAutoDisableOptions> autoDisableOptions,
                                   ILoggerFactory loggerFactory,
+                                  BackgroundServiceMetrics metrics,
                                   IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
@@ -35,6 +38,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     private readonly RabbitMQOptions _rabbitOptions = rabbitOptions.Value;
     private readonly StatusTrackerOptions _options = options.Value;
     private readonly JobAutoDisableOptions _autoDisableOptions = autoDisableOptions.Value;
+    private readonly BackgroundServiceMetrics _metrics = metrics;
     private IConnection _connection;
     private IChannel _channel;
     private readonly JobOccurrenceStatus[] _finalStatuses =
@@ -302,6 +306,8 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         if (_statusBatch.IsEmpty)
             return;
 
+        var sw = Stopwatch.StartNew();
+
         //  Use semaphore to ensure single access
         await _batchLock.WaitAsync(cancellationToken);
 
@@ -319,6 +325,8 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
             if (batch.Count == 0)
                 return;
+
+            _metrics.SetStatusBatchSize(batch.Count);
 
             // Retry logic for optimistic concurrency conflicts
             const int maxRetries = 3;
@@ -561,6 +569,16 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
 
                     await eventPublisher.PublishOccurrenceUpdatedAsync(occurrences, _logger, cancellationToken);
+
+                    // Record metrics
+                    _metrics.RecordStatusUpdatesProcessed(batch.Count);
+                    _metrics.RecordStatusUpdateDuration(sw.Elapsed.TotalMilliseconds, batch.Count);
+
+                    // Record status distribution
+                    foreach (var occ in occurrences)
+                    {
+                        _metrics.RecordStatusUpdateByStatus(occ.Status.ToString());
+                    }
 
                     _logger.Debug("Processed {Count} status updates in batch (RetryCount: {RetryCount})", batch.Count, retryCount);
 

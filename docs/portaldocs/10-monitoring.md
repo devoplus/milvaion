@@ -494,6 +494,8 @@ Configure OpenTelemetry in `appsettings.json`:
 
 ### Available Metrics
 
+#### ASP.NET Core & Infrastructure Metrics
+
 | Metric | Type | Description |
 |--------|------|-------------|
 | `http_server_request_duration_seconds` | Histogram | HTTP request duration |
@@ -502,6 +504,72 @@ Configure OpenTelemetry in `appsettings.json`:
 | `process_cpu_time_seconds` | Gauge | CPU time consumed |
 | `process_memory_bytes` | Gauge | Memory usage |
 | `db_client_operation_duration_seconds` | Histogram | Database query duration |
+
+#### Background Service Metrics
+
+Milvaion exposes custom metrics for all background services via the `Milvaion.BackgroundServices` meter:
+
+**Job Dispatcher:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `milvaion_dispatcher_jobs_dispatched` | Counter | Total jobs dispatched to workers |
+| `milvaion_dispatcher_dispatch_failures` | Counter | Total dispatch failures |
+| `milvaion_dispatcher_dispatch_duration` | Histogram | Duration of dispatch operations (ms) |
+| `milvaion_dispatcher_pending_jobs` | Gauge | Jobs pending dispatch |
+
+**Status Tracker:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `milvaion_status_tracker_updates_processed` | Counter | Total status updates processed |
+| `milvaion_status_tracker_update_failures` | Counter | Total status update failures |
+| `milvaion_status_tracker_batch_duration` | Histogram | Batch processing duration (ms) |
+| `milvaion_status_tracker_updates_by_status` | Counter | Updates by final status (labels: `status`) |
+| `milvaion_status_tracker_batch_size` | Gauge | Current batch size |
+
+**Log Collector:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `milvaion_log_collector_logs_collected` | Counter | Total worker logs collected |
+| `milvaion_log_collector_collection_failures` | Counter | Total collection failures |
+| `milvaion_log_collector_batch_duration` | Histogram | Log batch processing duration (ms) |
+| `milvaion_log_collector_batch_size` | Gauge | Current log batch size |
+
+**Worker Discovery:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `milvaion_worker_discovery_registrations` | Counter | Total worker registrations |
+| `milvaion_worker_discovery_heartbeats` | Counter | Total heartbeats received |
+| `milvaion_worker_discovery_heartbeat_failures` | Counter | Heartbeat processing failures |
+| `milvaion_worker_discovery_heartbeat_duration` | Histogram | Heartbeat batch processing duration (ms) |
+| `milvaion_worker_discovery_active_workers` | Gauge | Currently active workers |
+
+**Zombie Detector:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `milvaion_zombie_detector_detected` | Counter | Zombie occurrences detected |
+| `milvaion_zombie_detector_recovered` | Counter | Zombie occurrences recovered |
+| `milvaion_zombie_detector_detection_duration` | Histogram | Detection scan duration (ms) |
+
+**Failed Occurrence Handler:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `milvaion_failed_handler_processed` | Counter | Failed occurrences processed |
+| `milvaion_failed_handler_retried` | Counter | Failed occurrences retried |
+| `milvaion_failed_handler_process_duration` | Histogram | Processing duration (ms) |
+
+**General Service Metrics:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `milvaion_background_service_iterations` | Counter | Service loop iterations (labels: `service`) |
+| `milvaion_background_service_errors` | Counter | Service errors (labels: `service`, `error_type`) |
+| `milvaion_background_service_iteration_duration` | Histogram | Iteration duration (labels: `service`) |
 
 ### Prometheus Scrape Config
 
@@ -580,29 +648,65 @@ groups:
           summary: "Dead letter queue has {{ $value }} messages"
 ```
 
-### Grafana Dashboard
+### Grafana Dashboards
 
-Key panels to include:
+Milvaion includes two pre-configured Grafana dashboards located in `build/grafana/provisioning/dashboards/json/`:
 
-1. **Jobs Overview**
-   - Jobs dispatched/minute
-   - Success vs failure rate
-   - Average duration
+#### 1. Milvaion API Dashboard (`milvaion-api.json`)
 
-2. **Worker Health**
-   - Active workers count
-   - Jobs per worker
-   - Heartbeat status
+General API and infrastructure monitoring:
 
-3. **Queue Status**
-   - RabbitMQ queue depth
-   - Messages published/consumed
-   - DLQ depth
+| Section | Panels |
+|---------|--------|
+| **Overview** | CPU, Memory, Active Requests, Kestrel Connections, SignalR, Thread Pool |
+| **HTTP Requests** | Request Rate, Response Times (p50/p95/p99), Status Codes, Error Rate |
+| **Database** | Query Duration, Active Connections, Commands/sec, Connection Pool |
+| **Memory** | GC Collections, Heap Size, LOH Size, Allocation Rate |
 
-4. **Infrastructure**
-   - Redis memory/connections
-   - PostgreSQL connections
-   - API response times
+#### 2. Background Services Dashboard (`milvaion-background-services.json`)
+
+Dedicated monitoring for all background services:
+
+| Section | Panels |
+|---------|--------|
+| **Overview** | Jobs Dispatched, Pending Jobs, Status Updates, Logs Collected, Active Workers, Zombies Detected |
+| **Job Dispatcher** | Dispatch Rate (jobs/min), Dispatch Duration (p50/p95/p99), Failures |
+| **Status Tracker** | Updates by Status, Batch Duration, Failures |
+| **Log Collector** | Collection Rate, Batch Duration, Queue Size |
+| **Worker Discovery** | Registrations/min, Heartbeats/min, Active Workers, Heartbeat Duration |
+| **Zombie & Failed Handlers** | Zombies Detected/Recovered, Failed Occurrences Processed/Retried |
+| **Service Health** | Errors by Service, Iteration Duration by Service |
+
+#### Useful PromQL Queries
+
+```promql
+# Jobs dispatched per minute
+rate(milvaion_dispatcher_jobs_dispatched_total{job="milvaion-api"}[1m]) * 60
+
+# Dispatch failure rate
+rate(milvaion_dispatcher_dispatch_failures_total[5m]) / rate(milvaion_dispatcher_jobs_dispatched_total[5m])
+
+# Status updates by status type
+sum by (status) (rate(milvaion_status_tracker_updates_by_status_total[5m]))
+
+# Average dispatch duration (p95)
+histogram_quantile(0.95, sum(rate(milvaion_dispatcher_dispatch_duration_bucket[5m])) by (le))
+
+# Active workers count
+milvaion_worker_discovery_active_workers
+
+# Zombie detection rate (per 5 minutes)
+increase(milvaion_zombie_detector_detected_total[5m])
+
+# Service error rate by service
+sum by (service) (rate(milvaion_background_service_errors_total[5m]))
+```
+
+#### Access Dashboards
+
+1. **Grafana UI**: http://localhost:3000 (default: admin/admin)
+2. **Milvaion API Dashboard**: Pre-loaded as "Milvaion API Dashboard"
+3. **Background Services Dashboard**: Pre-loaded as "Milvaion Background Services"
 
 ---
 

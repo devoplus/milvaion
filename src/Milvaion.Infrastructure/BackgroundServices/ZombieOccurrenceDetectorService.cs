@@ -7,8 +7,10 @@ using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
+using System.Diagnostics;
 
 namespace Milvaion.Infrastructure.BackgroundServices;
 
@@ -22,6 +24,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
                                              IRedisStatsService redisStatsService,
                                              IOptions<ZombieOccurrenceDetectorOptions> options,
                                              ILoggerFactory loggerFactory,
+                                             BackgroundServiceMetrics metrics,
                                              IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
@@ -30,6 +33,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<ZombieOccurrenceDetectorService>();
     private readonly ZombieOccurrenceDetectorOptions _options = options.Value;
+    private readonly BackgroundServiceMetrics _metrics = metrics;
     private readonly static List<string> _updatePropNames =
     [
         nameof(JobOccurrence.Status),
@@ -85,6 +89,8 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
     /// </summary>
     private async Task DetectAndCleanupProblematicOccurrencesAsync(CancellationToken cancellationToken)
     {
+        var sw = Stopwatch.StartNew();
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
@@ -102,7 +108,10 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         logsToInsert.AddRange(lostRunningLogs);
 
         if (allProblematicOccurrences.Count == 0)
+        {
+            _metrics.RecordZombieDetectionDuration(sw.Elapsed.TotalMilliseconds);
             return;
+        }
 
         // Bulk update occurrences
         await dbContext.BulkUpdateAsync(allProblematicOccurrences, (bc) =>
@@ -122,6 +131,11 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
         var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
 
         await eventPublisher.PublishOccurrenceUpdatedAsync(allProblematicOccurrences, _logger, cancellationToken);
+
+        // Record metrics
+        _metrics.RecordZombiesDetected(allProblematicOccurrences.Count);
+        _metrics.RecordZombiesRecovered(allProblematicOccurrences.Count);
+        _metrics.RecordZombieDetectionDuration(sw.Elapsed.TotalMilliseconds);
 
         _logger.Debug("Cleaned up {ZombieCount} zombie + {LostCount} lost = {TotalCount} problematic occurrences",
             zombieQueued.Count, lostRunning.Count, allProblematicOccurrences.Count);

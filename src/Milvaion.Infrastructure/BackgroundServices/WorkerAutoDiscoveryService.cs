@@ -4,12 +4,14 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
+using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Milvaion.Infrastructure.BackgroundServices;
@@ -23,6 +25,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                                         IOptions<WorkerAutoDiscoveryOptions> options,
                                         ILoggerFactory loggerFactory,
                                         IServiceProvider serviceProvider,
+                                        BackgroundServiceMetrics metrics,
                                         IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IRedisWorkerService _redisWorkerService = redisWorkerService;
@@ -30,6 +33,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     private readonly RabbitMQOptions _rabbitOptions = rabbitOptions.Value;
     private readonly WorkerAutoDiscoveryOptions _options = options.Value;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly BackgroundServiceMetrics _metrics = metrics;
     private IConnection _connection;
     private IChannel _registrationChannel;
     private IChannel _heartbeatChannel;
@@ -172,6 +176,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 var existingWorker = await _redisWorkerService.GetWorkerAsync(registration.WorkerId, cancellationToken);
                 var instanceCount = existingWorker?.Instances?.Count ?? 1;
 
+                _metrics.RecordWorkerRegistration(registration.WorkerId);
+
                 _logger.Information("Worker {WorkerId} (Instance: {InstanceId}) registered in Redis. Total instances: {Count}", registration.WorkerId, registration.InstanceId, instanceCount);
             }
             else
@@ -284,6 +290,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         if (!await _batchLock.WaitAsync(50, cancellationToken))
             return;
 
+        var sw = Stopwatch.StartNew();
+
         try
         {
             if (_latestHeartbeats.IsEmpty)
@@ -313,6 +321,11 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             {
                 await SafeAckAsync(_heartbeatChannel, item.DeliveryTag, false, cancellationToken);
             }
+
+            // Record metrics
+            _metrics.RecordWorkerHeartbeats(successCount);
+            _metrics.RecordHeartbeatProcessDuration(sw.Elapsed.TotalMilliseconds, batch.Count);
+            _metrics.SetActiveWorkersCount(snapshot.Select(s => s.Heartbeat.WorkerId).Distinct().Count());
 
             _logger.Debug("Processed {SuccessCount}/{TotalCount} heartbeats in batch (deduplicated from {InstanceCount} instances)", successCount, batch.Count, snapshot.Count);
         }

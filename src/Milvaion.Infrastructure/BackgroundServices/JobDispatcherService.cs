@@ -10,9 +10,11 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace Milvaion.Infrastructure.BackgroundServices;
 
@@ -31,6 +33,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                                   IOptions<JobDispatcherOptions> options,
                                   IDispatcherControlService controlService,
                                   ILoggerFactory loggerFactory,
+                                  BackgroundServiceMetrics metrics,
                                   IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
@@ -42,6 +45,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<JobDispatcherService>();
     private readonly JobDispatcherOptions _options = options.Value;
     private readonly IDispatcherControlService _controlService = controlService;
+    private readonly BackgroundServiceMetrics _metrics = metrics;
     private readonly static List<string> _updatePropNames =
     [
         nameof(JobOccurrence.Status),
@@ -187,6 +191,8 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     /// </summary>
     private async Task DispatchDueJobsAsync(CancellationToken cancellationToken)
     {
+        var sw = Stopwatch.StartNew();
+
         // 1. Get due jobs from Redis ZSET (with circuit breaker protection)
         List<Guid> dueJobIds;
 
@@ -194,12 +200,15 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         {
             dueJobIds = await _redisScheduler.GetDueJobsAsync(DateTime.UtcNow, _options.BatchSize, cancellationToken);
 
+            _metrics.SetPendingJobsCount(dueJobIds.Count);
+
             if (dueJobIds.Count == 0)
                 return;
         }
         catch (Exception ex) when (ex.Message.Contains("Circuit breaker") || ex.Message.Contains("Redis"))
         {
             _logger.Error(ex, "Redis unavailable - circuit breaker may be open. Skipping this dispatch iteration.");
+            _metrics.RecordDispatchFailure("redis_unavailable");
 
             // System continues with degraded functionality. Jobs will be dispatched in next iteration when Redis recovers
             return;
@@ -422,6 +431,10 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
         if (successfulDispatchCount > 0)
         {
+            // Record metrics for successful dispatch
+            _metrics.RecordJobsDispatched(successfulDispatchCount);
+            _metrics.RecordDispatchDuration(sw.Elapsed.TotalMilliseconds, successfulDispatchCount);
+
             try
             {
                 await _redisStatsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Queued, successfulDispatchCount, cancellationToken);

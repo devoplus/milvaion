@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
+using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Xunit.Abstractions;
@@ -344,6 +345,7 @@ public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory fa
                 CheckIntervalSeconds = 1, // Fast interval for testing
                 ZombieTimeoutMinutes = 10 // Default 10 minute timeout
             }),
-            _serviceProvider.GetRequiredService<ILoggerFactory>()
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
 }

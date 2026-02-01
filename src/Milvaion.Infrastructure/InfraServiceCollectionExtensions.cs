@@ -21,6 +21,7 @@ using Milvaion.Infrastructure.Services;
 using Milvaion.Infrastructure.Services.Monitoring;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Redis;
+using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Caching.Builder;
 using Milvasoft.Caching.Redis;
 using Milvasoft.Caching.Redis.Accessor;
@@ -149,6 +150,9 @@ public static class InfraServiceCollectionExtensions
         services.AddSingleton<IJobCancellationService, JobCancellationService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddSingleton<IMemoryStatsRegistry, MemoryStatsRegistry>();
+
+        // Register background service telemetry metrics
+        services.AddSingleton<BackgroundServiceMetrics>();
 
         services.AddRedisStorage(configuration)
                 .AddRabbitMQ(configuration)

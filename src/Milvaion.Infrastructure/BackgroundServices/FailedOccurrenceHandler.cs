@@ -6,11 +6,13 @@ using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.RabbitMQ;
+using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -24,12 +26,14 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
                                      RabbitMQConnectionFactory rabbitMQFactory,
                                      IOptions<FailedOccurrenceHandlerOptions> options,
                                      ILoggerFactory loggerFactory,
+                                     BackgroundServiceMetrics metrics,
                                      IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<FailedOccurrenceHandler>();
     private readonly FailedOccurrenceHandlerOptions _options = options.Value;
+    private readonly BackgroundServiceMetrics _metrics = metrics;
     private IChannel _channel;
     private const int _maxExceptionLength = 3000;
 
@@ -103,6 +107,8 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
     /// </summary>
     private async Task ProcessFailedOccurrenceAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
     {
+        var sw = Stopwatch.StartNew();
+
         _logger.Debug("Processing failed job from DLQ. MessageId: {MessageId}", ea.BasicProperties.MessageId);
 
         // Deserialize as ScheduledJob (RabbitMQ publishes full job object)
@@ -180,6 +186,10 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
         dbContext.FailedOccurrences.Add(failedJob);
 
         var saved = await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Record metrics
+        _metrics.RecordFailedOccurrencesProcessed(1);
+        _metrics.RecordFailedOccurrenceProcessDuration(sw.Elapsed.TotalMilliseconds);
 
         _logger.Debug("[DLQ] Failed job stored in database ({SavedCount} rows). JobId: {JobId}, OccurrenceId: {OccurrenceId}, FailureType: {FailureType}, RetryCount: {RetryCount}", saved, failedJob.JobId, failedJob.OccurrenceId, failedJob.FailureType, failedJob.RetryCount);
     }

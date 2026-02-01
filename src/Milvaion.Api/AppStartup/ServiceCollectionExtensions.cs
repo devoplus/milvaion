@@ -301,6 +301,7 @@ public static partial class StartupExtensions
                                          .AddProcessInstrumentation()
                                          .AddNpgsqlInstrumentation()
                                          .AddMeter(diagnosticsMetrics)
+                                         .AddMeter(Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics.MeterName) // Custom background service metrics
                                          .AddPrometheusExporter(); // Expose metrics via HTTP endpoint
                         })
                         .WithTracing(tracingBuilder =>

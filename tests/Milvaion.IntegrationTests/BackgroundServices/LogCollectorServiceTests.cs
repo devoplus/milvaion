@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
+using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
@@ -482,7 +483,8 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
                 BatchSize = 1,
                 BatchIntervalMs = 100 // Faster batch processing for tests
             }),
-            _serviceProvider.GetRequiredService<ILoggerFactory>()
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
 
     private async Task PublishLogMessageAsync(WorkerLogBatchMessage message, CancellationToken cancellationToken)
