@@ -15,7 +15,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Milvaion.Api.Migrations
 {
     [DbContext(typeof(MilvaionDbContext))]
-    [Migration("20260128173053_InitialCreate")]
+    [Migration("20260201223240_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

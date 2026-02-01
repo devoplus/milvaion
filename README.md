@@ -1,4 +1,5 @@
 ﻿
+
 <h1 align="center">Milvaion</h1>
 
 <p align="center">
@@ -7,13 +8,19 @@
 
 A distributed job scheduling system built on .NET 10
 
+[![CI](https://github.com/Milvasoft/milvaion/actions/workflows/ci.yml/badge.svg)](https://github.com/Milvasoft/milvaion/actions/workflows/ci.yml)
+[![Release](https://github.com/Milvasoft/milvaion/actions/workflows/release.yml/badge.svg)](https://github.com/Milvasoft/milvaion/releases)
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-APACHE2.0-green?style=flat-square)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/Milvasoft/milvaion?include_prereleases&style=flat-square)](https://github.com/Milvasoft/milvaion/releases)
 
-[![Documentation](https://img.shields.io/badge/docs%20-official%20web-blue)](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
-[![Worker Templates NuGet](https://img.shields.io/nuget/v/Milvasoft.Templates.Milvaion)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/) [![Worker Sdk NuGet](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Sdk.Worker)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Sdk.Worker?style=flat-square&label=downloads)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
+[![Documentation](https://img.shields.io/badge/docs-milva%20portal-blue?style=flat-square)](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
 
-[Full detailed documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
+[📚 Documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide) |
+[🚀 Getting Started](#quick-start) |
+[📦 Packages](#packages) |
+[🐳 Docker](#docker)
 
 ---
 
@@ -333,6 +340,70 @@ We welcome contributions! Please see our [Contributing Guide](./docs/githubdocs/
 7. Open a Pull Request
 
 Please read our [Code of Conduct](./CODE_OF_CONDUCT.md) before contributing.
+
+---
+
+## Packages
+
+### NuGet Packages
+
+| Package | Description | NuGet |
+|---------|-------------|-------|
+| `Milvasoft.Milvaion.Sdk` | Core SDK with domain models and shared types | [![NuGet](https://img.shields.io/nuget/v/Milvasoft.Milvaion.Sdk)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk/) |
+| `Milvasoft.Milvaion.Sdk.Worker` | Worker SDK for building job executors | [![NuGet](https://img.shields.io/nuget/v/Milvasoft.Milvaion.Sdk.Worker)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/) |
+| `Milvasoft.Templates.Milvaion` | Project templates for creating workers | [![NuGet](https://img.shields.io/nuget/v/Milvasoft.Templates.Milvaion)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/) |
+
+### Installation
+
+```bash
+# Core SDK (for shared types)
+dotnet add package Milvasoft.Milvaion.Sdk
+
+# Worker SDK (for building workers)
+dotnet add package Milvasoft.Milvaion.Sdk.Worker
+
+# Worker Templates
+dotnet new install Milvasoft.Templates.Milvaion
+```
+
+### GitHub Packages
+
+Packages are also available on [GitHub Packages](https://github.com/orgs/Milvasoft/packages?repo_name=milvaion).
+
+```bash
+# Add GitHub Packages source
+dotnet nuget add source "https://nuget.pkg.github.com/Milvasoft/index.json" --name github --username YOUR_GITHUB_USERNAME --password YOUR_GITHUB_TOKEN
+```
+
+---
+
+## Docker
+
+### Docker Images
+
+| Image | Description | Docker Hub |
+|-------|-------------|------------|
+| `milvasoft/milvaion-api` | Main API with scheduler and dashboard | [![Docker](https://img.shields.io/docker/v/milvasoft/milvaion-api?label=docker)](https://hub.docker.com/r/milvasoft/milvaion-api) |
+
+### Quick Start with Docker
+
+```bash
+# Pull the latest image
+docker pull milvasoft/milvaion-api:latest
+
+# Run with Docker Compose
+cd build
+docker compose up -d
+```
+
+### Available at
+
+- **API**: http://localhost:5000
+- **Dashboard**: http://localhost:5000
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
+- **Seq Logs**: http://localhost:5341
 
 ---
 

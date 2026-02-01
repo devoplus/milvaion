@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 10.0.12)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Extract version from tag (remove 'v' prefix)
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # Get the previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "notes=Initial release" >> $GITHUB_OUTPUT
+          else
+            # Generate changelog from commits
+            NOTES=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | head -50)
+            echo "notes<<EOF" >> $GITHUB_OUTPUT
+            echo "$NOTES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
+          name: "Milvaion v${{ steps.get_version.outputs.version }}"
+          body: |
+            ## ?? Milvaion v${{ steps.get_version.outputs.version }}
+            
+            ### What's Changed
+            ${{ steps.release_notes.outputs.notes }}
+            
+            ### ?? Packages
+            - `Milvasoft.Milvaion.Sdk` - [NuGet](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk/${{ steps.get_version.outputs.version }})
+            - `Milvasoft.Milvaion.Sdk.Worker` - [NuGet](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/${{ steps.get_version.outputs.version }})
+            - `Milvasoft.Templates.Milvaion` - [NuGet](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/${{ steps.get_version.outputs.version }})
+            
+            ### ?? Docker Images
+            - `milvasoft/milvaion-api:${{ steps.get_version.outputs.version }}`
+            - `milvasoft/milvaion-api:latest`
+            
+            ### ?? Documentation
+            See the [documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide) for usage instructions.
+            
+            ### Installation
+            
+            **SDK (for shared types):**
+            ```bash
+            dotnet add package Milvasoft.Milvaion.Sdk --version ${{ steps.get_version.outputs.version }}
+            ```
+            
+            **Worker SDK:**
+            ```bash
+            dotnet add package Milvasoft.Milvaion.Sdk.Worker --version ${{ steps.get_version.outputs.version }}
+            ```
+            
+            **Worker Template:**
+            ```bash
+            dotnet new install Milvasoft.Templates.Milvaion::${{ steps.get_version.outputs.version }}
+            dotnet new milvaion-worker -n MyWorker
+            ```
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

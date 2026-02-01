@@ -1,4 +1,4 @@
-Milvaion Worker Templates
+﻿Milvaion Worker Templates
   
 
   
@@ -257,4 +257,4 @@ Licensed under the [MIT License](https://github.com/Milvasoft/Milvaion/blob/mast
 
 ---
 
-**Built with ?? by [Milvasoft](https://milvasoft.com)**
+**Built with love by [Milvasoft](https://milvasoft.com)**
