@@ -53,7 +53,7 @@ dotnet new milvaion-api-worker -n MyApiWorker
 Install the template package:
 
 ```bash
-dotnet new install Milvasoft.Milvaion.Templates
+dotnet new install Milvasoft.Templates.Milvaion
 ```
 
 # Available Templates
@@ -236,7 +236,7 @@ OpenAPI specification (in Development mode).
 To uninstall the templates:
 
 ```bash
-dotnet new uninstall Milvasoft.Milvaion.Templates
+dotnet new uninstall Milvasoft.Templates.Milvaion
 ```
 
 # Documentation
