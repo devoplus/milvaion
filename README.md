@@ -8,10 +8,7 @@
 A distributed job scheduling system built on .NET 10
 
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis)](https://redis.io/)
-[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.x-FF6600?style=flat-square&logo=rabbitmq)](https://www.rabbitmq.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-APACHE2.0-green?style=flat-square)](LICENSE)
 
 [![Documentation](https://img.shields.io/badge/docs%20-official%20web-blue)](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide)
 [![Worker Templates NuGet](https://img.shields.io/nuget/v/Milvasoft.Templates.Milvaion)](https://www.nuget.org/packages/Milvasoft.Templates.Milvaion/) [![Worker Sdk NuGet](https://img.shields.io/nuget/dt/Milvasoft.Milvaion.Sdk.Worker)](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker/)
@@ -341,7 +338,7 @@ Please read our [Code of Conduct](./CODE_OF_CONDUCT.md) before contributing.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ---
 

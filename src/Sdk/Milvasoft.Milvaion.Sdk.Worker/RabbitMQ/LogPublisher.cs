@@ -137,7 +137,7 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
             {
                 await EnsureConnectionAsync(cancellationToken);
 
-                // Publish as SINGLE batch message (not individual messages!)
+                // Publish as single batch message
                 var batchMessage = new WorkerLogBatchMessage
                 {
                     Logs = batch,

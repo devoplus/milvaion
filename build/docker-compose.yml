@@ -84,7 +84,7 @@ services:
     image: milvasoft/milvaion-api:latest
     container_name: milvaion-api
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - Cors__Policies__AllowAll__AllowCredentials=false
       - MILVAION_ROOT_PASSWORD=admin

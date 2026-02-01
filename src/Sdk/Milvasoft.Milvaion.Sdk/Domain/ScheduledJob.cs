@@ -183,6 +183,7 @@ public class ScheduledJob : CreationAuditableEntity<Guid>
             ConcurrentExecutionPolicy = s.ConcurrentExecutionPolicy,
             WorkerId = s.WorkerId,
             RoutingPattern = s.RoutingPattern,
+            ExecuteAt = s.ExecuteAt,
             ZombieTimeoutMinutes = s.ZombieTimeoutMinutes,
             ExecutionTimeoutSeconds = s.ExecutionTimeoutSeconds,
             Version = s.Version,

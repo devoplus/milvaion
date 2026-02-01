@@ -26,7 +26,7 @@ public class WorkerOptions
     /// Maximum parallel jobs this instance can run simultaneously.
     /// Default: ProcessorCount * 2 (e.g., 8 cores = 16 parallel jobs).
     /// </summary>
-    public int MaxParallelJobs { get; set; } = Environment.ProcessorCount * 4;
+    public int MaxParallelJobs { get; set; } = Environment.ProcessorCount * 2;
 
     /// <summary>
     /// Default maximum execution time allowed for jobs (in seconds).
