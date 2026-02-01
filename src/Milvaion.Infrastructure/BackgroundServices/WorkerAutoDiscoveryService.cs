@@ -35,10 +35,10 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     private IChannel _heartbeatChannel;
 
     // Heartbeat batch processing (prevent memory leak from 1.8M queued heartbeats)
-    private readonly ConcurrentQueue<WorkerHeartbeatMessage> _heartbeatBatch = new();
+    private readonly ConcurrentQueue<(WorkerHeartbeatMessage Heartbeat, ulong DeliveryTag)> _heartbeatBatch = new();
     private readonly SemaphoreSlim _batchLock = new(1, 1);
     private const int _maxBatchSize = 100; // Process 100 heartbeats at once
-    private const int _maxQueueSize = 100000; // Drop heartbeats if queue grows too large
+    private const int _maxQueueSize = 10000; // Drop heartbeats if queue grows too large
 
     /// <inheritdoc/>
     protected override string ServiceName => "WorkerAutoDiscovery";
@@ -178,7 +178,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 _logger.Error("Failed to register worker {WorkerId} in Redis", registration.WorkerId);
             }
 
-            await SafeAckAsync(_registrationChannel, ea.DeliveryTag, cancellationToken);
+            await SafeAckAsync(_registrationChannel, ea.DeliveryTag, false, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -232,7 +232,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 if (success)
                     _logger.Information("Worker instance {InstanceId} cleaned up successfully on graceful shutdown", heartbeat.InstanceId);
 
-                await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, cancellationToken);
+                await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, false, cancellationToken);
                 return;
             }
 
@@ -240,15 +240,12 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             if (_heartbeatBatch.Count >= _maxQueueSize)
             {
                 _logger.Warning("Heartbeat batch queue full ({Count}). Dropping heartbeat from {WorkerId}/{InstanceId}", _heartbeatBatch.Count, heartbeat.WorkerId, heartbeat.InstanceId);
-                await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, cancellationToken);
+                await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, false, cancellationToken);
                 return;
             }
 
-            // Add to batch queue
-            _heartbeatBatch.Enqueue(heartbeat);
-
-            // ACK immediately (prevent RabbitMQ queue buildup)
-            await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, cancellationToken);
+            // Add to batch queue with delivery tag (ACK will be done in batch)
+            _heartbeatBatch.Enqueue((heartbeat, ea.DeliveryTag));
 
             _logger.Debug("Heartbeat queued for batch processing: {WorkerId}/{InstanceId} (Queue: {Count})", heartbeat.WorkerId, heartbeat.InstanceId, _heartbeatBatch.Count);
         }
@@ -273,11 +270,16 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
 
             var batch = new List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)>();
+            ulong maxDeliveryTag = 0;
 
             // Dequeue up to 100 heartbeats
-            while (_heartbeatBatch.TryDequeue(out var heartbeat) && batch.Count < _maxBatchSize)
+            while (_heartbeatBatch.TryDequeue(out var item) && batch.Count < _maxBatchSize)
             {
-                batch.Add((heartbeat.WorkerId, heartbeat.InstanceId, heartbeat.CurrentJobs, heartbeat.Timestamp));
+                batch.Add((item.Heartbeat.WorkerId, item.Heartbeat.InstanceId, item.Heartbeat.CurrentJobs, item.Heartbeat.Timestamp));
+
+                // Track highest delivery tag for bulk ACK
+                if (item.DeliveryTag > maxDeliveryTag)
+                    maxDeliveryTag = item.DeliveryTag;
             }
 
             if (batch.Count == 0)
@@ -286,7 +288,11 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             // Single Redis batch call (1 network roundtrip for 100 heartbeats)
             var successCount = await _redisWorkerService.BulkUpdateHeartbeatsAsync(batch, cancellationToken);
 
-            _logger.Debug("Processed {SuccessCount}/{TotalCount} heartbeats in batch", successCount, batch.Count);
+            // Bulk ACK: ACK the highest delivery tag with multiple=true
+            // This ACKs all messages up to and including maxDeliveryTag in single call
+            await SafeAckAsync(_heartbeatChannel, maxDeliveryTag, true, cancellationToken);
+
+            _logger.Debug("Processed {SuccessCount}/{TotalCount} heartbeats in batch (bulk ACK up to {DeliveryTag})", successCount, batch.Count, maxDeliveryTag);
         }
         catch (Exception ex)
         {
@@ -302,7 +308,11 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     /// Safe ACK operation that checks channel state before acknowledgment.
     /// Prevents "Already closed" exceptions during shutdown.
     /// </summary>
-    private async Task SafeAckAsync(IChannel channel, ulong deliveryTag, CancellationToken cancellationToken)
+    /// <param name="channel">The RabbitMQ channel.</param>
+    /// <param name="deliveryTag">The delivery tag to acknowledge.</param>
+    /// <param name="multiple">If true, ACKs all messages up to and including deliveryTag (bulk ACK).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task SafeAckAsync(IChannel channel, ulong deliveryTag, bool multiple, CancellationToken cancellationToken)
     {
         try
         {
@@ -312,7 +322,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 return;
             }
 
-            await channel.BasicAckAsync(deliveryTag, false, cancellationToken);
+            await channel.BasicAckAsync(deliveryTag, multiple, cancellationToken);
         }
         catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
         {

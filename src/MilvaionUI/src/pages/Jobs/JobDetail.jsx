@@ -9,6 +9,7 @@ import JsonViewer from '../../components/JsonViewer'
 import JsonEditor from '../../components/JsonEditor'
 import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
+import { SkeletonDetail } from '../../components/Skeleton'
 import { useTriggerJob } from '../../hooks/useTriggerJob'
 import { useModal } from '../../hooks/useModal'
 import './JobDetail.css'
@@ -360,7 +361,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
     }
   }
 
-  if (loading) return <div className="loading">Loading job details...</div>
+  if (loading) return <SkeletonDetail />
   if (error) return <div className="error">{error}</div>
   if (!job) return <div className="error">Job not found</div>
 

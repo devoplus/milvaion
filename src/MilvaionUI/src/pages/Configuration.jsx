@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Icon from '../components/Icon'
 import configurationService from '../services/configurationService'
+import { SkeletonCard } from '../components/Skeleton'
 import './Configuration.css'
 
 function Configuration() {
@@ -48,7 +49,13 @@ function Configuration() {
   }
 
   if (loading) {
-    return <div className="loading">Loading configuration...</div>
+    return (
+      <div className="configuration">
+        <SkeletonCard lines={8} />
+        <SkeletonCard lines={6} />
+        <SkeletonCard lines={4} />
+      </div>
+    )
   }
 
   if (!config) {

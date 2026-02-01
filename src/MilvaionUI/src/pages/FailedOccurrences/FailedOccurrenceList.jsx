@@ -5,6 +5,7 @@ import { formatDateTime } from '../../utils/dateUtils'
 import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
+import { SkeletonTable } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import './FailedOccurrenceList.css'
 
@@ -103,12 +104,12 @@ function FailedOccurrenceList() {
   }, [filterResolved, filterFailureType, currentPage, pageSize, debouncedSearchTerm])
 
   useEffect(() => {
-    loadJobs(isInitialLoad)
+    loadJobs(true) // Always show loading on navigation
 
     // Auto-refresh every 30 seconds
     const refreshInterval = setInterval(() => {
       if (autoRefreshEnabled) {
-        loadJobs(false)
+        loadJobs(false) // Don't show loading on auto-refresh
       }
     }, 30000) // 30 seconds
 
@@ -258,7 +259,7 @@ function FailedOccurrenceList() {
     )
   }
 
-  if (loading) return <div className="loading">Loading failed jobs...</div>
+  if (loading) return <SkeletonTable rows={pageSize} columns={6} />
   if (error) return <div className="error">{error}</div>
 
   return (

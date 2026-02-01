@@ -7,6 +7,7 @@ import Icon from '../../components/Icon'
 import JsonViewer from '../../components/JsonViewer'
 import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
+import { SkeletonDetail } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import './OccurrenceDetail.css'
 
@@ -418,7 +419,7 @@ const { modalProps, showModal } = useModal()
     return formatDuration(occurrence.startTime, occurrence.endTime)
   }
 
-  if (loading) return <div className="loading">Loading occurrence details...</div>
+  if (loading) return <SkeletonDetail />
   if (error) return <div className="error">{error}</div>
   if (!occurrence) return <div className="error">Occurrence not found</div>
 

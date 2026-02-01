@@ -4,6 +4,7 @@ import failedOccurrenceService from '../../services/failedOccurrenceService'
 import { formatDateTime } from '../../utils/dateUtils'
 import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
+import { SkeletonDetail } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import './FailedOccurrenceDetail.css'
 
@@ -131,7 +132,7 @@ function FailedOccurrenceDetail() {
     }
   }
 
-  if (loading) return <div className="loading">Loading failed job details...</div>
+  if (loading) return <SkeletonDetail />
   if (error) return <div className="error">{error}</div>
   if (!job) return <div className="error">Job not found</div>
 

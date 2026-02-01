@@ -6,6 +6,7 @@ import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
 import JsonEditor from '../../components/JsonEditor'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
+import { SkeletonJobList } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import { useTriggerJob } from '../../hooks/useTriggerJob'
 import './JobList.css'
@@ -103,12 +104,12 @@ function JobList() {
   }, [filterTag, currentPage, pageSize, debouncedSearchTerm])
 
   useEffect(() => {
-    loadJobs(isInitialLoad)
+    loadJobs(true) // Always show loading on navigation
 
     // Auto-refresh every 30 seconds (seamless data refresh)
     const refreshInterval = setInterval(() => {
       if (autoRefreshEnabled) {
-        loadJobs(false)
+        loadJobs(false) // Don't show loading on auto-refresh
       }
     }, 30000) // 30 seconds
 
@@ -182,7 +183,7 @@ function JobList() {
     return text.substring(0, maxLength) + '...'
   }
 
-  if (loading) return <div className="loading">Loading jobs...</div>
+  if (loading) return <SkeletonJobList rows={pageSize} />
   if (error) return <div className="error">{error}</div>
 
   return (

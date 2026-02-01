@@ -5,6 +5,7 @@ import signalRService from '../../services/signalRService'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
+import { SkeletonTable } from '../../components/Skeleton'
 import './ExecutionList.css'
 import OccurrenceTable from '../../components/OccurrenceTable'
 
@@ -78,7 +79,9 @@ function ExecutionList() {
   }, [currentPage, pageSize, debouncedSearchTerm, filterStatus])
 
   useEffect(() => {
-    loadOccurrences(isInitialLoad)
+    // Show loading on initial load OR when page/filter/search changes
+    const shouldShowLoading = isInitialLoad || !occurrences.length
+    loadOccurrences(true) // Always show loading on navigation
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, debouncedSearchTerm, filterStatus])
 
@@ -157,7 +160,7 @@ function ExecutionList() {
     }
   }
 
-  if (loading && isInitialLoad) return <div className="loading">Loading executions...</div>
+  if (loading) return <SkeletonTable rows={pageSize} columns={7} />
   if (error) return <div className="error">{error}</div>
 
   return (

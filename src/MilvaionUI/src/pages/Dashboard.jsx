@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import dashboardService from '../services/dashboardService'
 import Icon from '../components/Icon'
 import AutoRefreshIndicator from '../components/AutoRefreshIndicator'
+import { SkeletonDashboard } from '../components/Skeleton'
 import './Dashboard.css'
 
 function Dashboard() {
@@ -175,7 +176,7 @@ function Dashboard() {
   }
 
   if (loading) {
-    return <div className="loading">Loading dashboard...</div>
+    return <SkeletonDashboard />
   }
 
   return (

@@ -379,11 +379,15 @@
             Process heartbeats in batch.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeAckAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeAckAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Boolean,System.Threading.CancellationToken)">
             <summary>
             Safe ACK operation that checks channel state before acknowledgment.
             Prevents "Already closed" exceptions during shutdown.
             </summary>
+            <param name="channel">The RabbitMQ channel.</param>
+            <param name="deliveryTag">The delivery tag to acknowledge.</param>
+            <param name="multiple">If true, ACKs all messages up to and including deliveryTag (bulk ACK).</param>
+            <param name="cancellationToken">Cancellation token.</param>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeNackAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Threading.CancellationToken)">
             <summary>
