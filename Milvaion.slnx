@@ -53,9 +53,7 @@
   <Folder Name="/docs/" />
   <Folder Name="/docs/githubdocs/">
     <File Path="docs/githubdocs/ARCHITECTURE.md" />
-    <File Path="docs/githubdocs/CONTRIBUTING.md" />
     <File Path="docs/githubdocs/DEVELOPMENT.md" />
-    <File Path="docs/githubdocs/SECURITY.md" />
     <File Path="docs/githubdocs/TESTING.md" />
     <File Path="docs/githubdocs/TROUBLESHOOTING.md" />
     <File Path="docs/githubdocs/WORKER-SDK.md" />

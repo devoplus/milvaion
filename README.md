@@ -125,7 +125,7 @@ curl -X POST http://localhost:5000/api/v1/jobs/job \
   }'
 ```
 
-📖 **[Full Quick Start Guide →](./docs/portaldocs/02-quick-start.md)**
+📖 **[Full Quick Start Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/quick-start)**
 
 ---
 
@@ -252,7 +252,7 @@ public class MyCustomJob : IAsyncJob
 }
 ```
 
-📖 **[Full Worker Guide →](./docs/portaldocs/04-your-first-worker.md)**
+📖 **[Full Worker Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/your-first-worker)**
 
 ---
 
