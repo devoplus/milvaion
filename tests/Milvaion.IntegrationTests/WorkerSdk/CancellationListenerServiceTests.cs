@@ -224,7 +224,7 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
 
         var options = Options.Create(new WorkerOptions
         {
-            WorkerId = $"test-worker-{Guid.NewGuid():N}",
+            WorkerId = $"test-worker-{Guid.CreateVersion7():N}",
             Redis = new RedisSettings
             {
                 ConnectionString = _factory.GetRedisConnectionString(),

@@ -43,7 +43,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
-        var uniqueWorkerId = $"test-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
 
         // Act - Start the tracker first
         var tracker = CreateStatusTrackerService();
@@ -172,7 +172,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
 
         var startTime = DateTime.UtcNow.AddSeconds(-10);
         var endTime = DateTime.UtcNow;
-        var uniqueResult = $"Job completed successfully - {Guid.NewGuid():N}";
+        var uniqueResult = $"Job completed successfully - {Guid.CreateVersion7():N}";
 
         // Act - Start the tracker first
         var tracker = CreateStatusTrackerService();
@@ -238,7 +238,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
-        var uniqueException = $"NullReferenceException: {Guid.NewGuid():N}";
+        var uniqueException = $"NullReferenceException: {Guid.CreateVersion7():N}";
 
         // Act - Start the tracker first
         var tracker = CreateStatusTrackerService();
@@ -292,7 +292,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
         await InitializeAsync();
 
         var job = await SeedScheduledJobAsync("BatchStatusJob");
-        var uniqueWorkerId = $"batch-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"batch-worker-{Guid.CreateVersion7():N}";
 
         var occurrences = new List<JobOccurrence>();
         for (int i = 0; i < 5; i++)
@@ -449,7 +449,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
         await dbContext.SaveChangesAsync();
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var uniqueResult = $"Success-{Guid.NewGuid():N}";
+        var uniqueResult = $"Success-{Guid.CreateVersion7():N}";
 
         // Act - Start the tracker first
         var tracker = CreateStatusTrackerService();

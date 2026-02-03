@@ -112,6 +112,9 @@
     <Project Path="src/Milvaion.Api/Milvaion.Api.csproj" />
   </Folder>
   <Folder Name="/src/Sdk/">
+    <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Quartz/Milvasoft.Milvaion.Sdk.Worker.Quartz.csproj" Id="f3f3b8e3-4822-42ca-9ca6-8ebee3692074">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
     <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk.Worker/Milvasoft.Milvaion.Sdk.Worker.csproj">
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
@@ -132,6 +135,9 @@
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
     <Project Path="src/Workers/MilvaionMaintenanceWorker/MilvaionMaintenanceWorker.csproj" Id="362332d9-cbf0-44a9-a624-c34247fadcf0">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Workers/SampleQuartzWorker/SampleQuartzWorker.csproj" Id="328e737f-23cf-4598-9429-dfe0d41b659f">
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
     <Project Path="src/Workers/SampleWorker/SampleWorker.csproj" Id="340388ca-5f48-45f0-8a6b-eb83d35e44d4">

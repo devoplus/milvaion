@@ -42,6 +42,11 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     private readonly SemaphoreSlim _batchLock = new(1, 1);
     private const int _maxQueueSize = 100000; // Prevent unbounded memory growth
 
+    // Pending logs - waiting for occurrence to be created (FK constraint race condition)
+    private readonly ConcurrentQueue<(WorkerLogMessage Log, int RetryCount, DateTime AddedAt)> _pendingLogs = new();
+    private const int _maxPendingRetries = 20; // ~10 seconds with 500ms interval
+    private static readonly TimeSpan _pendingMaxAge = TimeSpan.FromMinutes(2);
+
     /// <inheritdoc/>
     protected override string ServiceName => "LogCollector";
 
@@ -65,6 +70,9 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 await Task.Delay(_options.BatchIntervalMs, stoppingToken);
 
                 await ProcessBatchAsync(stoppingToken);
+
+                // Retry pending logs (waiting for occurrence to be created)
+                await RetryPendingLogsAsync(stoppingToken);
 
                 TrackMemoryAfterIteration();
             }
@@ -356,6 +364,16 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 
                     break;
                 }
+                catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23503") // FK constraint violation
+                {
+                    _logger.Debug(pgEx, "FK constraint violation - occurrence not yet created. {Count} logs moved to pending queue.", batch.Count);
+
+                    // Move to pending queue - occurrence might not be created yet
+                    foreach (var log in batch)
+                        _pendingLogs.Enqueue((log, 0, DateTime.UtcNow));
+
+                    break;
+                }
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "Failed to process log batch");
@@ -372,6 +390,115 @@ public class LogCollectorService(IServiceProvider serviceProvider,
         {
             // Release the batch lock
             _batchLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Retries pending logs that were waiting for occurrence to be created.
+    /// </summary>
+    private async Task RetryPendingLogsAsync(CancellationToken cancellationToken)
+    {
+        if (_pendingLogs.IsEmpty)
+            return;
+
+        var logsToRetry = new List<WorkerLogMessage>();
+        var logsToDiscard = new List<(WorkerLogMessage Log, int RetryCount, DateTime AddedAt)>();
+        var logsToPutBack = new List<(WorkerLogMessage Log, int RetryCount, DateTime AddedAt)>();
+
+        // Dequeue all pending logs
+        while (_pendingLogs.TryDequeue(out var pending))
+        {
+            // Check if too old - discard
+            if (DateTime.UtcNow - pending.AddedAt > _pendingMaxAge)
+            {
+                logsToDiscard.Add(pending);
+                continue;
+            }
+
+            // Check if max retries exceeded - discard
+            if (pending.RetryCount >= _maxPendingRetries)
+            {
+                logsToDiscard.Add(pending);
+                continue;
+            }
+
+            logsToRetry.Add(pending.Log);
+            logsToPutBack.Add((pending.Log, pending.RetryCount + 1, pending.AddedAt));
+        }
+
+        if (logsToDiscard.Count > 0)
+            _logger.Warning("Discarded {Count} pending logs (max age or retries exceeded)", logsToDiscard.Count);
+
+        if (logsToRetry.Count == 0)
+            return;
+
+        try
+        {
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+            // Check which occurrences exist now
+            var correlationIds = logsToRetry.Select(l => l.CorrelationId).Distinct().ToList();
+            var existingOccurrences = await dbContext.JobOccurrences
+                .Where(o => correlationIds.Contains(o.CorrelationId))
+                .Select(o => o.CorrelationId)
+                .ToListAsync(cancellationToken);
+
+            var existingSet = existingOccurrences.ToHashSet();
+
+            var logsWithOccurrence = new List<WorkerLogMessage>();
+            var logsWithoutOccurrence = new List<(WorkerLogMessage Log, int RetryCount, DateTime AddedAt)>();
+
+            for (var i = 0; i < logsToRetry.Count; i++)
+            {
+                var log = logsToRetry[i];
+                var pending = logsToPutBack[i];
+
+                if (existingSet.Contains(log.CorrelationId))
+                    logsWithOccurrence.Add(log);
+                else
+                    logsWithoutOccurrence.Add(pending);
+            }
+
+            // Put back logs that still don't have occurrence
+            foreach (var pending in logsWithoutOccurrence)
+                _pendingLogs.Enqueue(pending);
+
+            // Insert logs that now have occurrence
+            if (logsWithOccurrence.Count > 0)
+            {
+                var logsToInsert = logsWithOccurrence.Select(l => new JobOccurrenceLog
+                {
+                    Id = Guid.CreateVersion7(),
+                    OccurrenceId = l.CorrelationId,
+                    Level = l.Log.Level,
+                    Category = l.Log.Category,
+                    ExceptionType = l.Log.ExceptionType,
+                    Message = l.Log.Message,
+                    Data = l.Log.Data,
+                    Timestamp = l.Log.Timestamp,
+                }).ToList();
+
+                await dbContext.BulkInsertAsync(logsToInsert, cancellationToken: cancellationToken);
+
+                _logger.Debug("Inserted {Count} pending logs (occurrence now exists)", logsWithOccurrence.Count);
+
+                // Publish SignalR events
+                var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
+                if (eventPublisher != null)
+                {
+                    foreach (var log in logsWithOccurrence)
+                        _ = eventPublisher.PublishLogAddedAsync(log.CorrelationId, log.Log, cancellationToken);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to retry pending logs. Will retry in next cycle.");
+
+            // Put all back for retry
+            foreach (var pending in logsToPutBack)
+                _pendingLogs.Enqueue(pending);
         }
     }
 

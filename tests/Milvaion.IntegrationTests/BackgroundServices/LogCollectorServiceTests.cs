@@ -42,7 +42,7 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         // Unique message to avoid cross-test interference
-        var uniqueMessage = $"Test log message from worker {Guid.NewGuid():N}";
+        var uniqueMessage = $"Test log message from worker {Guid.CreateVersion7():N}";
 
         var logMessage = new WorkerLogBatchMessage
         {
@@ -122,7 +122,7 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         // Unique category to avoid cross-test interference
-        var uniqueCategory = $"BatchTest_{Guid.NewGuid():N}";
+        var uniqueCategory = $"BatchTest_{Guid.CreateVersion7():N}";
 
         // Act - Start the collector first
         var collector = CreateLogCollectorService();
@@ -216,9 +216,9 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
-        var uniqueCategory = $"MultiTest_{Guid.NewGuid():N}";
-        var message1 = $"Log for occurrence 1 - {Guid.NewGuid():N}";
-        var message2 = $"Log for occurrence 2 - {Guid.NewGuid():N}";
+        var uniqueCategory = $"MultiTest_{Guid.CreateVersion7():N}";
+        var message1 = $"Log for occurrence 1 - {Guid.CreateVersion7():N}";
+        var message2 = $"Log for occurrence 2 - {Guid.CreateVersion7():N}";
 
         // Act - Start the collector first
         var collector = CreateLogCollectorService();
@@ -320,7 +320,7 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
-        var uniqueCategory = $"LevelTest_{Guid.NewGuid():N}";
+        var uniqueCategory = $"LevelTest_{Guid.CreateVersion7():N}";
         var logLevels = new[] { "Debug", "Information", "Warning", "Error", "Critical" };
 
         // Act - Start the collector first
@@ -401,7 +401,7 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
-        var uniqueCategory = $"DataTest_{Guid.NewGuid():N}";
+        var uniqueCategory = $"DataTest_{Guid.CreateVersion7():N}";
         var logData = new Dictionary<string, object>
         {
             ["recordsProcessed"] = 100,

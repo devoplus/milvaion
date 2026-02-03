@@ -165,17 +165,19 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
             JobTypes = allJobTypes,
             MaxParallelJobs = _options.MaxParallelJobs,
             Version = _version,
-            Metadata = JsonSerializer.Serialize(new
+            Metadata = JsonSerializer.Serialize(new WorkerMetadata
             {
-                Environment.ProcessorCount,
+                IsExternal = !string.IsNullOrWhiteSpace(_options.ExternalScheduler.Source),
+                ExternalScheduler = _options.ExternalScheduler.Source,
+                ProcessorCount = Environment.ProcessorCount,
                 OSVersion = Environment.OSVersion.ToString(),
                 RuntimeVersion = Environment.Version.ToString(),
-                JobConfigs = _jobConfigs.Select(kv => new
+                JobConfigs = _jobConfigs?.Select(kv => new JobConfigMetadata
                 {
                     JobType = kv.Key,
-                    kv.Value.ConsumerId,
-                    kv.Value.MaxParallelJobs,
-                    kv.Value.ExecutionTimeoutSeconds
+                    ConsumerId = kv.Value.ConsumerId,
+                    MaxParallelJobs = kv.Value.MaxParallelJobs,
+                    ExecutionTimeoutSeconds = kv.Value.ExecutionTimeoutSeconds,
                 }).ToList()
             })
         };

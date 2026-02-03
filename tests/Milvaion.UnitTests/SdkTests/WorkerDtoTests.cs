@@ -127,8 +127,8 @@ public class JobStatusUpdateMessageTests
     public void JobStatusUpdateMessage_Running_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
         // Act
@@ -154,8 +154,8 @@ public class JobStatusUpdateMessageTests
     public void JobStatusUpdateMessage_Completed_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
         // Act
@@ -217,7 +217,7 @@ public class WorkerLogMessageTests
     public void WorkerLogMessage_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
         var log = new OccurrenceLog
         {

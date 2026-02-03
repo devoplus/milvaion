@@ -16,7 +16,7 @@ public class LocalStateStoreTests : IAsyncDisposable
 
     public LocalStateStoreTests()
     {
-        _testDatabasePath = Path.Combine(Path.GetTempPath(), $"LocalStateStoreTests_{Guid.NewGuid()}");
+        _testDatabasePath = Path.Combine(Path.GetTempPath(), $"LocalStateStoreTests_{Guid.CreateVersion7()}");
         _loggerFactoryMock = new Mock<ILoggerFactory>();
         _loggerFactoryMock.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(new Mock<ILogger>().Object);
 
@@ -57,8 +57,8 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var instanceId = "test-worker-01";
         var status = JobOccurrenceStatus.Running;
@@ -104,8 +104,8 @@ public class LocalStateStoreTests : IAsyncDisposable
         for (int i = 0; i < 10; i++)
         {
             await _localStateStore.StoreStatusUpdateAsync(
-                Guid.NewGuid(),
-                Guid.NewGuid(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
                 "test-worker",
                 "test-worker-01",
                 JobOccurrenceStatus.Running,
@@ -124,8 +124,8 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
 
         await _localStateStore.StoreStatusUpdateAsync(
             correlationId,
@@ -151,8 +151,8 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
 
         await _localStateStore.StoreStatusUpdateAsync(
             correlationId,
@@ -179,7 +179,7 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var log = new OccurrenceLog
         {
@@ -218,7 +218,7 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
         var log = new OccurrenceLog
         {
             Timestamp = DateTime.UtcNow,
@@ -244,7 +244,7 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
         var log = new OccurrenceLog
         {
             Timestamp = DateTime.UtcNow,
@@ -271,8 +271,8 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var jobType = "TestJob";
         var workerId = "test-worker";
 
@@ -289,8 +289,8 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var jobType = "TestJob";
         var workerId = "test-worker";
 
@@ -309,7 +309,7 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
 
         // Act
         var isFinalized = await _localStateStore.IsJobFinalizedAsync(correlationId, CancellationToken.None);
@@ -325,16 +325,16 @@ public class LocalStateStoreTests : IAsyncDisposable
         await _localStateStore.InitializeAsync();
 
         // Add some status updates
-        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", "test-worker-01", JobOccurrenceStatus.Running, cancellationToken: CancellationToken.None);
-        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", "test-worker-01", JobOccurrenceStatus.Completed, cancellationToken: CancellationToken.None);
+        await _localStateStore.StoreStatusUpdateAsync(Guid.CreateVersion7(), Guid.CreateVersion7(), "worker", "test-worker-01", JobOccurrenceStatus.Running, cancellationToken: CancellationToken.None);
+        await _localStateStore.StoreStatusUpdateAsync(Guid.CreateVersion7(), Guid.CreateVersion7(), "worker", "test-worker-01", JobOccurrenceStatus.Completed, cancellationToken: CancellationToken.None);
 
         // Add some logs
         var log = new OccurrenceLog { Timestamp = DateTime.UtcNow, Level = "Info", Message = "Test" };
-        await _localStateStore.StoreLogAsync(Guid.NewGuid(), "worker", log, CancellationToken.None);
+        await _localStateStore.StoreLogAsync(Guid.CreateVersion7(), "worker", log, CancellationToken.None);
 
         // Add a job execution
-        var correlationId = Guid.NewGuid();
-        await _localStateStore.RecordJobStartAsync(correlationId, Guid.NewGuid(), "TestJob", "worker", CancellationToken.None);
+        var correlationId = Guid.CreateVersion7();
+        await _localStateStore.RecordJobStartAsync(correlationId, Guid.CreateVersion7(), "TestJob", "worker", CancellationToken.None);
 
         // Act
         var stats = await _localStateStore.GetStatsAsync(CancellationToken.None);
@@ -354,11 +354,11 @@ public class LocalStateStoreTests : IAsyncDisposable
         await _localStateStore.InitializeAsync();
 
         // Add a status update
-        await _localStateStore.StoreStatusUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), "worker", "test-worker-01", JobOccurrenceStatus.Completed, cancellationToken: CancellationToken.None);
+        await _localStateStore.StoreStatusUpdateAsync(Guid.CreateVersion7(), Guid.CreateVersion7(), "worker", "test-worker-01", JobOccurrenceStatus.Completed, cancellationToken: CancellationToken.None);
 
         // Add a job execution and finalize it
-        var correlationId = Guid.NewGuid();
-        await _localStateStore.RecordJobStartAsync(correlationId, Guid.NewGuid(), "TestJob", "worker", CancellationToken.None);
+        var correlationId = Guid.CreateVersion7();
+        await _localStateStore.RecordJobStartAsync(correlationId, Guid.CreateVersion7(), "TestJob", "worker", CancellationToken.None);
         await _localStateStore.FinalizeJobAsync(correlationId, JobOccurrenceStatus.Completed, CancellationToken.None);
 
         // Act
@@ -377,8 +377,8 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
 
         await _localStateStore.RecordJobStartAsync(correlationId, jobId, "TestJob", "worker", CancellationToken.None);
 
@@ -395,7 +395,7 @@ public class LocalStateStoreTests : IAsyncDisposable
     {
         // Arrange
         await _localStateStore.InitializeAsync();
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
         var log = new OccurrenceLog
         {
             Timestamp = DateTime.UtcNow,

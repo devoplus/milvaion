@@ -349,6 +349,7 @@ function JobList() {
                         style={{ textDecoration: 'none', color: 'inherit' }}
                       >
                         {job.displayName || job.name}
+                        {job.isExternal && <span className="external-badge" title="External job (Quartz/Hangfire)">External</span>}
                       </Link>
                     </div>
 
@@ -356,8 +357,8 @@ function JobList() {
                       <button
                         onClick={(e) => handleTrigger(job, e)}
                         className="action-btn trigger"
-                        title="Trigger now"
-                        disabled={!job.isActive || triggering}
+                        title={job.isExternal ? "External jobs cannot be triggered from Milvaion" : "Trigger now"}
+                        disabled={!job.isActive || triggering || job.isExternal}
                       >
                         <Icon name="play_arrow" size={18} />
                       </button>
@@ -376,7 +377,8 @@ function JobList() {
                           handleDelete(job.id)
                         }}
                         className="action-btn delete"
-                        title="Delete"
+                        title={job.isExternal ? "External jobs cannot be deleted from Milvaion" : "Delete"}
+                        disabled={job.isExternal}
                       >
                         <Icon name="delete" size={18} />
                       </button>
@@ -448,6 +450,7 @@ function JobList() {
                           onClick={(e) => e.stopPropagation()}
                         >
                           {job.displayName || job.name}
+                          {job.isExternal && <span className="external-badge" title="External job (Quartz/Hangfire)">External</span>}
                         </Link>
                       </td>
                       <td>
@@ -472,8 +475,8 @@ function JobList() {
                           <button
                             onClick={(e) => handleTrigger(job, e)}
                             className="action-btn trigger"
-                            title="Trigger now"
-                            disabled={!job.isActive || triggering}
+                            title={job.isExternal ? "External jobs cannot be triggered from Milvaion" : "Trigger now"}
+                            disabled={!job.isActive || triggering || job.isExternal}
                           >
                             <Icon name="play_arrow" size={18} />
                           </button>
@@ -492,7 +495,8 @@ function JobList() {
                               handleDelete(job.id)
                             }}
                             className="action-btn delete"
-                            title="Delete"
+                            title={job.isExternal ? "External jobs cannot be deleted from Milvaion" : "Delete"}
+                            disabled={job.isExternal}
                           >
                             <Icon name="delete" size={18} />
                           </button>

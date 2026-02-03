@@ -172,7 +172,7 @@ public class ComprehensiveReflectionDtoTests(ITestOutputHelper output)
             return 1m;
 
         if (underlying == typeof(Guid))
-            return Guid.NewGuid();
+            return Guid.CreateVersion7();
 
         if (underlying == typeof(DateTime))
             return DateTime.UtcNow;

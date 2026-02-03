@@ -57,7 +57,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     new("maxParallelJobs", registration.MaxParallelJobs),
                     new("version", registration.Version),
                     new("metadata", registration.Metadata),
-                    new("registeredAt", registeredAt) // Preserve original registration time
+                    new("registeredAt", registeredAt),
                 };
 
                 var batchTasks = new List<Task>
@@ -331,7 +331,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     JobNames = JsonSerializer.Deserialize<List<string>>(workerDict.GetValueOrDefault("jobNames", "[]")),
                     MaxParallelJobs = int.Parse(workerDict.GetValueOrDefault("maxParallelJobs", "0")),
                     Version = workerDict.GetValueOrDefault("version"),
-                    Metadata = workerDict.GetValueOrDefault("metadata"),
+                    Metadata = JsonSerializer.Deserialize<WorkerMetadata>(workerDict.GetValueOrDefault("metadata", "{}")),
                     RegisteredAt = DateTime.Parse(workerDict.GetValueOrDefault("registeredAt", DateTime.UtcNow.ToString("O"))),
                     Status = instances.Any(i => i.Status == WorkerStatus.Active) ? WorkerStatus.Active : WorkerStatus.Zombie,
                     LastHeartbeat = !instances.IsNullOrEmpty() ? instances.Max(i => i.LastHeartbeat) : null,
@@ -449,7 +449,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         JobNames = JsonSerializer.Deserialize<List<string>>(metaDict.GetValueOrDefault("jobNames", "[]")),
                         MaxParallelJobs = int.Parse(metaDict.GetValueOrDefault("maxParallelJobs", "0")),
                         Version = metaDict.GetValueOrDefault("version"),
-                        Metadata = metaDict.GetValueOrDefault("metadata"),
+                        Metadata = JsonSerializer.Deserialize<WorkerMetadata>(metaDict.GetValueOrDefault("metadata", "{}")),
                         RegisteredAt = DateTime.Parse(metaDict.GetValueOrDefault("registeredAt", DateTime.UtcNow.ToString("O"))),
                         Status = instances.Any(i => i.Status == WorkerStatus.Active) ? WorkerStatus.Active : WorkerStatus.Zombie,
                         LastHeartbeat = instances.Max(i => i.LastHeartbeat),
@@ -784,26 +784,4 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             return [];
         }
     }
-}
-
-/// <summary>
-/// Worker metadata structure (deserialized from JSON).
-/// </summary>
-internal class WorkerMetadata
-{
-    public int ProcessorCount { get; set; }
-    public string OSVersion { get; set; }
-    public string RuntimeVersion { get; set; }
-    public List<JobConfigMetadata> JobConfigs { get; set; }
-}
-
-/// <summary>
-/// Job consumer configuration metadata.
-/// </summary>
-internal class JobConfigMetadata
-{
-    public string JobType { get; set; }
-    public string ConsumerId { get; set; }
-    public int MaxParallelJobs { get; set; }
-    public int ExecutionTimeoutSeconds { get; set; }
 }

@@ -3,7 +3,7 @@ namespace Milvaion.Application.Utils.Models.Options;
 /// <summary>
 /// Configuration options for WorkerAutoDiscoveryService.
 /// </summary>
-public class WorkerAutoDiscoveryOptions : BackgrounServiceOptions
+public class WorkerAutoDiscoveryOptions : BackgroundServiceOptions
 {
     /// <summary>
     /// Section key in configuration files.

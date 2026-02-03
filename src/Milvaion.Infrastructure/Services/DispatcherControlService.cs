@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
@@ -11,10 +12,10 @@ namespace Milvaion.Infrastructure.Services;
 /// <remarks>
 /// Initializes a new instance of the <see cref="DispatcherControlService"/> class.
 /// </remarks>
-public class DispatcherControlService(ILoggerFactory loggerFactory) : IDispatcherControlService
+public class DispatcherControlService(ILoggerFactory loggerFactory, IOptions<JobDispatcherOptions> dispatcherOptions) : IDispatcherControlService
 {
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<DispatcherControlService>();
-    private volatile bool _enabled = true;
+    private volatile bool _enabled = dispatcherOptions.Value.Enabled;
     private string _stopReason;
     private DateTime? _stoppedAt;
     private string _stoppedBy;

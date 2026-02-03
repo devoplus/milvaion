@@ -23,12 +23,12 @@ public class JobContextTests
     {
         _loggerMock = new Mock<IMilvaLogger>();
         _outboxServiceMock = new Mock<OutboxService>(MockBehavior.Loose, null, null, null, null, null);
-        _correlationId = Guid.NewGuid();
+        _correlationId = Guid.CreateVersion7();
         _workerId = "test-worker";
 
         _scheduledJob = new ScheduledJob
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             JobNameInWorker = "TestJob",
             DisplayName = "Test Job",
             Description = "Test job for unit testing",

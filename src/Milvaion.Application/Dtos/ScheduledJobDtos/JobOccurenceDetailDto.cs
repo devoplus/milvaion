@@ -90,6 +90,12 @@ public class JobOccurrenceDetailDto : MilvaionBaseDto<Guid>
     public int JobVersion { get; set; }
 
     /// <summary>
+    /// External job identifier for mapping (e.g., "DEFAULT.MyQuartzJob").
+    /// Used to correlate occurrences from external schedulers.
+    /// </summary>
+    public string ExternalJobId { get; set; }
+
+    /// <summary>
     /// Projection expression for mapping ScheduledJob scheduledjob to ScheduledJobListDto.
     /// </summary>
     [JsonIgnore]
@@ -111,6 +117,7 @@ public class JobOccurrenceDetailDto : MilvaionBaseDto<Guid>
         Logs = r.Logs,
         StatusChangeLogs = r.StatusChangeLogs,
         LastHeartbeat = r.LastHeartbeat,
-        JobVersion = r.JobVersion
+        JobVersion = r.JobVersion,
+        ExternalJobId = r.ExternalJobId
     };
 }

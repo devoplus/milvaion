@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "SampleQuartzWorker": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

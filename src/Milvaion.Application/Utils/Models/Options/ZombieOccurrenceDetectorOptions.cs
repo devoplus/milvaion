@@ -3,7 +3,7 @@ namespace Milvaion.Application.Utils.Models.Options;
 /// <summary>
 /// Configuration options for ZombieOccurrenceDetectorService.
 /// </summary>
-public class ZombieOccurrenceDetectorOptions : BackgrounServiceOptions
+public class ZombieOccurrenceDetectorOptions : BackgroundServiceOptions
 {
     /// <summary>
     /// Section key in configuration files.

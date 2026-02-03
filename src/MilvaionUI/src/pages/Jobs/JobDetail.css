@@ -1009,3 +1009,40 @@
     padding: 0.25rem;
   }
 }
+
+/* External Job Info */
+.external-job-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.external-badge-large {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  border-radius: 6px;
+}
+
+.external-id {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+  background: var(--bg-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.action-btn:disabled,
+.trigger-btn:disabled,
+.delete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}

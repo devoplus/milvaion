@@ -14,5 +14,7 @@ public static class WorkerConstant
         public const string WorkerRegistration = "worker_registration_queue";
         public const string StatusUpdates = "job_status_updates_queue";
         public const string FailedOccurrences = "failed_jobs_queue";
+        public const string ExternalJobRegistration = "external_job_registration_queue";
+        public const string ExternalJobOccurrence = "external_job_occurrence_queue";
     }
 }

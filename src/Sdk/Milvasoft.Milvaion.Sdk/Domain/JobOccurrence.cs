@@ -114,6 +114,13 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
     public DateTime? LastHeartbeat { get; set; }
 
     /// <summary>
+    /// External job identifier for mapping (e.g., "DEFAULT.MyQuartzJob").
+    /// Used to correlate occurrences from external schedulers.
+    /// </summary>
+    [MaxLength(500)]
+    public string ExternalJobId { get; set; }
+
+    /// <summary>
     /// Occurrence status change history stored as JSONB array.
     /// </summary>
     [Column(TypeName = "jsonb")]

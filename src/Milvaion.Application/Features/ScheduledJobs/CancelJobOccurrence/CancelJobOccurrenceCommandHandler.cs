@@ -37,6 +37,10 @@ public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccur
         if (occurrence == null)
             return Response<bool>.Error(false, "Occurrence not found");
 
+        // External job occurrences cannot be cancelled from Milvaion - they are managed by their own schedulers
+        if (!string.IsNullOrWhiteSpace(occurrence.ExternalJobId))
+            return Response<bool>.Error(false, MessageKey.ExternalJobCannotBeCancelled);
+
         if (occurrence.Status != JobOccurrenceStatus.Running)
             return Response<bool>.Error(false, $"Occurrence is not running (Status: {occurrence.Status})");
 

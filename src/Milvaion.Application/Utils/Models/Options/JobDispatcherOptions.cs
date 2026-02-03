@@ -3,7 +3,7 @@ namespace Milvaion.Application.Utils.Models.Options;
 /// <summary>
 /// Configuration options for the job dispatcher background service.
 /// </summary>
-public class JobDispatcherOptions : BackgrounServiceOptions
+public class JobDispatcherOptions : BackgroundServiceOptions
 {
     /// <summary>
     /// Configuration section key.

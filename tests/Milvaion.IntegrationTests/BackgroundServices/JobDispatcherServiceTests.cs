@@ -29,7 +29,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         // Arrange
         await InitializeAsync();
 
-        var uniqueJobName = $"DispatchTestJob_{Guid.NewGuid():N}";
+        var uniqueJobName = $"DispatchTestJob_{Guid.CreateVersion7():N}";
         var job = await SeedScheduledJobAsync(
             uniqueJobName,
             executeAt: DateTime.UtcNow.AddMinutes(-1) // Due in the past
@@ -92,7 +92,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         // Arrange
         await InitializeAsync();
 
-        var uniqueJobName = $"RecurringTestJob_{Guid.NewGuid():N}";
+        var uniqueJobName = $"RecurringTestJob_{Guid.CreateVersion7():N}";
         var job = await SeedScheduledJobAsync(
             uniqueJobName,
             cronExpression: "0 0 * * * *", // Every hour (with seconds)
@@ -144,7 +144,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         // Arrange
         await InitializeAsync();
 
-        var uniqueJobName = $"OneTimeJob_{Guid.NewGuid():N}";
+        var uniqueJobName = $"OneTimeJob_{Guid.CreateVersion7():N}";
         var job = await SeedScheduledJobAsync(
             uniqueJobName,
             cronExpression: null, // One-time job
@@ -195,7 +195,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         // Arrange
         await InitializeAsync();
 
-        var uniqueJobName = $"InactiveJob_{Guid.NewGuid():N}";
+        var uniqueJobName = $"InactiveJob_{Guid.CreateVersion7():N}";
         var job = await SeedScheduledJobAsync(
             uniqueJobName,
             executeAt: DateTime.UtcNow.AddMinutes(-1),
@@ -241,7 +241,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         // Arrange
         await InitializeAsync();
 
-        var uniqueJobName = $"FutureJob_{Guid.NewGuid():N}";
+        var uniqueJobName = $"FutureJob_{Guid.CreateVersion7():N}";
         var job = await SeedScheduledJobAsync(
             uniqueJobName,
             executeAt: DateTime.UtcNow.AddHours(1) // Future
@@ -294,7 +294,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         for (int i = 0; i < 3; i++)
         {
             var job = await SeedScheduledJobAsync(
-                $"MultiJob{i}_{Guid.NewGuid():N}",
+                $"MultiJob{i}_{Guid.CreateVersion7():N}",
                 executeAt: DateTime.UtcNow.AddMinutes(-1 - i)
             );
             jobs.Add(job);
@@ -364,7 +364,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         // Arrange
         await InitializeAsync();
 
-        var uniqueJobName = $"LogTestJob_{Guid.NewGuid():N}";
+        var uniqueJobName = $"LogTestJob_{Guid.CreateVersion7():N}";
         var job = await SeedScheduledJobAsync(
             uniqueJobName,
             executeAt: DateTime.UtcNow.AddMinutes(-1)
@@ -428,7 +428,7 @@ public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITes
         await InitializeAsync();
 
         var dbContext = GetDbContext();
-        var uniqueJobName = $"VersionTestJob_{Guid.NewGuid():N}";
+        var uniqueJobName = $"VersionTestJob_{Guid.CreateVersion7():N}";
         var job = new ScheduledJob
         {
             Id = Guid.CreateVersion7(),

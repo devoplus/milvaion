@@ -32,7 +32,7 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var uniqueWorkerId = $"test-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         WorkerDiscoveryRequest receivedRegistration = null;
@@ -82,7 +82,7 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var uniqueWorkerId = $"test-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         WorkerDiscoveryRequest receivedRegistration = null;
@@ -140,7 +140,7 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var uniqueWorkerId = $"test-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         WorkerDiscoveryRequest receivedRegistration = null;
@@ -195,7 +195,7 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var uniqueWorkerId = $"test-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         var receivedHeartbeats = new List<WorkerHeartbeatMessage>();
@@ -246,7 +246,7 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var uniqueWorkerId = $"test-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         var receivedHeartbeats = new List<WorkerHeartbeatMessage>();
@@ -298,7 +298,7 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var uniqueWorkerId = $"test-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         WorkerDiscoveryRequest receivedRegistration = null;
@@ -347,7 +347,7 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var uniqueWorkerId = $"test-worker-{Guid.NewGuid():N}";
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         WorkerDiscoveryRequest receivedRegistration = null;

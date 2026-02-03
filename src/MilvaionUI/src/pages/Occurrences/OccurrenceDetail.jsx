@@ -486,9 +486,9 @@ const { modalProps, showModal } = useModal()
           {(occurrence.status === 0 || occurrence.status === 1) && (
             <button
               onClick={handleCancel}
-              disabled={deleting}
+              disabled={deleting || occurrence.externalJobId}
               className="btn btn-warning"
-              title="Cancel Occurrence"
+              title={occurrence.externalJobId ? "External job occurrences cannot be cancelled from Milvaion" : "Cancel Occurrence"}
             >
               <Icon name="cancel" size={18} />
               {deleting ? 'Cancelling...' : 'Cancel'}
@@ -566,6 +566,15 @@ const { modalProps, showModal } = useModal()
               v{occurrence.jobVersion || 1}
             </span>
           </div>
+          {occurrence.externalJobId && (
+            <div className="info-item">
+              <label>EXTERNAL JOB</label>
+              <span className="external-badge-detail" title="This occurrence is from an external scheduler (Quartz, Hangfire, etc.)">
+                <Icon name="cloud_sync" size={14} />
+                {occurrence.externalJobId}
+              </span>
+            </div>
+          )}
           {occurrence.retryCount > 0 && (
             <div className="info-item">
               <label>RETRY COUNT</label>

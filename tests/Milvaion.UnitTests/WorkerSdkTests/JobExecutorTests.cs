@@ -31,8 +31,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldReturnCompleted_WhenAsyncJobExecutesSuccessfully()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestAsyncJob");
 
@@ -67,8 +67,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldReturnCompleted_WhenAsyncJobWithResultReturnsValue()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestAsyncJobWithResult");
         var expectedResult = "Job completed successfully with result";
@@ -100,8 +100,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldReturnCompleted_WhenSyncJobExecutesSuccessfully()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestSyncJob");
 
@@ -132,8 +132,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldReturnCompleted_WhenSyncJobWithResultReturnsValue()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestSyncJobWithResult");
         var expectedResult = "Sync job result";
@@ -165,8 +165,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldReturnFailed_WhenJobThrowsException()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestFailingJob");
         var expectedException = new InvalidOperationException("Test exception message");
@@ -199,8 +199,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldReturnCancelled_WhenCancellationIsRequested()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestCancellableJob");
 
@@ -235,8 +235,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldReturnTimedOut_WhenJobExceedsTimeout()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestTimeoutJob");
 
@@ -272,8 +272,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldPopulateLogs_WhenJobLogsMessages()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestLoggingJob");
 
@@ -312,8 +312,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldTrackDuration_Accurately()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestDurationJob");
         var delayMs = 100;
@@ -346,8 +346,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldUseNoTimeout_WhenTimeoutIsZero()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestNoTimeoutJob");
 
@@ -377,8 +377,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldReturnDefaultResult_WhenAsyncJobWithResultReturnsNull()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestNullResultJob");
 
@@ -409,8 +409,8 @@ public class JobExecutorTests
     public async Task ExecuteAsync_ShouldFormatExceptionWithInnerException_WhenJobThrowsNestedExceptions()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestNestedExceptionJob");
         var innerException = new ArgumentException("Inner error");

@@ -95,7 +95,7 @@ public class DashboardControllerTests(CustomWebApplicationFactory factory, ITest
         {
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 DisplayName = "ActiveJob1",
                 JobNameInWorker = "TestJob",
                 ExecuteAt = DateTime.UtcNow.AddHours(1),
@@ -105,7 +105,7 @@ public class DashboardControllerTests(CustomWebApplicationFactory factory, ITest
             },
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 DisplayName = "ActiveJob2",
                 JobNameInWorker = "TestJob",
                 ExecuteAt = DateTime.UtcNow.AddHours(2),
@@ -115,7 +115,7 @@ public class DashboardControllerTests(CustomWebApplicationFactory factory, ITest
             },
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 DisplayName = "InactiveJob",
                 JobNameInWorker = "TestJob",
                 ExecuteAt = DateTime.UtcNow.AddHours(3),
@@ -135,7 +135,7 @@ public class DashboardControllerTests(CustomWebApplicationFactory factory, ITest
 
         var job = new ScheduledJob
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             DisplayName = "JobWithOccurrences",
             JobNameInWorker = "TestJob",
             ExecuteAt = DateTime.UtcNow.AddHours(1),
@@ -150,27 +150,27 @@ public class DashboardControllerTests(CustomWebApplicationFactory factory, ITest
         {
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 JobId = job.Id,
-                CorrelationId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
                 Status = JobOccurrenceStatus.Completed,
                 CreatedAt = DateTime.UtcNow,
                 CreationDate = DateTime.UtcNow
             },
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 JobId = job.Id,
-                CorrelationId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
                 Status = JobOccurrenceStatus.Running,
                 CreatedAt = DateTime.UtcNow,
                 CreationDate = DateTime.UtcNow
             },
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 JobId = job.Id,
-                CorrelationId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
                 Status = JobOccurrenceStatus.Failed,
                 CreatedAt = DateTime.UtcNow,
                 CreationDate = DateTime.UtcNow

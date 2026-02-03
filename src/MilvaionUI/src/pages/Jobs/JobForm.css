@@ -799,3 +799,106 @@
   font-style: italic;
   font-size: 0.85rem;
 }
+
+/* External Job Warning Banner */
+.external-job-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  border-left: 4px solid #8b5cf6;
+}
+
+.external-job-warning .warning-icon {
+  color: #8b5cf6;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.external-job-warning .warning-content h3 {
+  margin: 0 0 8px 0;
+  color: #8b5cf6;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.external-job-warning .warning-content p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Disabled Section for External Jobs */
+.form-card.disabled-section {
+  opacity: 0.6;
+  position: relative;
+}
+
+.form-card.disabled-section::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.form-card.disabled-section select:disabled,
+.form-card.disabled-section input:disabled {
+  background: var(--bg-tertiary);
+  cursor: not-allowed;
+}
+
+.external-label {
+  margin-left: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.radio-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.external-label-small {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: #8b5cf6;
+  margin-top: 4px;
+}
+
+.switch.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* Disabled sidebar card for external jobs */
+.sidebar-card.disabled-card {
+  opacity: 0.6;
+  position: relative;
+}
+
+.sidebar-card.disabled-card .sidebar-card-title {
+  color: var(--text-muted);
+}

@@ -118,6 +118,11 @@ public class ScheduledJobDetailDto : MilvaionBaseDto<Guid>
     public JobAutoDisableSettings AutoDisableSettings { get; set; }
 
     /// <summary>
+    /// Information about the external job associated with this scheduled job.
+    /// </summary>
+    public ExternalJobInfoDto ExternalJobInfo { get; set; }
+
+    /// <summary>
     /// Projection expression for mapping ScheduledJob scheduledjob to ScheduledJobDetailDto.
     /// </summary>
     [JsonIgnore]
@@ -143,6 +148,11 @@ public class ScheduledJobDetailDto : MilvaionBaseDto<Guid>
         Version = r.Version,
         JobVersions = r.JobVersions,
         AutoDisableSettings = r.AutoDisableSettings,
+        ExternalJobInfo = r.IsExternal ? new ExternalJobInfoDto
+        {
+            ExternalJobId = r.ExternalJobId,
+            IsExternal = r.IsExternal,
+        } : null,
         AuditInfo = new AuditDto<Guid>(r)
     };
 }

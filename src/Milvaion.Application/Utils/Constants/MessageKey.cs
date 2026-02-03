@@ -81,5 +81,8 @@ public static class MessageKey
     public const string OccurrenceId = nameof(OccurrenceId);
     public const string FailedOccurrenceNotFound = nameof(FailedOccurrenceNotFound);
     public const string JobId = nameof(JobId);
+    public const string ExternalJobCannotBeModified = nameof(ExternalJobCannotBeModified);
+    public const string ExternalJobCannotBeTriggered = nameof(ExternalJobCannotBeTriggered);
+    public const string ExternalJobCannotBeCancelled = nameof(ExternalJobCannotBeCancelled);
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 }

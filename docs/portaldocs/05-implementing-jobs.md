@@ -488,7 +488,7 @@ Create a test helper:
 ```csharp
 public class MockJobContext : IJobContext
 {
-    public Guid CorrelationId { get; set; } = Guid.NewGuid();
+    public Guid CorrelationId { get; set; } = Guid.CreateVersion7();
     public ScheduledJob Job { get; set; } = new();
     public string WorkerId { get; set; } = "test-worker";
     public CancellationToken CancellationToken { get; set; } = CancellationToken.None;

@@ -127,6 +127,40 @@ public interface IRedisSchedulerService
     /// <returns>True if updated, false if job not in cache</returns>
     Task<bool> UpdateCachedJobFieldsAsync(Guid jobId, Dictionary<string, object> fieldsToUpdate, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Gets the internal job ID for an external job ID from Redis cache.
+    /// Returns null if not found in cache.
+    /// </summary>
+    /// <param name="externalJobId">External job identifier (e.g., "DEFAULT.MyQuartzJob")</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Internal job ID or null if not found</returns>
+    Task<Guid?> GetJobIdByExternalIdAsync(string externalJobId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets internal job IDs for multiple external job IDs in bulk (optimized with pipeline).
+    /// Returns dictionary with externalJobId as key. Missing mappings are not included.
+    /// </summary>
+    /// <param name="externalJobIds">List of external job identifiers</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Dictionary of mappings (externalJobId ? jobId)</returns>
+    Task<Dictionary<string, Guid>> GetJobIdsByExternalIdsBulkAsync(IEnumerable<string> externalJobIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the mapping from external job ID to internal job ID in Redis.
+    /// Used when a new external job (Quartz/Hangfire) is registered.
+    /// </summary>
+    /// <param name="externalJobId">External job identifier (e.g., "Samples.SampleLogJob")</param>
+    /// <param name="jobId">Internal job identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task SetExternalJobIdMappingAsync(string externalJobId, Guid jobId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets multiple external job ID to internal job ID mappings in bulk.
+    /// </summary>
+    /// <param name="mappings">Dictionary of externalJobId ? jobId mappings</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task SetExternalJobIdMappingsBulkAsync(Dictionary<string, Guid> mappings, CancellationToken cancellationToken = default);
+
     // ============ RUNNING JOB TRACKING ============
 
     /// <summary>

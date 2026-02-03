@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>14.0</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.*" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.*" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Milvasoft.Milvaion.Sdk.Worker\Milvasoft.Milvaion.Sdk.Worker.csproj" />
+    <ProjectReference Include="..\Milvasoft.Milvaion.Sdk\Milvasoft.Milvaion.Sdk.csproj" />
+  </ItemGroup>
+
+	<PropertyGroup>
+		<PackageVersion>10.0.12</PackageVersion>
+		<Authors>Milvasoft Corporation</Authors>
+		<Copyright>Milvasoft Yazılım Bilişim Araştırma Geliştirme Danışmanlık Sanayi ve Ticaret Ltd.Şti.</Copyright>
+		<RepositoryUrl>https://github.com/Milvasoft/milvaion-api</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageProjectUrl>https://github.com/Milvasoft/milvaion-api</PackageProjectUrl>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+
+		<PackageId>Milvasoft.Milvaion.Sdk.Worker.Quartz</PackageId>
+		<Product>Milvasoft.Milvaion.Sdk.Worker.Quartz</Product>
+		<Description>Quartz.NET integration for Milvaion Worker SDK.</Description>
+		<PackageTags>schedule,recurring,worker,distributed,quartz</PackageTags>
+		<PackageIcon>logo.png</PackageIcon>
+		<PackageReadmeFile>packagereadme.md</PackageReadmeFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+
+</Project>

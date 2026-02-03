@@ -1,3 +1,5 @@
+using Milvasoft.Milvaion.Sdk.Worker.Quartz.Options;
+
 namespace Milvasoft.Milvaion.Sdk.Worker.Options;
 
 /// <summary>
@@ -61,6 +63,11 @@ public class WorkerOptions
     /// Offline resilience settings for local state persistence and sync.
     /// </summary>
     public OfflineResilienceSettings OfflineResilience { get; set; } = new();
+
+    /// <summary>
+    /// External scheduler integration options (e.g., Quartz).
+    /// </summary>
+    public MilvaionExternalSchedulerOptions ExternalScheduler { get; set; } = new();
 
     /// <summary>
     /// Initializes WorkerOptions.
