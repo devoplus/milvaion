@@ -4,8 +4,10 @@ using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
+using Milvasoft.Milvaion.Sdk.Worker.Quartz.Extensions;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
 using Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
+using Milvasoft.Milvaion.Sdk.Worker.Utils;
 using Quartz;
 using System.Collections.Concurrent;
 using System.Text.Json;
@@ -14,19 +16,19 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Quartz.Listeners;
 
 /// <summary>
 /// Quartz scheduler listener that registers jobs with Milvaion when they are scheduled.
-/// Also populates QuartzJobRegistry and starts WorkerListenerPublisher for heartbeats.
+/// Also populates ExternalJobRegistry and starts WorkerListenerPublisher for heartbeats.
 /// All methods are wrapped in try-catch to ensure Milvaion integration never affects Quartz operation.
 /// </summary>
 public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
                                        IOptions<WorkerOptions> workerOptions,
-                                       QuartzJobRegistry jobRegistry,
+                                       ExternalJobRegistry jobRegistry,
                                        IServiceProvider serviceProvider,
                                        ILoggerFactory loggerFactory) : ISchedulerListener
 {
     private readonly IExternalJobPublisher _publisher = publisher;
     private readonly MilvaionExternalSchedulerOptions _options = workerOptions.Value.ExternalScheduler;
     private readonly WorkerOptions _workerOptions = workerOptions?.Value;
-    private readonly QuartzJobRegistry _jobRegistry = jobRegistry;
+    private readonly ExternalJobRegistry _jobRegistry = jobRegistry;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly IMilvaLogger _logger = loggerFactory?.CreateMilvaLogger<MilvaionSchedulerListener>();
     private WorkerListenerPublisher _workerListenerPublisher;
@@ -54,8 +56,8 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
                 if (trigger is ICronTrigger cronTrigger)
                     cronExpression = cronTrigger.CronExpressionString;
 
-                // Update registry with cron expression
-                _jobRegistry?.RegisterJob(jobDetail.Key.Name, jobDetail.Key.Group, jobDetail.JobType);
+                // Update registry
+                _jobRegistry?.RegisterJob(jobDetail.Key.GetExternalJobId(), jobDetail.JobType);
 
                 // Publish registration message with trigger info
                 if (_publisher != null)
@@ -109,7 +111,7 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
 
             var message = new ExternalJobRegistrationMessage
             {
-                ExternalJobId = GetExternalJobId(jobKey),
+                ExternalJobId = jobKey.GetExternalJobId(),
                 Source = _options.Source,
                 DisplayName = jobKey.Name,
                 JobTypeName = "Unknown",
@@ -406,7 +408,7 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
 
         return new ExternalJobRegistrationMessage
         {
-            ExternalJobId = GetExternalJobId(jobDetail.Key),
+            ExternalJobId = jobDetail.Key.GetExternalJobId(),
             Source = _options?.Source ?? "Quartz",
             DisplayName = jobDetail.Key.Name,
             Description = jobDetail.Description,
@@ -419,8 +421,6 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
             IsActive = true
         };
     }
-
-    private static string GetExternalJobId(JobKey jobKey) => $"{jobKey.Group}.{jobKey.Name}";
 
     /// <summary>
     /// Safely logs an error without throwing.

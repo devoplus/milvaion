@@ -21,10 +21,10 @@ Milvaion supports integration with external schedulers like **Quartz.NET** and *
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Your Application                             │
+│                     Your Application                            │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐    ┌─────────────────────────────────────┐ │
-│  │   Quartz.NET    │───▶│   Milvaion.Sdk.Worker.Quartz        │ │
+│  │   Quartz.NET    │───▶   Milvaion.Sdk.Worker.Quartz        │ │
 │  │   Scheduler     │    │   ┌───────────────────────────────┐ │ │
 │  │                 │    │   │ MilvaionJobListener           │ │ │
 │  │ ┌─────────────┐ │    │   │ • JobToBeExecuted → Starting  │ │ │
@@ -35,20 +35,20 @@ Milvaion supports integration with external schedulers like **Quartz.NET** and *
                                          │ RabbitMQ
                                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Milvaion Server                              │
+│                     Milvaion Server                             │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │ ExternalJobTrackerService                                  │  │
-│  │ • Creates ScheduledJob records (IsExternal = true)         │  │
-│  │ • Creates JobOccurrence records for each execution         │  │
-│  │ • Updates status, duration, result, exception              │  │
+│  │ ExternalJobTrackerService                                 │  │
+│  │ • Creates ScheduledJob records (IsExternal = true)        │  │
+│  │ • Creates JobOccurrence records for each execution        │  │
+│  │ • Updates status, duration, result, exception             │  │
 │  └───────────────────────────────────────────────────────────┘  │
-│                              ▼                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │  Dashboard   │  │   Alerts     │  │   Metrics    │          │
-│  │  • Job List  │  │  • Failures  │  │  • EPM       │          │
-│  │  • History   │  │  • Timeouts  │  │  • Duration  │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│                              ▼                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │  Dashboard   │  │   Alerts     │  │   Metrics    │           │
+│  │  • Job List  │  │  • Failures  │  │  • EPM       │           │
+│  │  • History   │  │  • Timeouts  │  │  • Duration  │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,6 +60,92 @@ Milvaion supports integration with external schedulers like **Quartz.NET** and *
 | **Hangfire** | `Milvasoft.Milvaion.Sdk.Worker.Hangfire` | 🚧 Coming Soon |
 
 ---
+
+## Dashboard Behavior for External Jobs
+
+External jobs appear in the Milvaion dashboard with special indicators and restricted actions:
+
+![Dashboard Overview](./src/externaljobs.png)
+
+| Feature | Internal Jobs | External Jobs |
+|---------|---------------|---------------|
+| **Trigger Button** | ✅ Enabled | 🔒 Disabled |
+| **Delete Button** | ✅ Enabled | 🔒 Disabled |
+| **Edit Button** | ✅ Full edit | ⚠️ Limited edit |
+
+### External Job Edit
+
+When editing external jobs, the following fields are **disabled**:
+
+| Field | Editable | Reason |
+|-------|----------|--------|
+| Display Name | ✅ Yes | Milvaion-only setting |
+| Description | ✅ Yes | Milvaion-only setting |
+| Tags | ✅ Yes | Milvaion-only setting |
+| Zombie Timeout | ✅ Yes | Milvaion zombie detection |
+| **Worker** | 🔒 No | Managed by Quartz |
+| **Job Type** | 🔒 No | Managed by Quartz |
+| **Schedule (Cron)** | 🔒 No | Managed by Quartz |
+| **Job Data** | 🔒 No | Managed by Quartz |
+| **Execution Timeout** | 🔒 No | Managed by Quartz |
+| **Concurrent Policy** | 🔒 No | Managed by Quartz |
+| **Active Status** | 🔒 No | Managed by Quartz |
+| **Auto-Disable** | 🔒 No | Not applicable |
+
+![Dashboard Overview](./src/externaljobdetail.png)
+
+### Occurrence Detail View
+
+External job occurrences show the external job ID:
+
+```
+EXTERNAL JOB: Samples.SendEmailJob
+```
+
+The **Cancel** button is disabled for external job occurrences since Milvaion cannot cancel jobs running in external job scheduler.
+
+
+### Worker List
+
+![Dashboard Overview](./src/externalworkerlist.png)
+
+---
+
+## Configuration Reference
+
+### Worker Configuration
+
+Same as milvaion worker except `ExternalScheduler` config;
+
+| Property | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `WorkerId` | string | ✅ | - | Unique identifier for this worker |
+| `MaxParallelJobs` | int | - | `10` | Maximum concurrent job executions |
+| `RabbitMQ` | object | ✅ | - | RabbitMQ connection settings |
+| `Redis` | object | ✅ | - | Redis connection settings |
+| `Heartbeat` | object | - | - | Heartbeat configuration |
+| `ExternalScheduler` | object | - | - | External scheduler settings |
+
+### ExternalScheduler Configuration
+
+| Property | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `Source` | string | ✅ | - | Scheduler identifier (e.g., "Quartz", "Hangfire") |
+
+---
+
+## Metrics and Monitoring
+
+External jobs contribute to all Milvaion metrics:
+
+| Metric | External Jobs Included |
+|--------|------------------------|
+| **Executions Per Minute (EPM)** | ✅ Yes |
+| **Average Duration** | ✅ Yes |
+| **Total Occurrences** | ✅ Yes |
+| **Status Counters** (Running/Completed/Failed) | ✅ Yes |
+| **Job Success Rate** | ✅ Yes |
+
 
 ## Quartz.NET Integration
 
@@ -188,15 +274,14 @@ public class MyJob(ILogger<MyJob> logger, ILogPublisher logPublisher) : IJob
 }
 ```
 
----
 
 ## Using the Pre-built Quartz Worker Docker Image
 
-For quick testing or production deployments, use the pre-built Quartz worker image:
+For quick testing deployments, use the pre-built Quartz worker image:
 
 ### Docker Run
 
-```bash
+```bash   
 docker run -d \
   --name quartz-worker \
   -e Worker__RabbitMQ__Host=rabbitmq \
@@ -204,7 +289,7 @@ docker run -d \
   -e Worker__RabbitMQ__Username=guest \
   -e Worker__RabbitMQ__Password=guest \
   -e Worker__Redis__ConnectionString=redis:6379 \
-  milvasoft/milvaion-quartz-worker:latest
+  milvasoft/milvaion-sample-quartz-worker:latest
 ```
 
 ### Docker Compose
@@ -212,7 +297,7 @@ docker run -d \
 ```yaml
 services:
   quartz-worker:
-    image: milvasoft/milvaion-quartz-worker:latest
+    image: milvasoft/milvaion-sample-quartz-worker:latest
     container_name: quartz-worker
     restart: unless-stopped
     environment:
@@ -231,7 +316,7 @@ services:
 
   # Add more workers for scaling
   quartz-worker-2:
-    image: milvasoft/milvaion-quartz-worker:latest
+    image: milvasoft/milvaion-sample-quartz-worker:latest
     container_name: quartz-worker-2
     restart: unless-stopped
     environment:
@@ -294,89 +379,8 @@ spec:
               cpu: "500m"
 ```
 
----
 
-## Dashboard Behavior for External Jobs
-
-External jobs appear in the Milvaion dashboard with special indicators and restricted actions:
-
-### Job List View
-
-| Feature | Internal Jobs | External Jobs |
-|---------|---------------|---------------|
-| **Badge** | - | 🟣 "External" badge |
-| **Trigger Button** | ✅ Enabled | 🔒 Disabled |
-| **Delete Button** | ✅ Enabled | 🔒 Disabled |
-| **Edit Button** | ✅ Full edit | ⚠️ Limited edit |
-
-### Job Detail View
-
-External jobs show additional information:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 📧 Send Email Job                                               │
-│ ✅ Active   🟣 External Job                                     │
-│ External ID: Samples.SendEmailJob                               │
-├─────────────────────────────────────────────────────────────────┤
-│ [Trigger Now]  [Edit Job]  [Delete]                             │
-│    🔒 Disabled                🔒 Disabled                       │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Job Edit Form
-
-When editing external jobs, the following fields are **disabled**:
-
-| Field | Editable | Reason |
-|-------|----------|--------|
-| Display Name | ✅ Yes | Milvaion-only setting |
-| Description | ✅ Yes | Milvaion-only setting |
-| Tags | ✅ Yes | Milvaion-only setting |
-| Zombie Timeout | ✅ Yes | Milvaion zombie detection |
-| **Worker** | 🔒 No | Managed by Quartz |
-| **Job Type** | 🔒 No | Managed by Quartz |
-| **Schedule (Cron)** | 🔒 No | Managed by Quartz |
-| **Job Data** | 🔒 No | Managed by Quartz |
-| **Execution Timeout** | 🔒 No | Managed by Quartz |
-| **Concurrent Policy** | 🔒 No | Managed by Quartz |
-| **Active Status** | 🔒 No | Managed by Quartz |
-| **Auto-Disable** | 🔒 No | Not applicable |
-
-### Occurrence Detail View
-
-External job occurrences show the external job ID:
-
-```
-EXTERNAL JOB: Samples.SendEmailJob
-```
-
-The **Cancel** button is disabled for external job occurrences since Milvaion cannot cancel jobs running in Quartz.
-
----
-
-## Configuration Reference
-
-### Worker Configuration
-
-| Property | Type | Required | Default | Description |
-|----------|------|----------|---------|-------------|
-| `WorkerId` | string | ✅ | - | Unique identifier for this worker |
-| `MaxParallelJobs` | int | - | `10` | Maximum concurrent job executions |
-| `RabbitMQ` | object | ✅ | - | RabbitMQ connection settings |
-| `Redis` | object | ✅ | - | Redis connection settings |
-| `Heartbeat` | object | - | - | Heartbeat configuration |
-| `ExternalScheduler` | object | - | - | External scheduler settings |
-
-### ExternalScheduler Configuration
-
-| Property | Type | Required | Default | Description |
-|----------|------|----------|---------|-------------|
-| `Source` | string | ✅ | - | Scheduler identifier (e.g., "Quartz", "Hangfire") |
-
----
-
-## How External Jobs Are Tracked
+## How Quartz Jobs Are Tracked
 
 ### Job Registration
 
@@ -420,17 +424,243 @@ Job → JobOccurrenceLogMessage → RabbitMQ → LogConsumerService
 
 ---
 
-## Metrics and Monitoring
+## Hangfire Integration
 
-External jobs contribute to all Milvaion metrics:
+### Quick Start
 
-| Metric | External Jobs Included |
-|--------|------------------------|
-| **Executions Per Minute (EPM)** | ✅ Yes |
-| **Average Duration** | ✅ Yes |
-| **Total Occurrences** | ✅ Yes |
-| **Status Counters** (Running/Completed/Failed) | ✅ Yes |
-| **Job Success Rate** | ✅ Yes |
+#### 1. Add NuGet Package
+
+```bash
+dotnet add package Milvasoft.Milvaion.Sdk.Worker.Hangfire
+```
+
+#### 2. Configure Services
+
+```csharp
+using Hangfire;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Extensions;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+// Add Milvaion Hangfire integration
+// This registers core worker services AND Hangfire filters
+builder.Services.AddMilvaionHangfireIntegration(builder.Configuration);
+
+// Register your job classes
+builder.Services.AddTransient<MyEmailJob>();
+builder.Services.AddTransient<MyReportJob>();
+
+// Configure Hangfire with your storage
+builder.Services.AddHangfire((sp, config) =>
+{
+    // Use your preferred storage (PostgreSQL, SQL Server, Redis, etc.)
+    config.UsePostgreSqlStorage(connectionString);
+    // Or for testing: config.UseInMemoryStorage();
+    
+    // Enable Milvaion filter for job monitoring
+    config.UseMilvaion(sp);
+});
+
+// Add Hangfire server
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 4;
+    options.Queues = ["default", "critical"];
+});
+
+var host = builder.Build();
+
+// Configure recurring jobs after host is built
+using (var scope = host.Services.CreateScope())
+{
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+    // Register recurring jobs
+    recurringJobManager.AddOrUpdate<MyEmailJob>(
+        "daily-email-job",
+        job => job.SendDailyDigest(CancellationToken.None),
+        Cron.Daily);
+
+    recurringJobManager.AddOrUpdate<MyReportJob>(
+        "hourly-report-job",
+        job => job.GenerateReport("sales", CancellationToken.None),
+        Cron.Hourly);
+}
+
+await host.RunAsync();
+```
+
+#### 3. Configure appsettings.json
+
+```json
+{
+  "Worker": {
+    "WorkerId": "hangfire-worker",
+    "MaxParallelJobs": 128,
+    "RabbitMQ": {
+      "Host": "rabbitmq",
+      "Port": 5672,
+      "Username": "guest",
+      "Password": "guest",
+      "VirtualHost": "/"
+    },
+    "Redis": {
+      "ConnectionString": "redis:6379"
+    },
+    "Heartbeat": {
+      "Enabled": true,
+      "IntervalSeconds": 5
+    },
+    "ExternalScheduler": {
+      "SourceName": "Hangfire"
+    }
+  }
+}
+```
+
+### Implementing Jobs
+
+Hangfire jobs are simple classes with methods:
+
+```csharp
+using Microsoft.Extensions.Logging;
+
+public class MyEmailJob(ILogger<MyEmailJob> logger)
+{
+    private readonly ILogger<MyEmailJob> _logger = logger;
+
+    public async Task SendDailyDigest(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("📧 Starting daily email digest...");
+
+        // Your job logic here
+        var recipients = await GetRecipientsAsync();
+        
+        foreach (var recipient in recipients)
+        {
+            _logger.LogInformation("Sending email to {Recipient}", recipient);
+            await SendEmailAsync(recipient, cancellationToken);
+        }
+
+        _logger.LogInformation("✅ Daily email digest completed!");
+    }
+}
+
+public class MyReportJob(ILogger<MyReportJob> logger)
+{
+    private readonly ILogger<MyReportJob> _logger = logger;
+
+    public async Task GenerateReport(string reportType, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("📊 Generating {ReportType} report...", reportType);
+
+        // Simulate report generation
+        for (int progress = 0; progress <= 100; progress += 20)
+        {
+            _logger.LogInformation("Report progress: {Progress}%", progress);
+            await Task.Delay(1000, cancellationToken);
+        }
+
+        _logger.LogInformation("✅ Report generated successfully!");
+    }
+}
+```
+
+### How Hangfire Jobs Are Tracked
+
+#### Job Registration
+
+When a Hangfire job is created, `MilvaionJobFilter.OnCreating()` registers it:
+
+```
+Hangfire → OnCreating() ? ExternalJobRegistry
+                              ↓
+                    Stores job config locally
+                              ↓
+HangfireWorkerStartupService ? WorkerListenerPublisher ? RabbitMQ ? Milvaion Server
+                                                                         ↓
+                                                               Creates ScheduledJob
+                                                               (IsExternal = true)
+```
+
+#### Job Execution
+
+When a job runs, `MilvaionJobFilter` tracks the execution:
+
+```
+OnPerforming():
+Hangfire → MilvaionJobFilter → ExternalJobOccurrenceMessage (Starting) → RabbitMQ
+                 ↓                                                          ↓
+    • Generate CorrelationId                                    ExternalJobTrackerService
+    • Store in JobParameters                                             ↓
+                                                               Creates JobOccurrence
+                                                               (Status = Running)
+
+OnPerformed():
+Hangfire → MilvaionJobFilter → ExternalJobOccurrenceMessage (Completed/Failed) → RabbitMQ
+                 ↓                                                                    ↓
+    • Get CorrelationId from JobParameters                           ExternalJobTrackerService
+    • Calculate duration from StartTime                                       ↓
+    • Capture exception if failed                              Updates JobOccurrence
+                                                               (Status, Duration, Result, Exception)
+```
+
+#### Job Cancellation
+
+When a job is deleted/cancelled, `MilvaionJobFilter.OnStateElection()` handles it:
+
+```
+OnStateElection(DeletedState):
+Hangfire → MilvaionJobFilter → ExternalJobOccurrenceMessage (Cancelled) → RabbitMQ
+                                                                              →
+                                                               ExternalJobTrackerService
+                                                                              →
+                                                               Updates JobOccurrence
+                                                               (Status = Cancelled)
+```
+---
+
+## Using the Pre-built Hangfire Worker Docker Image
+
+For quick testing deployments, use the pre-built Hangfire worker image:
+
+### Docker Run
+
+```bash
+docker run -d \
+  --name hangfire-worker \
+  -e Worker__RabbitMQ__Host=rabbitmq \
+  -e Worker__RabbitMQ__Port=5672 \
+  -e Worker__RabbitMQ__Username=guest \
+  -e Worker__RabbitMQ__Password=guest \
+  -e Worker__Redis__ConnectionString=redis:6379 \
+  milvasoft/milvaion-sample-hangfire-worker:latest
+```
+
+### Docker Compose
+
+```yaml
+services:
+  hangfire-worker:
+    image: milvasoft/milvaion-sample-hangfire-worker:latest
+    container_name: hangfire-worker
+    restart: unless-stopped
+    environment:
+      - Worker__WorkerId=hangfire-worker-1
+      - Worker__RabbitMQ__Host=rabbitmq
+      - Worker__RabbitMQ__Port=5672
+      - Worker__RabbitMQ__Username=guest
+      - Worker__RabbitMQ__Password=guest
+      - Worker__Redis__ConnectionString=redis:6379
+      - Worker__ExternalScheduler__SourceName=Hangfire
+    networks:
+      - milvaion-network
+    depends_on:
+      - rabbitmq
+      - redis
+```
 
 ---
 

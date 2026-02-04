@@ -65,7 +65,7 @@ public record CreateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
             if (cachedWorker == null)
                 return Response<Guid>.Error(default, $"Worker {request.WorkerId} not found");
 
-            if (cachedWorker.Metadata.IsExternal)
+            if (cachedWorker.Metadata.IsExternal && !request.InternalRequest)
                 return Response<Guid>.Error(default, $"Worker {request.WorkerId} is an external worker and cannot be assigned jobs directly.");
 
             if (cachedWorker.Status != WorkerStatus.Active)

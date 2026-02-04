@@ -183,7 +183,7 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
 
     private static bool IsValidForExternalUpdate(ScheduledJob job, UpdateScheduledJobCommand request)
     {
-        if (job.IsExternal)
+        if (job.IsExternal && !request.InternalRequest)
             if (request.JobData.IsUpdated ||
                 request.CronExpression.IsUpdated ||
                 request.IsActive.IsUpdated ||

@@ -21,7 +21,7 @@ builder.Services.AddMilvaionQuartzIntegration(builder.Configuration);
 builder.Services.AddQuartz(q =>
 {
     // Use Milvaion listeners for job monitoring
-    q.UseMilvaion(builder.Services);
+    q.UseMilvaion();
 
     // Register SampleLogJob - runs every 30 seconds
     var sampleLogJobKey = new JobKey("SampleLogJob", "Samples");

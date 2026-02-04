@@ -147,9 +147,6 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
         // Collect all job types for this worker app
         var allJobTypes = _jobConfigs.Keys.ToList();
 
-        // Collect all routing patterns (union of all job configs)
-        var allRoutingPatterns = _jobConfigs.Values.Select(c => c.RoutingPattern).Distinct().ToList();
-
         _logger.Debug("Registering worker with {Count} job configurations:", _jobConfigs.Count);
 
         // Register single worker with ALL job types
@@ -192,7 +189,7 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
 
         _logger.Debug("Worker {WorkerId} (Instance: {InstanceId}) registered with {Count} job types: {JobTypes}", _options.WorkerId, _options.InstanceId, allJobTypes.Count, string.Join(", ", allJobTypes));
 
-        _logger.Debug("Routing Patterns: {Patterns}", string.Join(", ", allRoutingPatterns));
+        _logger.Debug("Routing Patterns: {Patterns}", string.Join(", ", _jobConfigs.Values.Select(c => c.RoutingPattern).Distinct().ToList()));
     }
 
     /// <summary>

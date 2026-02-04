@@ -1,28 +1,29 @@
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 
-namespace Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
+namespace Milvasoft.Milvaion.Sdk.Worker.Utils;
 
 /// <summary>
-/// Registry that collects Quartz job configurations for WorkerListenerPublisher.
+/// Registry that collects external job configurations for WorkerListenerPublisher.
 /// </summary>
-public class QuartzJobRegistry
+public class ExternalJobRegistry
 {
     private readonly Dictionary<string, JobConsumerConfig> _jobConfigs = [];
     private readonly Lock _lock = new();
 
     /// <summary>
-    /// Registers a Quartz job as a JobConsumerConfig.
+    /// Registers a external job as a JobConsumerConfig.
     /// </summary>
-    public void RegisterJob(string jobName, string jobGroup, Type jobType)
+    public void RegisterJob(string externalJobId, Type jobType)
     {
         lock (_lock)
         {
-            var externalJobId = string.IsNullOrEmpty(jobGroup) || jobGroup == "DEFAULT" ? jobName : $"{jobGroup}.{jobName}";
+            if (_jobConfigs.ContainsKey(externalJobId))
+                return;
 
             var config = new JobConsumerConfig
             {
                 ConsumerId = externalJobId,
-                RoutingPattern = $"quartz.{externalJobId.ToLowerInvariant()}.*",
+                RoutingPattern = "external.job.*",
                 MaxParallelJobs = 1,
                 JobType = jobType
             };

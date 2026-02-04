@@ -1,5 +1,7 @@
 ﻿using Milvaion.Application.Dtos.ScheduledJobDtos;
+using Milvasoft.Attributes.Annotations;
 using Milvasoft.Components.CQRS.Command;
+using System.Text.Json.Serialization;
 
 namespace Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob;
 
@@ -97,4 +99,11 @@ public record CreateScheduledJobCommand : ICommand<Guid>
     /// Auto-disable settings for the scheduled job.
     /// </summary>
     public UpsertJobAutoDisableSettings AutoDisableSettings { get; set; } = new();
+
+    /// <summary>
+    /// Determines if the request is internal(from code) or not.
+    /// </summary>
+    [JsonIgnore]
+    [ExcludeFromMetadata]
+    public bool InternalRequest { get; set; }
 }

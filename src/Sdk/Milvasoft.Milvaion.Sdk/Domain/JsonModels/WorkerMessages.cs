@@ -285,5 +285,10 @@ public enum ExternalOccurrenceEventType
     /// <summary>
     /// Job was vetoed/skipped.
     /// </summary>
-    Vetoed = 2
+    Vetoed = 2,
+
+    /// <summary>
+    /// Job was cancelled.
+    /// </summary>
+    Cancelled = 3
 }

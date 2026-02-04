@@ -85,3 +85,27 @@ jobs:
 
       - name: Publish Milvasoft.Milvaion.Sdk.Worker.Quartz to NuGet
         run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+
+  publish-milvaion-sdk-worker-hangfire:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ vars.DOTNET_VERSION }}
+
+      - name: Restore Milvasoft.Milvaion.Sdk.Worker.Hangfire dependencies
+        run: dotnet restore src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Hangfire/Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj
+
+      - name: Build Milvasoft.Milvaion.Sdk.Worker.Hangfire
+        run: dotnet build src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Hangfire/Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj --no-restore --configuration Release
+
+      - name: Pack Milvasoft.Milvaion.Sdk.Worker.Hangfire
+        run: dotnet pack src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Hangfire/Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj --no-build --configuration Release --include-symbols -p:SymbolPackageFormat=snupkg -o ./packages
+
+      - name: Publish Milvasoft.Milvaion.Sdk.Worker.Hangfire to NuGet
+        run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate

@@ -12,6 +12,7 @@ public class SampleLogJob(ILogger<SampleLogJob> logger) : IJob
 {
     private readonly ILogger<SampleLogJob> _logger = logger;
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1873:Avoid potentially expensive logging", Justification = "<Pending>")]
     public Task Execute(IJobExecutionContext context)
     {
         var fireTime = context.FireTimeUtc.LocalDateTime;

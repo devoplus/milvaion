@@ -11,10 +11,14 @@
   </Folder>
   <Folder Name="/build/github/">
     <File Path=".github/workflows/api-docker-build.yml" />
+    <File Path=".github/workflows/ci.yml" />
     <File Path=".github/workflows/emailworker-docker-build.yml" />
+    <File Path=".github/workflows/hangfireworker-docker-build.yml" />
     <File Path=".github/workflows/httpworker-docker-build.yml" />
     <File Path=".github/workflows/maintenanceworker-docker-build.yml" />
+    <File Path=".github/workflows/quartzworker-docker-build.yml" />
     <File Path=".github/workflows/README.md" />
+    <File Path=".github/workflows/release.yml" />
     <File Path=".github/workflows/sampleworker-docker-build.yml" />
     <File Path=".github/workflows/sdk-nuget-publish.yml" />
     <File Path=".github/workflows/sqlworker-docker-build.yml" />
@@ -112,6 +116,9 @@
     <Project Path="src/Milvaion.Api/Milvaion.Api.csproj" />
   </Folder>
   <Folder Name="/src/Sdk/">
+    <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Hangfire/Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj" Id="ab4e48cf-c814-4051-8b17-3e1af6a03940">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
     <Project Path="src/Sdk/Milvasoft.Milvaion.Sdk.Worker.Quartz/Milvasoft.Milvaion.Sdk.Worker.Quartz.csproj" Id="f3f3b8e3-4822-42ca-9ca6-8ebee3692074">
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
@@ -135,6 +142,9 @@
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
     <Project Path="src/Workers/MilvaionMaintenanceWorker/MilvaionMaintenanceWorker.csproj" Id="362332d9-cbf0-44a9-a624-c34247fadcf0">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Workers/SampleHangfireWorker/SampleHangfireWorker.csproj" Id="1f9d05b1-d49a-459b-b02d-611c29dacbf8">
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
     <Project Path="src/Workers/SampleQuartzWorker/SampleQuartzWorker.csproj" Id="328e737f-23cf-4598-9429-dfe0d41b659f">

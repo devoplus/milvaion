@@ -5,6 +5,7 @@ using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
+using Milvasoft.Milvaion.Sdk.Worker.Quartz.Extensions;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
 using Quartz;
 
@@ -43,7 +44,7 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
             var message = new ExternalJobOccurrenceMessage
             {
                 CorrelationId = correlationId,
-                ExternalJobId = GetExternalJobId(context.JobDetail.Key),
+                ExternalJobId = context.JobDetail.Key.GetExternalJobId(),
                 ExternalOccurrenceId = fireInstanceId,
                 Source = _options.Source,
                 JobTypeName = context.JobDetail.JobType.FullName ?? context.JobDetail.JobType.Name,
@@ -83,7 +84,7 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
             var message = new ExternalJobOccurrenceMessage
             {
                 CorrelationId = correlationId,
-                ExternalJobId = GetExternalJobId(context.JobDetail.Key),
+                ExternalJobId = context.JobDetail.Key.GetExternalJobId(),
                 Source = _options.Source,
                 JobTypeName = context.JobDetail.JobType.FullName ?? context.JobDetail.JobType.Name,
                 EventType = ExternalOccurrenceEventType.Completed,
@@ -122,7 +123,7 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
             var message = new ExternalJobOccurrenceMessage
             {
                 CorrelationId = correlationId,
-                ExternalJobId = GetExternalJobId(context.JobDetail.Key),
+                ExternalJobId = context.JobDetail.Key.GetExternalJobId(),
                 Source = _options.Source,
                 JobTypeName = context.JobDetail.JobType.FullName ?? context.JobDetail.JobType.Name,
                 EventType = ExternalOccurrenceEventType.Vetoed,
@@ -143,12 +144,6 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
             LogSafeError(ex, "JobExecutionVetoed", context?.JobDetail?.Key.ToString());
         }
     }
-
-    /// <summary>
-    /// Generates a consistent external job ID from the Quartz JobKey.
-    /// </summary>
-    private static string GetExternalJobId(JobKey jobKey)
-        => $"{jobKey.Group}.{jobKey.Name}";
 
     /// <summary>
     /// Safely logs an error without throwing.

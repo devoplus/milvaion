@@ -5585,6 +5585,11 @@
             Auto-disable settings for the scheduled job.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.InternalRequest">
+            <summary>
+            Determines if the request is internal(from code) or not.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommandHandler">
             <summary>
             Handles the creation of the scheduledjob.
@@ -5963,6 +5968,11 @@
         <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.AutoDisableSettings">
             <summary>
             Auto-disable settings for the scheduled job.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.InternalRequest">
+            <summary>
+            Defines whether the update request is coming from an internal system component (e.g., worker, scheduler) rather than an external client.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler">

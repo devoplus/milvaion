@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Listeners;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
+using Milvasoft.Milvaion.Sdk.Worker.Utils;
 using Quartz;
 
 namespace Milvasoft.Milvaion.Sdk.Worker.Quartz.Extensions;
@@ -45,8 +46,8 @@ public static class QuartzMilvaionExtensions
         services.AddSingleton<MilvaionJobListener>();
         services.AddSingleton<MilvaionSchedulerListener>();
 
-        // 5. Register QuartzJobRegistry for collecting job configs
-        services.AddSingleton<QuartzJobRegistry>();
+        // 5. Register ExternalJobRegistry for collecting job configs
+        services.AddSingleton<ExternalJobRegistry>();
 
         Console.WriteLine("[Quartz] Milvaion Quartz integration registered. Jobs will be discovered at startup.");
 
@@ -60,11 +61,16 @@ public static class QuartzMilvaionExtensions
     /// <param name="quartz">The Quartz service collection configurator.</param>
     /// <param name="services">The service collection (for future extensibility).</param>
     /// <returns>The Quartz configurator for chaining.</returns>
-    public static IServiceCollectionQuartzConfigurator UseMilvaion(this IServiceCollectionQuartzConfigurator quartz, IServiceCollection services)
+    public static IServiceCollectionQuartzConfigurator UseMilvaion(this IServiceCollectionQuartzConfigurator quartz)
     {
         quartz.AddJobListener<MilvaionJobListener>();
         quartz.AddSchedulerListener<MilvaionSchedulerListener>();
 
         return quartz;
     }
+
+    /// <summary>
+    /// Generates a consistent external job ID from the Quartz JobKey.
+    /// </summary>
+    public static string GetExternalJobId(this JobKey jobKey) => jobKey.ToString();
 }

@@ -321,7 +321,8 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                             Description = new UpdateProperty<string>(message.Description),
                             CronExpression = new UpdateProperty<string>(message.CronExpression),
                             JobData = new UpdateProperty<string>(message.JobData),
-                            IsActive = new UpdateProperty<bool>(message.IsActive)
+                            IsActive = new UpdateProperty<bool>(message.IsActive),
+                            InternalRequest = true,
                         };
 
                         var updateResult = await mediator.Send(updateCommand, cancellationToken);
@@ -356,7 +357,8 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                             AutoDisableSettings = new Application.Dtos.ScheduledJobDtos.UpsertJobAutoDisableSettings
                             {
                                 Enabled = false
-                            }
+                            },
+                            InternalRequest = true
                         };
 
                         var createResult = await mediator.Send(createCommand, cancellationToken);

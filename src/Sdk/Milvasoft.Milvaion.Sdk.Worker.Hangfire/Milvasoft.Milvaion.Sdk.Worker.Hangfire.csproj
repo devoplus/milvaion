@@ -9,7 +9,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.*" />
+		<PackageReference Include="Hangfire.Core" Version="1.*" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="RabbitMQ.Client" Version="7.*" />
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.*" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.*" />
@@ -33,10 +34,10 @@
 		<PackageProjectUrl>https://github.com/Milvasoft/milvaion-api</PackageProjectUrl>
 		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
 
-		<PackageId>Milvasoft.Milvaion.Sdk.Worker.Quartz</PackageId>
-		<Product>Milvasoft.Milvaion.Sdk.Worker.Quartz</Product>
-		<Description>Quartz.NET integration for Milvaion Worker SDK.</Description>
-		<PackageTags>schedule,recurring,worker,distributed,quartz</PackageTags>
+		<PackageId>Milvasoft.Milvaion.Sdk.Worker.Hangfire</PackageId>
+		<Product>Milvasoft.Milvaion.Sdk.Worker.Hangfire</Product>
+		<Description>Hangfire integration for Milvaion Worker SDK.</Description>
+		<PackageTags>schedule,recurring,worker,distributed,hangfire</PackageTags>
 		<PackageIcon>logo.png</PackageIcon>
 		<PackageReadmeFile>packagereadme.md</PackageReadmeFile>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>

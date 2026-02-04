@@ -1,70 +1,83 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Hangfire.Server;
+using Microsoft.Extensions.Logging;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
-using Quartz;
 using System.Text.Json;
 
-namespace SampleQuartzWorker.Jobs;
+namespace SampleHangfireWorker.Jobs;
 
 /// <summary>
-/// Sample Quartz job that simulates sending an email.
-/// Demonstrates job data usage, error handling, and Milvaion log publishing.
+/// Sample Hangfire job that logs messages periodically.
 /// </summary>
 #pragma warning disable CA1873 // Avoid potentially expensive logging
-public class SendEmailJob(ILogger<SendEmailJob> logger, ILogPublisher logPublisher) : IJob
+public class SampleLogJob(ILogger<SampleLogJob> logger)
+{
+    private readonly ILogger<SampleLogJob> _logger = logger;
+
+    public async Task ExecuteAsync(PerformContext context, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("🚀 SampleLogJob started at {Time}", DateTime.UtcNow);
+
+        // Simulate work
+        for (int i = 1; i <= 5; i++)
+        {
+            _logger.LogInformation("⏳ Processing step {Step}/5...", i);
+            await Task.Delay(500, cancellationToken);
+        }
+
+        _logger.LogInformation("✅ SampleLogJob completed successfully at {Time}", DateTime.UtcNow);
+    }
+}
+
+/// <summary>
+/// Sample Hangfire job that simulates sending an email.
+/// Demonstrates Milvaion log publishing with Hangfire.
+/// </summary>
+public class SendEmailJob(ILogger<SendEmailJob> logger, ILogPublisher logPublisher)
 {
     private readonly ILogger<SendEmailJob> _logger = logger;
     private readonly ILogPublisher _logPublisher = logPublisher;
 
-    public async Task Execute(IJobExecutionContext context)
+    public async Task ExecuteAsync(PerformContext context, string recipient, string subject, CancellationToken cancellationToken)
     {
-        var dataMap = context.MergedJobDataMap;
-
-        // Get Milvaion tracking info from JobDataMap (set by MilvaionJobListener)
-        var correlationIdStr = dataMap.GetString("Milvaion_CorrelationId");
-        var workerId = dataMap.GetString("Milvaion_WorkerId") ?? "quartz-worker";
+        // Get Milvaion tracking info from job parameters (set by MilvaionJobFilter)
+        var correlationIdStr = context.GetJobParameter<string>("Milvaion_CorrelationId");
+        var workerId = context.GetJobParameter<string>("Milvaion_WorkerId") ?? "hangfire-worker";
         var correlationId = Guid.TryParse(correlationIdStr, out var cid) ? cid : Guid.Empty;
 
-        var recipient = dataMap.GetString("Recipient") ?? "unknown@example.com";
-        var subject = dataMap.GetString("Subject") ?? "No Subject";
-
-        _logger.LogInformation("📧 Sending email to {Recipient} with subject: {Subject}", recipient, subject);
+        _logger.LogInformation("📧 SendEmailJob started!");
+        _logger.LogInformation("Sending email to: {Recipient}", recipient);
+        _logger.LogInformation("Subject: {Subject}", subject);
 
         // Publish log to Milvaion
         await PublishLogAsync(correlationId, workerId, LogLevel.Information, $"Starting email send to {recipient}", new { Recipient = recipient, Subject = subject });
 
-        // Simulate email sending delay
-        await Task.Delay(500);
-
-        for (var i = 0; i < 30000; i += 1000)
+        // Simulate email sending with progress updates
+        for (int i = 0; i <= 100; i += 20)
         {
-            // Publish progress log
-            await PublishLogAsync(correlationId, workerId, LogLevel.Debug, "Sending email..." + i);
+            _logger.LogInformation("Sending progress: {Progress}%", i);
 
-            // Simulate email sending
-            await Task.Delay(1000, context.CancellationToken);
+            // Publish progress log to Milvaion
+            await PublishLogAsync(correlationId, workerId, LogLevel.Debug, $"Sending progress: {i}%", new { Progress = i });
+
+            await Task.Delay(1000, cancellationToken);
         }
 
-        // Publish progress log
-        await PublishLogAsync(correlationId, workerId, LogLevel.Debug, "Email prepared and ready to send", new { Step = "Prepared" });
-
-        // Simulate random failure for testing
+        // Simulate random failure for testing (10% chance)
         if (Random.Shared.Next(10) == 0)
         {
             await PublishLogAsync(correlationId, workerId, LogLevel.Error, "Email sending failed - simulated error", new { Error = "SimulatedFailure" });
+            _logger.LogError("❌ Email sending failed - simulated error");
             throw new InvalidOperationException("Simulated email sending failure");
         }
 
         _logger.LogInformation("✅ Email sent successfully to {Recipient}", recipient);
 
-        // Publish success log
+        // Publish success log to Milvaion
         await PublishLogAsync(correlationId, workerId, LogLevel.Information, $"Email sent successfully to {recipient}", new { Recipient = recipient, SentAt = DateTime.UtcNow });
 
         // Flush logs before job completes
         await _logPublisher.FlushAsync();
-
-        // Store result in job execution context
-        context.Result = JsonSerializer.Serialize(new { Recipient = recipient, SentAt = DateTime.UtcNow });
     }
 
     private async Task PublishLogAsync(Guid correlationId, string workerId, LogLevel level, string message, object data = null)
