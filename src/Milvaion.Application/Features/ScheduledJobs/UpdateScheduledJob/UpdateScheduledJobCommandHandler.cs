@@ -34,6 +34,9 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
 
         var existingJob = await _scheduledjobRepository.GetByIdAsync(request.Id, cancellationToken: cancellationToken);
 
+        if (existingJob == null)
+            return Response<Guid>.Error(existingJob.Id, MessageKey.JobNotFound);
+
         // External jobs have restricted update capabilities
         if (!IsValidForExternalUpdate(existingJob, request))
             return Response<Guid>.Error(existingJob.Id, "External job cannot modified!");
