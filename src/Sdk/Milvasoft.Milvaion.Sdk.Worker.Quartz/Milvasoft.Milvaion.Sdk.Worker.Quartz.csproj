@@ -22,6 +22,7 @@
 
 	<ItemGroup>
 		<None Include="logo.png" Pack="true" PackagePath="\" />
+		<None Include="packagereadme.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 	<PropertyGroup>
