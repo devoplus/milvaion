@@ -34,6 +34,10 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
 
         var existingJob = await _scheduledjobRepository.GetByIdAsync(request.Id, cancellationToken: cancellationToken);
 
+        // External jobs have restricted update capabilities
+        if (!IsValidForExternalUpdate(existingJob, request))
+            return Response<Guid>.Error(existingJob.Id, "External job cannot modified!");
+
         if (request.CronExpression.IsUpdated && !string.IsNullOrWhiteSpace(request.CronExpression.Value))
         {
             var cronExpression = Cronos.CronExpression.Parse(request.CronExpression.Value, Cronos.CronFormat.IncludeSeconds);
@@ -175,5 +179,21 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
             updateData["isActive"] = request.IsActive.Value;
 
         return Response<Guid>.Success(request.Id);
+    }
+
+    private static bool IsValidForExternalUpdate(ScheduledJob job, UpdateScheduledJobCommand request)
+    {
+        if (job.IsExternal && !request.InternalRequest)
+            if (request.JobData.IsUpdated ||
+                request.CronExpression.IsUpdated ||
+                request.IsActive.IsUpdated ||
+                request.ConcurrentExecutionPolicy.IsUpdated ||
+                request.JobType.IsUpdated ||
+                request.AutoDisableSettings.IsUpdated ||
+                request.JobData.IsUpdated
+                )
+                return false;
+
+        return true;
     }
 }

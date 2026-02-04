@@ -126,7 +126,9 @@ public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOpt
             WorkerConstant.Queues.WorkerHeartbeat,
             WorkerConstant.Queues.WorkerRegistration,
             WorkerConstant.Queues.StatusUpdates,
-            WorkerConstant.Queues.FailedOccurrences
+            WorkerConstant.Queues.FailedOccurrences,
+            WorkerConstant.Queues.ExternalJobRegistration,
+            WorkerConstant.Queues.ExternalJobOccurrence,
         };
 
         var tasks = queueNames.Select(queueName => GetDetailedStatsAsync(queueName, cancellationToken));

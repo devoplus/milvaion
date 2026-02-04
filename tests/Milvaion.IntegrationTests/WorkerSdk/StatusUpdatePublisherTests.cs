@@ -34,7 +34,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
 
         var correlationId = Guid.CreateVersion7();
         var jobId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
         var startTime = DateTime.UtcNow;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -87,11 +87,11 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
 
         var correlationId = Guid.CreateVersion7();
         var jobId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
         var startTime = DateTime.UtcNow.AddSeconds(-10);
         var endTime = DateTime.UtcNow;
         var durationMs = 10000L;
-        var result = $"Job completed successfully - {Guid.NewGuid():N}";
+        var result = $"Job completed successfully - {Guid.CreateVersion7():N}";
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
@@ -145,8 +145,8 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
 
         var correlationId = Guid.CreateVersion7();
         var jobId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
-        var exception = $"NullReferenceException: {Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
+        var exception = $"NullReferenceException: {Guid.CreateVersion7():N}";
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
@@ -196,7 +196,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
 
         var correlationId = Guid.CreateVersion7();
         var jobId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
@@ -246,7 +246,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
 
         var correlationId = Guid.CreateVersion7();
         var jobId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 

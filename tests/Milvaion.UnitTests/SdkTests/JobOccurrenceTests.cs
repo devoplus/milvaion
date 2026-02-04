@@ -39,9 +39,9 @@ public class JobOccurrenceTests
     public void JobOccurrence_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var id = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
-        var correlationId = Guid.NewGuid();
+        var id = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
+        var correlationId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
         // Act

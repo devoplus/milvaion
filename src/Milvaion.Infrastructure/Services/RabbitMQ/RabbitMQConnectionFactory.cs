@@ -128,12 +128,17 @@ public class RabbitMQConnectionFactory : IDisposable
 
     /// <summary>
     /// Checks if RabbitMQ connection is healthy.
+    /// Creates connection if not already created.
     /// </summary>
     public bool IsHealthy()
     {
         try
         {
-            return _lazyConnection.IsValueCreated && Connection.IsOpen;
+            // Force connection creation if not already created
+            // This ensures health check actually tests connectivity
+            var connection = Connection;
+
+            return connection != null && connection.IsOpen;
         }
         catch
         {

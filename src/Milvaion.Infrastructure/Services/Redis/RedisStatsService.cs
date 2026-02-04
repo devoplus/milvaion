@@ -227,7 +227,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     public async Task SyncCountersFromDatabaseAsync(IMilvaBulkDbContextBase context, CancellationToken cancellationToken = default)
     {
         // Use distributed lock to prevent multiple instances from syncing simultaneously
-        var lockToken = Guid.NewGuid().ToString();
+        var lockToken = Guid.CreateVersion7().ToString();
         var lockAcquired = await _db.StringSetAsync(_syncLockKey, lockToken, TimeSpan.FromMinutes(5), When.NotExists);
 
         if (!lockAcquired)

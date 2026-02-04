@@ -26,7 +26,7 @@ public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory fa
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"ZombieTestJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"ZombieTestJob_{Guid.CreateVersion7():N}");
 
         // Create an occurrence that is "stuck" in Queued status for longer than the timeout
         var stuckOccurrence = await SeedJobOccurrenceAsync(
@@ -93,7 +93,7 @@ public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory fa
 
         // Create a job with a longer timeout
         var longTimeoutJob = await SeedScheduledJobAsync(
-            $"LongRunningJob_{Guid.NewGuid():N}",
+            $"LongRunningJob_{Guid.CreateVersion7():N}",
             timeoutMinutes: 60 // 60 minute timeout
         );
 
@@ -137,7 +137,7 @@ public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory fa
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"StatusLogTestJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"StatusLogTestJob_{Guid.CreateVersion7():N}");
 
         var zombieOccurrence = await SeedJobOccurrenceAsync(
             jobId: job.Id,
@@ -191,7 +191,7 @@ public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory fa
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"LogTestJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"LogTestJob_{Guid.CreateVersion7():N}");
 
         var zombieOccurrence = await SeedJobOccurrenceAsync(
             jobId: job.Id,
@@ -245,7 +245,7 @@ public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory fa
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"RunningTestJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"RunningTestJob_{Guid.CreateVersion7():N}");
 
         // Create a Running occurrence that is old (but Running, not Queued)
         var runningOccurrence = await SeedJobOccurrenceAsync(
@@ -285,7 +285,7 @@ public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory fa
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"DurationTestJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"DurationTestJob_{Guid.CreateVersion7():N}");
         var createdAt = DateTime.UtcNow.AddMinutes(-15);
 
         var zombieOccurrence = await SeedJobOccurrenceAsync(

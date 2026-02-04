@@ -131,7 +131,18 @@ public static class WorkerServiceCollectionExtensions
     /// <param name="services">Service collection</param>
     /// <param name="configuration">Configuration</param>
     /// <returns>Service collection for chaining</returns>
-    private static IServiceCollection AddMilvaionWorker(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddMilvaionWorker(this IServiceCollection services, IConfiguration configuration)
+        => services.AddMilvaionWorkerCore(configuration, requireJobConsumers: true);
+
+    /// <summary>
+    /// Registers Milvaion Worker SDK core services.
+    /// This is the base registration used by both regular workers and external schedulers (Quartz, Hangfire).
+    /// </summary>
+    /// <param name="services">Service collection</param>
+    /// <param name="configuration">Configuration</param>
+    /// <param name="requireJobConsumers">If true, JobConsumers config is required. False for external schedulers.</param>
+    /// <returns>Service collection for chaining</returns>
+    public static IServiceCollection AddMilvaionWorkerCore(this IServiceCollection services, IConfiguration configuration, bool requireJobConsumers = true)
     {
         services.AddScoped<IMilvaLogger, MilvaionLogger>();
 
@@ -150,24 +161,36 @@ public static class WorkerServiceCollectionExtensions
             Console.WriteLine($"Machine: {Environment.MachineName}, ProcessId: {Environment.ProcessId}");
         });
 
-        // Bind JobConsumerOptions configuration
-        services.Configure<JobConsumerOptions>(configuration.GetSection(JobConsumerOptions.SectionKey));
+        var jobConsumersSection = configuration.GetSection(JobConsumerOptions.SectionKey);
+
+        // Bind JobConsumerOptions configuration (optional for external schedulers)
+        if (jobConsumersSection?.Exists() == true)
+            services.Configure<JobConsumerOptions>(jobConsumersSection);
 
         // Register Redis IConnectionMultiplexer for cancellation listener
-        services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
+        if (!string.IsNullOrEmpty(workerOptions?.Redis?.ConnectionString))
         {
-            var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
-            var connectionString = string.IsNullOrEmpty(options.Redis.Password) ? options.Redis.ConnectionString : $"{options.Redis.ConnectionString},password={options.Redis.Password}";
+            services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
+            {
+                var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
+                var connectionString = string.IsNullOrEmpty(options.Redis.Password)
+                    ? options.Redis.ConnectionString
+                    : $"{options.Redis.ConnectionString},password={options.Redis.Password}";
 
-            return StackExchange.Redis.ConnectionMultiplexer.Connect(connectionString);
-        });
+                return StackExchange.Redis.ConnectionMultiplexer.Connect(connectionString);
+            });
+        }
 
-        // Register core services
-        services.AddSingleton<JobExecutor>();
+        // Register core services (only for regular workers, not external schedulers)
+        if (requireJobConsumers)
+        {
+            services.AddSingleton<JobExecutor>();
+        }
+
         services.AddSingleton<WorkerJobTracker>();
 
         // Register offline resilience services if enabled
-        if (workerOptions.OfflineResilience.Enabled)
+        if (workerOptions?.OfflineResilience?.Enabled == true)
         {
             // Register LocalStateStore as singleton (shared by all consumers)
             services.AddSingleton<LocalStateStore>(sp =>
@@ -219,31 +242,34 @@ public static class WorkerServiceCollectionExtensions
         // Register interface for LogPublisher
         services.AddSingleton<ILogPublisher>(sp => sp.GetRequiredService<LogPublisher>());
 
-        // Register OutboxService as singleton (shared by all consumers)
-        services.AddSingleton<OutboxService>(sp =>
+        // Register OutboxService if offline resilience is enabled
+        if (workerOptions?.OfflineResilience?.Enabled == true)
         {
-            var localStore = sp.GetRequiredService<ILocalStateStore>();
-            var statusPublisher = sp.GetRequiredService<IStatusUpdatePublisher>();
-            var logPublisher = sp.GetRequiredService<ILogPublisher>();
-            var connectionMonitor = sp.GetRequiredService<IConnectionMonitor>();
-            var logger = sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>();
+            services.AddSingleton<OutboxService>(sp =>
+            {
+                var localStore = sp.GetRequiredService<ILocalStateStore>();
+                var statusPublisher = sp.GetRequiredService<IStatusUpdatePublisher>();
+                var logPublisher = sp.GetRequiredService<ILogPublisher>();
+                var connectionMonitor = sp.GetRequiredService<IConnectionMonitor>();
+                var logger = sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>();
 
-            return new OutboxService(localStore, statusPublisher, logPublisher, connectionMonitor, logger);
-        });
+                return new OutboxService(localStore, statusPublisher, logPublisher, connectionMonitor, logger);
+            });
 
-        // Register SyncOrchestratorService as hosted service
-        services.AddHostedService(sp =>
-        {
-            var outboxService = sp.GetRequiredService<OutboxService>();
-            var localStore = sp.GetRequiredService<LocalStateStore>();
-            var connectionMonitor = sp.GetRequiredService<ConnectionMonitor>();
-            var logger = sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>();
-            var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
+            // Register SyncOrchestratorService as hosted service
+            services.AddHostedService(sp =>
+            {
+                var outboxService = sp.GetRequiredService<OutboxService>();
+                var localStore = sp.GetRequiredService<LocalStateStore>();
+                var connectionMonitor = sp.GetRequiredService<ConnectionMonitor>();
+                var logger = sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>();
+                var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
 
-            return new SyncOrchestratorService(outboxService, localStore, connectionMonitor, logger, options);
-        });
+                return new SyncOrchestratorService(outboxService, localStore, connectionMonitor, logger, options);
+            });
+        }
 
-        Console.WriteLine("All Milvaion worker services registered successfully!");
+        Console.WriteLine("Milvaion worker core services registered successfully!");
 
         return services;
     }

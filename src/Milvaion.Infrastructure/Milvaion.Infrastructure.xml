@@ -64,7 +64,7 @@
             <param name="options">Memory tracking configuration (optional)</param>
             <param name="memoryStatsRegistry">Optional registry for exposing stats via endpoint</param>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Application.Utils.Models.Options.BackgrounServiceOptions,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Base class for background services with memory tracking capabilities.
             Monitors memory usage, detects memory leaks, and logs metrics.
@@ -130,6 +130,37 @@
             <summary>
             Logs garbage collection statistics.
             </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService">
+            <summary>
+            Consumes external job registration and occurrence messages from RabbitMQ.
+            Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.#ctor(System.IServiceProvider,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Consumes external job registration and occurrence messages from RabbitMQ.
+            Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.ServiceName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.ProcessRegistrationBatchAsync(System.Threading.CancellationToken)">
+            <summary>
+            Process batch of job registration messages - upsert ScheduledJob records using MediatR handlers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.ProcessOccurrenceBatchAsync(System.Threading.CancellationToken)">
+            <summary>
+            Process batch of occurrence messages - create/update JobOccurrence records.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.StopAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler">
             <summary>
@@ -278,6 +309,11 @@
             <summary>
             Process batch of logs - single DB transaction for all logs.
             Uses optimistic concurrency control to prevent lost updates when multiple instances run concurrently.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.RetryPendingLogsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Retries pending logs that were waiting for occurrence to be created.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.SafeAckAsync(System.UInt64,System.Threading.CancellationToken)">
@@ -571,6 +607,15 @@
         <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddStatusTracker(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
             <summary>
             Registers occurrence status tracker background service.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddExternalJobTracker(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers external job consumer background service.
+            Consumes job registration and occurrence messages from Quartz/Hangfire workers.
             </summary>
             <param name="services">Service collection</param>
             <param name="configuration">Configuration</param>
@@ -1103,7 +1148,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.DispatcherControlService"/> class.
             </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory)">
+        <member name="M:Milvaion.Infrastructure.Services.DispatcherControlService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions})">
             <summary>
             Implementation of dispatcher control service.
             </summary>
@@ -1326,6 +1371,7 @@
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.IsHealthy">
             <summary>
             Checks if RabbitMQ connection is healthy.
+            Creates connection if not already created.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.Dispose">
@@ -1592,9 +1638,26 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.UpdateCachedJobFieldsAsync(System.Guid,System.Collections.Generic.Dictionary{System.String,System.Object},System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetJobIdByExternalIdAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetJobIdsByExternalIdsBulkAsync(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.SetExternalJobIdMappingAsync(System.String,System.Guid,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.SetExternalJobIdMappingsBulkAsync(System.Collections.Generic.Dictionary{System.String,System.Guid},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetJobCacheKey(System.Guid)">
             <summary>
             Gets the Redis cache key for a job.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.GetExternalJobMappingKey(System.String)">
+            <summary>
+            Gets the Redis key for external job ID to internal job ID mapping.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisSchedulerService.DeserializeJob(StackExchange.Redis.HashEntry[])">
@@ -1747,16 +1810,6 @@
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisWorkerService.DeserializeDictionaryOrDefault(System.String)">
             <summary>
             Safely deserializes a JSON string to Dictionary, handling empty/null/invalid values.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Infrastructure.Services.Redis.WorkerMetadata">
-            <summary>
-            Worker metadata structure (deserialized from JSON).
-            </summary>
-        </member>
-        <member name="T:Milvaion.Infrastructure.Services.Redis.JobConfigMetadata">
-            <summary>
-            Job consumer configuration metadata.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.Redis.Utils.CircuitBreakerStats">

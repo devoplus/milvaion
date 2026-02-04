@@ -79,11 +79,19 @@ function WorkerList() {
   }
 
   const parseMetadata = (metadata) => {
-    try {
-      return JSON.parse(metadata)
-    } catch {
-      return null
+    // Already an object
+    if (metadata && typeof metadata === 'object') {
+      return metadata
     }
+    // JSON string - parse it
+    if (typeof metadata === 'string') {
+      try {
+        return JSON.parse(metadata)
+      } catch {
+        return null
+      }
+    }
+    return null
   }
 
   const toggleExpand = (workerId) => {
@@ -157,15 +165,28 @@ function WorkerList() {
           {workers.map((worker) => {
             const metadata = parseMetadata(worker.metadata)
             const isExpanded = expandedWorker === worker.workerId
+            const isExternal = metadata?.isExternal || metadata?.IsExternal
 
             return (
-              <div key={worker.workerId} className={`worker-card ${isExpanded ? 'expanded' : ''}`}>
+              <div key={worker.workerId} className={`worker-card ${isExpanded ? 'expanded' : ''} ${isExternal ? 'external' : ''}`}>
                 <div className="worker-header" onClick={() => toggleExpand(worker.workerId)}>
                   <div className="worker-title">
                     <h3>{worker.workerId}</h3>
                     {getStatusBadge(worker.status)}
+                    {isExternal && (
+                      <span className="external-badge" title={`External scheduler: ${metadata?.externalScheduler || metadata?.externalScheduler || 'Unknown'}`}>
+                        <Icon name="cloud_sync" size={14} />
+                        External
+                      </span>
+                    )}
                   </div>
                   <div className="worker-meta">
+                    {isExternal && (
+                      <span className="source-tag" title="External Scheduler Source">
+                        <Icon name="hub" size={16} />
+                        {metadata?.externalScheduler || metadata?.externalScheduler || 'Unknown'}
+                      </span>
+                    )}
                     <span className="heartbeat" title="Last Heartbeat">
                       <Icon name="favorite" size={16} />
                       {formatTimeSince(worker.lastHeartbeat)}
@@ -229,15 +250,15 @@ function WorkerList() {
                         <div className="metadata-grid">
                           <div className="metadata-item">
                             <span className="label">OS:</span>
-                            <span className="value">{metadata.OSVersion}</span>
+                            <span className="value">{metadata.osVersion || metadata.OSVersion || '-'}</span>
                           </div>
                           <div className="metadata-item">
                             <span className="label">Runtime:</span>
-                            <span className="value">.NET {metadata.RuntimeVersion}</span>
+                            <span className="value">.NET {metadata.runtimeVersion || metadata.RuntimeVersion || '-'}</span>
                           </div>
                           <div className="metadata-item">
                             <span className="label">CPU Cores:</span>
-                            <span className="value">{metadata.ProcessorCount}</span>
+                            <span className="value">{metadata.processorCount || metadata.ProcessorCount || '-'}</span>
                           </div>
                           <div className="metadata-item">
                             <span className="label">Registered:</span>
@@ -247,7 +268,7 @@ function WorkerList() {
                       )}
                     </div>
 
-                    {metadata?.JobConfigs && (
+                    {(metadata?.jobConfigs || metadata?.JobConfigs) && (
                       <div className="detail-section">
                         <h4 className="header-title">
                           <Icon name="settings" size={18} />
@@ -264,14 +285,14 @@ function WorkerList() {
                               </tr>
                             </thead>
                             <tbody>
-                              {metadata.JobConfigs.map((config) => (
-                                <tr key={config.JobType}>
-                                  <td>{config.JobType}</td>
-                                  <td><code>{config.ConsumerId}</code></td>
-                                  <td>{config.MaxParallelJobs}</td>
+                              {(metadata.jobConfigs || metadata.JobConfigs).map((config) => (
+                                <tr key={config.jobType || config.JobType}>
+                                  <td>{config.jobType || config.JobType}</td>
+                                  <td><code>{config.consumerId || config.ConsumerId}</code></td>
+                                  <td>{config.maxParallelJobs || config.MaxParallelJobs}</td>
                                   <td>
-                                    {config.ExecutionTimeoutSeconds
-                                      ? `${Math.floor(config.ExecutionTimeoutSeconds / 60)}m ${config.ExecutionTimeoutSeconds % 60}s`
+                                    {(config.executionTimeoutSeconds || config.ExecutionTimeoutSeconds)
+                                      ? `${Math.floor((config.executionTimeoutSeconds || config.ExecutionTimeoutSeconds) / 60)}m ${(config.executionTimeoutSeconds || config.ExecutionTimeoutSeconds) % 60}s`
                                       : '-'}
                                   </td>
                                 </tr>

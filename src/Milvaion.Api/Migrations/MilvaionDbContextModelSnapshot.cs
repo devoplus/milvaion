@@ -882,6 +882,10 @@ namespace Milvaion.Api.Migrations
                     b.Property<int?>("ExecutionTimeoutSeconds")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ExternalJobId")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<Guid>("JobId")
                         .HasColumnType("uuid");
 
@@ -995,7 +999,14 @@ namespace Milvaion.Api.Migrations
                     b.Property<int?>("ExecutionTimeoutSeconds")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ExternalJobId")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsExternal")
                         .HasColumnType("boolean");
 
                     b.Property<string>("JobData")

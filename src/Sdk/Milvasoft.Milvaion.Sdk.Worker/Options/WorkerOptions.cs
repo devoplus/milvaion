@@ -63,6 +63,11 @@ public class WorkerOptions
     public OfflineResilienceSettings OfflineResilience { get; set; } = new();
 
     /// <summary>
+    /// External scheduler integration options (e.g., Quartz).
+    /// </summary>
+    public MilvaionExternalSchedulerOptions ExternalScheduler { get; set; } = new();
+
+    /// <summary>
     /// Initializes WorkerOptions.
     /// Note: InstanceId is generated after WorkerId is set from configuration.
     /// </summary>

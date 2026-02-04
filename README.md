@@ -93,6 +93,28 @@ Milvaion solves these problems by **completely separating scheduling from execut
 - **Email Worker** - Send emails via SMTP
 - **Maintenance Worker** - Milvaion self data warehouse cleanup and archival
 
+### External Scheduler Integration
+Already using **Quartz.NET** or **Hangfire**? Keep your existing scheduler and gain Milvaion's monitoring capabilities:
+
+| Scheduler | Package | Status |
+|-----------|---------|--------|
+| **Quartz.NET** | `Milvasoft.Milvaion.Sdk.Worker.Quartz` | ✅ Available |
+| **Hangfire** | `Milvasoft.Milvaion.Sdk.Worker.Hangfire` | ✅ Available |
+
+```csharp
+// Quartz.NET Integration
+builder.Services.AddMilvaionQuartzIntegration(builder.Configuration);
+builder.Services.AddQuartz(q => q.UseMilvaion(builder.Services));
+
+// Hangfire Integration
+builder.Services.AddMilvaionHangfireIntegration(builder.Configuration);
+builder.Services.AddHangfire((sp, config) => config.UseMilvaion(sp));
+```
+
+External jobs appear in Milvaion dashboard with full monitoring, metrics, and execution history - without changing your existing scheduler setup.
+
+[For more information...](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/external-schedulers)
+
 ---
 
 ## Quick Start

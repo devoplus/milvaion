@@ -15,35 +15,37 @@ public sealed class CreateScheduledJobCommandValidator : AbstractValidator<Creat
     public CreateScheduledJobCommandValidator(IMilvaLocalizer localizer)
     {
         RuleFor(query => query.DisplayName)
-            .NotNullOrEmpty(localizer, MessageKey.GlobalName);
+            .NotNullOrEmpty(localizer, MessageKey.GlobalName)
+            .When(q => !q.IsExternal);
 
         // Validate: At least one of CronExpression or ExecuteAt must be provided
         RuleFor(query => query)
             .Must(cmd => !string.IsNullOrWhiteSpace(cmd.CronExpression) || cmd.ExecuteAt != default)
-            .WithMessage(localizer[MessageKey.CronOrExecuteAtRequired]);
+            .WithMessage(localizer[MessageKey.CronOrExecuteAtRequired])
+            .When(q => !q.IsExternal);
 
         // Validate CronExpression format (if provided)
         RuleFor(query => query.CronExpression)
             .Must(BeValidCronExpression)
             .WithMessage(localizer[MessageKey.InvalidCronExpression])
-            .When(q => !string.IsNullOrWhiteSpace(q.CronExpression));
+            .When(q => !q.IsExternal && !string.IsNullOrWhiteSpace(q.CronExpression));
 
         // Validate ExecuteAt is in future (if provided and no cron)
         RuleFor(query => query.ExecuteAt)
             .Must(date => date > DateTime.UtcNow)
             .WithMessage(localizer[MessageKey.ExecuteAtMustBeInFuture])
-            .When(q => string.IsNullOrWhiteSpace(q.CronExpression) && q.ExecuteAt != default);
+            .When(q => !q.IsExternal && string.IsNullOrWhiteSpace(q.CronExpression) && q.ExecuteAt != default);
 
         // Validate JobData is valid JSON (if provided)
         RuleFor(query => query.JobData)
             .Must(BeValidJson)
             .WithMessage(localizer[MessageKey.InvalidJobData])
-            .When(q => !string.IsNullOrWhiteSpace(q.JobData));
+            .When(q => !q.IsExternal && !string.IsNullOrWhiteSpace(q.JobData));
 
         // Validate cron expression
         RuleFor(x => x.CronExpression)
             .Must(BeValidCronExpression)
-            .When(x => !string.IsNullOrEmpty(x.CronExpression))
+            .When(q => !q.IsExternal && !string.IsNullOrEmpty(q.CronExpression))
             .WithMessage("Invalid cron expression");
 
         //// Prevent too frequent recurring jobs
@@ -54,7 +56,8 @@ public sealed class CreateScheduledJobCommandValidator : AbstractValidator<Creat
 
         RuleFor(x => x.ExecuteAt)
             .LessThan(DateTime.UtcNow.AddYears(1))
-            .WithMessage("Job execution time cannot be more than 1 year in the future");
+            .WithMessage("Job execution time cannot be more than 1 year in the future")
+            .When(q => !q.IsExternal);
     }
     private bool BeValidCronExpression(string cronExpression)
     {

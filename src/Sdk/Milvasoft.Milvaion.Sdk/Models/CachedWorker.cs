@@ -46,7 +46,7 @@ public class CachedWorker
     /// <summary>
     /// Additional metadata.
     /// </summary>
-    public string Metadata { get; set; }
+    public WorkerMetadata Metadata { get; set; }
 
     /// <summary>
     /// When the worker first registered.
@@ -114,4 +114,51 @@ public class WorkerInstance
     /// When this instance first registered.
     /// </summary>
     public DateTime RegisteredAt { get; set; }
+}
+
+/// <summary>
+/// Worker metadata details.
+/// </summary>
+public class WorkerMetadata
+{
+    /// <summary>
+    /// Determines if the worker is an external scheduler integration (e.g., Quartz).
+    /// </summary>
+    public bool IsExternal { get; set; }
+
+    /// <summary>
+    /// External scheduler type (e.g., "Quartz", "Hangfire") if IsExternal is true.
+    /// </summary>
+    public string ExternalScheduler { get; set; }
+
+    /// <summary>
+    /// Processor count of the worker machine.
+    /// </summary>
+    public int ProcessorCount { get; set; }
+
+    /// <summary>
+    /// OS version of the worker machine.
+    /// </summary>
+    public string OSVersion { get; set; }
+
+    /// <summary>
+    /// Runtime version (e.g., .NET 10.0) of the worker machine.
+    /// </summary>
+    public string RuntimeVersion { get; set; }
+
+    /// <summary>
+    /// Job configuration metadata for each job type this worker can execute.
+    /// </summary>
+    public List<JobConfigMetadata> JobConfigs { get; set; }
+}
+
+/// <summary>
+/// Job consumer configuration metadata.
+/// </summary>
+public class JobConfigMetadata
+{
+    public string JobType { get; set; }
+    public string ConsumerId { get; set; }
+    public int MaxParallelJobs { get; set; }
+    public int ExecutionTimeoutSeconds { get; set; }
 }

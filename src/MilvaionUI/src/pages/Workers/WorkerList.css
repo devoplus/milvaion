@@ -517,3 +517,41 @@
     background: linear-gradient(90deg, transparent, #1a1a1a 20%, #1a1a1a 80%, transparent);
   }
 }
+
+/* External Worker Styles */
+.worker-card.external {
+  border-left: 4px solid #8b5cf6;
+}
+
+.worker-card.external .worker-header {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+}
+
+.external-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  margin-left: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  border-radius: 4px;
+}
+
+.source-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 6px;
+  margin-right: 12px;
+}

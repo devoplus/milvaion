@@ -188,8 +188,8 @@ public class GetJobListQueryHandlerTests
 
         var jobs = new List<ScheduledJob>
         {
-            new() { Id = Guid.NewGuid(), DisplayName = "Job 1" },
-            new() { Id = Guid.NewGuid(), DisplayName = "Job 2" }
+            new() { Id = Guid.CreateVersion7(), DisplayName = "Job 1" },
+            new() { Id = Guid.CreateVersion7(), DisplayName = "Job 2" }
         };
 
         _repositoryMock
@@ -278,7 +278,7 @@ public class ScheduledJobTests
         // Arrange
         var job = new ScheduledJob
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             CronExpression = "0 0 * * *", // Daily at midnight
             IsActive = true
         };
@@ -298,7 +298,7 @@ public class ScheduledJobTests
         // Arrange
         var job = new ScheduledJob
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             IsActive = true
         };
 
@@ -466,7 +466,7 @@ public class JobRepositoryTests : IClassFixture<IntegrationTestFixture>
         // Arrange
         var job = new ScheduledJob
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             DisplayName = "Test Job",
             WorkerId = "test-worker",
             JobType = "TestJob",
@@ -578,7 +578,7 @@ public class SendEmailJobTests
 
         contextMock.Setup(x => x.Job).Returns(new JobInfo
         {
-            JobId = Guid.NewGuid(),
+            JobId = Guid.CreateVersion7(),
             JobType = "SendEmailJob",
             JobData = JsonSerializer.Serialize(jobData),
             Version = 1
@@ -586,8 +586,8 @@ public class SendEmailJobTests
 
         contextMock.Setup(x => x.Occurrence).Returns(new OccurrenceInfo
         {
-            OccurrenceId = Guid.NewGuid(),
-            CorrelationId = Guid.NewGuid(),
+            OccurrenceId = Guid.CreateVersion7(),
+            CorrelationId = Guid.CreateVersion7(),
             RetryCount = 0,
             MaxRetries = 3
         });
@@ -626,7 +626,7 @@ public class JobDispatcherServiceTests
         // Arrange
         var dueJob = new ScheduledJob
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             DisplayName = "Due Job",
             WorkerId = "test-worker",
             JobType = "TestJob"
@@ -662,7 +662,7 @@ public class JobDispatcherServiceTests
 ```csharp
 public class JobBuilder
 {
-    private Guid _id = Guid.NewGuid();
+    private Guid _id = Guid.CreateVersion7();
     private string _displayName = "Test Job";
     private string _workerId = "test-worker";
     private string _jobType = "TestJob";
@@ -718,7 +718,7 @@ public class JobFixture
     {
         return new ScheduledJob
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             DisplayName = displayName ?? "Test Job",
             WorkerId = "test-worker",
             JobType = "TestJob",
@@ -732,9 +732,9 @@ public class JobFixture
     {
         return new JobOccurrence
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             JobId = jobId,
-            CorrelationId = Guid.NewGuid(),
+            CorrelationId = Guid.CreateVersion7(),
             Status = status,
             StartTime = DateTime.UtcNow.AddMinutes(-5),
             EndTime = DateTime.UtcNow,

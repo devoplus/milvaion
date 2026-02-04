@@ -40,6 +40,10 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
         if (job == null)
             return Response<Guid>.Error(default, "Job not found");
 
+        // External jobs cannot be triggered from Milvaion - they are managed by their own schedulers
+        if (job.IsExternal)
+            return Response<Guid>.Error(default, "External jobs cannote be triggered!");
+
         if (!job.IsActive)
             return Response<Guid>.Error(default, "Job is not active");
 

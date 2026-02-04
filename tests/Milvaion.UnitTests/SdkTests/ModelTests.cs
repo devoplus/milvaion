@@ -52,7 +52,7 @@ public class CachedWorkerTests
             JobNames = ["SendEmailJob", "SendNotificationJob"],
             MaxParallelJobs = 10,
             Version = "1.0.0",
-            Metadata = "{\"region\": \"us-east\"}",
+            Metadata = new WorkerMetadata { IsExternal = false },
             RegisteredAt = now.AddDays(-1),
             CurrentJobs = 3,
             Status = WorkerStatus.Active,
@@ -183,7 +183,7 @@ public class DlqJobMessageTests
     public void DlqJobMessage_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var id = Guid.NewGuid();
+        var id = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
         // Act
@@ -235,8 +235,8 @@ public class JobExecutionResultTests
     public void JobExecutionResult_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
         var logs = new List<OccurrenceLog>
         {

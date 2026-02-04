@@ -383,7 +383,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                         new("DisplayName", job.DisplayName ?? string.Empty),
                         new("Description", job.Description ?? string.Empty),
                         new("Tags", job.Tags ?? string.Empty),
-                        new("JobType", job.JobNameInWorker),
+                        new("JobType", job.JobNameInWorker ?? string.Empty),
                         new("JobData", job.JobData ?? string.Empty),
                         new("CronExpression", job.CronExpression ?? string.Empty),
                         new("IsActive", job.IsActive.ToString()),
@@ -395,13 +395,22 @@ public class RedisSchedulerService : IRedisSchedulerService
                         new("Version", job.Version.ToString()),
                         new("CreationDate", job.CreationDate?.ToString("O") ?? string.Empty),
                         new("CreatorUserName", job.CreatorUserName ?? string.Empty),
-                        new("ExecuteAt", job.ExecuteAt.ToString("O"))
+                        new("ExecuteAt", job.ExecuteAt.ToString("O")),
+                        new("IsExternal", job.IsExternal.ToString()),
+                        new("ExternalJobId", job.ExternalJobId ?? string.Empty)
                     };
 
                     // HMSET + EXPIRE in transaction
                     var transaction = _database.CreateTransaction();
                     var setTask = transaction.HashSetAsync(cacheKey, hashEntries);
                     var expireTask = transaction.KeyExpireAsync(cacheKey, expiry);
+
+                    // For external jobs, also create ExternalJobId ? JobId mapping
+                    if (job.IsExternal && !string.IsNullOrEmpty(job.ExternalJobId))
+                    {
+                        var externalMappingKey = GetExternalJobMappingKey(job.ExternalJobId);
+                        _ = transaction.StringSetAsync(externalMappingKey, job.Id.ToString(), expiry);
+                    }
 
                     var committed = await transaction.ExecuteAsync();
 
@@ -591,10 +600,153 @@ public class RedisSchedulerService : IRedisSchedulerService
             cancellationToken: cancellationToken
         );
 
+    /// <inheritdoc/>
+    public Task<Guid?> GetJobIdByExternalIdAsync(string externalJobId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync<Guid?>(
+            operation: async () =>
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(externalJobId))
+                        return null;
+
+                    var mappingKey = GetExternalJobMappingKey(externalJobId);
+                    var value = await _database.StringGetAsync(mappingKey);
+
+                    if (value.IsNullOrEmpty)
+                        return null;
+
+                    if (Guid.TryParse(value.ToString(), out var jobId))
+                        return jobId;
+
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to get job ID for external job {ExternalJobId}", externalJobId);
+                    return null;
+                }
+            },
+            fallback: async () => null,
+            operationName: "GetJobIdByExternalId",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task<Dictionary<string, Guid>> GetJobIdsByExternalIdsBulkAsync(IEnumerable<string> externalJobIds, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+            operation: async () =>
+            {
+                var result = new Dictionary<string, Guid>();
+                var externalIdsList = externalJobIds.Where(id => !string.IsNullOrEmpty(id)).ToList();
+
+                if (externalIdsList.Count == 0)
+                    return result;
+
+                try
+                {
+                    // PIPELINE: Fire all StringGet commands at once
+                    var tasks = new List<(string ExternalId, Task<RedisValue> Task)>();
+
+                    foreach (var externalId in externalIdsList)
+                    {
+                        var mappingKey = GetExternalJobMappingKey(externalId);
+                        tasks.Add((externalId, _database.StringGetAsync(mappingKey)));
+                    }
+
+                    await Task.WhenAll(tasks.Select(t => t.Task));
+
+                    foreach (var (externalId, task) in tasks)
+                    {
+                        var value = await task;
+                        if (!value.IsNullOrEmpty && Guid.TryParse(value.ToString(), out var jobId))
+                            result[externalId] = jobId;
+                    }
+
+                    _logger.Debug("Pipeline retrieved {Count}/{Total} external job mappings from Redis", result.Count, externalIdsList.Count);
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to get job IDs for external jobs in bulk");
+                    return result;
+                }
+            },
+            fallback: async () => [],
+            operationName: "GetJobIdsByExternalIdsBulk",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task SetExternalJobIdMappingAsync(string externalJobId, Guid jobId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync<bool>(
+            operation: async () =>
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(externalJobId))
+                        return false;
+
+                    var mappingKey = GetExternalJobMappingKey(externalJobId);
+                    await _database.StringSetAsync(mappingKey, jobId.ToString());
+
+                    _logger.Debug("Set external job mapping: {ExternalJobId} → {JobId}", externalJobId, jobId);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to set external job mapping for {ExternalJobId}", externalJobId);
+                    return false;
+                }
+            },
+            fallback: async () => false,
+            operationName: "SetExternalJobIdMapping",
+            cancellationToken: cancellationToken
+        );
+
+    /// <inheritdoc/>
+    public Task SetExternalJobIdMappingsBulkAsync(Dictionary<string, Guid> mappings, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync<bool>(
+            operation: async () =>
+            {
+                if (mappings == null || mappings.Count == 0)
+                    return true;
+
+                try
+                {
+                    // PIPELINE: Fire all StringSet commands at once
+                    var tasks = new List<Task>();
+
+                    foreach (var (externalId, jobId) in mappings)
+                    {
+                        if (string.IsNullOrEmpty(externalId))
+                            continue;
+
+                        var mappingKey = GetExternalJobMappingKey(externalId);
+                        tasks.Add(_database.StringSetAsync(mappingKey, jobId.ToString()));
+                    }
+
+                    await Task.WhenAll(tasks);
+
+                    _logger.Debug("Pipeline set {Count} external job mappings in Redis", mappings.Count);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to set external job mappings in bulk");
+                    return false;
+                }
+            },
+            fallback: async () => false,
+            operationName: "SetExternalJobIdMappingsBulk",
+            cancellationToken: cancellationToken
+        );
+
     /// <summary>
     /// Gets the Redis cache key for a job.
     /// </summary>
     private string GetJobCacheKey(Guid jobId) => $"{_options.KeyPrefix}job:{jobId}";
+
+    /// <summary>
+    /// Gets the Redis key for external job ID to internal job ID mapping.
+    /// </summary>
+    private string GetExternalJobMappingKey(string externalJobId) => $"{_options.KeyPrefix}external:{externalJobId}";
 
     /// <summary>
     /// Deserializes a job from Redis Hash entries.
@@ -620,20 +772,14 @@ public class RedisSchedulerService : IRedisSchedulerService
                     : ConcurrentExecutionPolicy.Skip,
                 WorkerId = string.IsNullOrEmpty(dict.GetValueOrDefault("WorkerId")) ? null : dict["WorkerId"],
                 RoutingPattern = string.IsNullOrEmpty(dict.GetValueOrDefault("RoutingPattern")) ? null : dict["RoutingPattern"],
-                ZombieTimeoutMinutes = dict.TryGetValue("ZombieTimeoutMinutes", out var timeoutStr) && int.TryParse(timeoutStr, out var timeout)
-                    ? timeout
-                    : null,
-                ExecutionTimeoutSeconds = dict.TryGetValue("ExecutionTimeoutSeconds", out var execTimeoutStr) && int.TryParse(execTimeoutStr, out var execTimeout)
-                    ? execTimeout
-                    : null,
-                Version = dict.TryGetValue("Version", out var versionStr) && int.TryParse(versionStr, out var version)
-                    ? version
-                    : 1,
+                ZombieTimeoutMinutes = dict.TryGetValue("ZombieTimeoutMinutes", out var timeoutStr) && int.TryParse(timeoutStr, out var timeout) ? timeout : null,
+                ExecutionTimeoutSeconds = dict.TryGetValue("ExecutionTimeoutSeconds", out var execTimeoutStr) && int.TryParse(execTimeoutStr, out var execTimeout) ? execTimeout : null,
+                Version = dict.TryGetValue("Version", out var versionStr) && int.TryParse(versionStr, out var version) ? version : 1,
                 CreationDate = string.IsNullOrEmpty(dict.GetValueOrDefault("CreationDate")) ? null : DateTime.Parse(dict["CreationDate"]),
                 CreatorUserName = string.IsNullOrEmpty(dict.GetValueOrDefault("CreatorUserName")) ? null : dict["CreatorUserName"],
-                ExecuteAt = dict.TryGetValue("ExecuteAt", out var executeAtStr) && DateTime.TryParse(executeAtStr, out var executeAt)
-                    ? executeAt
-                    : DateTime.MinValue
+                ExecuteAt = dict.TryGetValue("ExecuteAt", out var executeAtStr) && DateTime.TryParse(executeAtStr, out var executeAt) ? executeAt : DateTime.MinValue,
+                IsExternal = dict.TryGetValue("IsExternal", out var isExternalStr) && bool.TryParse(isExternalStr, out var isExternal) && isExternal,
+                ExternalJobId = dict.GetValueOrDefault("ExternalJobId"),
             };
         }
         catch (Exception ex)

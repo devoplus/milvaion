@@ -114,6 +114,12 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
     public DateTime? LastHeartbeat { get; set; }
 
     /// <summary>
+    /// External job occurrence identifier for mapping (e.g., "FireInstanceId").
+    /// </summary>
+    [MaxLength(500)]
+    public string ExternalJobId { get; set; }
+
+    /// <summary>
     /// Occurrence status change history stored as JSONB array.
     /// </summary>
     [Column(TypeName = "jsonb")]

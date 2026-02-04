@@ -32,8 +32,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
-        var uniqueMessage = $"Processing started for batch {Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
+        var uniqueMessage = $"Processing started for batch {Guid.CreateVersion7():N}";
         var log = new OccurrenceLog
         {
             Timestamp = DateTime.UtcNow,
@@ -92,12 +92,12 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
         var log = new OccurrenceLog
         {
             Timestamp = DateTime.UtcNow,
             Level = "Error",
-            Message = $"Failed to connect to database - {Guid.NewGuid():N}",
+            Message = $"Failed to connect to database - {Guid.CreateVersion7():N}",
             Category = "DatabaseConnection",
             Data = new Dictionary<string, object>
             {
@@ -153,12 +153,12 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
         var log = new OccurrenceLog
         {
             Timestamp = DateTime.UtcNow,
             Level = "Warning",
-            Message = $"Rate limit approaching: 80% of quota used - {Guid.NewGuid():N}",
+            Message = $"Rate limit approaching: 80% of quota used - {Guid.CreateVersion7():N}",
             Category = "RateLimiter"
         };
 
@@ -208,12 +208,12 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
         var log = new OccurrenceLog
         {
             Timestamp = DateTime.UtcNow,
             Level = "Debug",
-            Message = $"Entering ProcessItem method - {Guid.NewGuid():N}",
+            Message = $"Entering ProcessItem method - {Guid.CreateVersion7():N}",
             Category = "ItemProcessor"
         };
 
@@ -262,12 +262,12 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
         var logData = new Dictionary<string, object>
         {
             ["RecordsProcessed"] = 150,
             ["Duration"] = "5.2s",
-            ["BatchId"] = $"batch-{Guid.NewGuid():N}",
+            ["BatchId"] = $"batch-{Guid.CreateVersion7():N}",
             ["Success"] = true
         };
 
@@ -333,7 +333,7 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         {
             Timestamp = DateTime.UtcNow,
             Level = "Information",
-            Message = $"Test message - {Guid.NewGuid():N}",
+            Message = $"Test message - {Guid.CreateVersion7():N}",
             Category = "Test"
         };
 
@@ -383,8 +383,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
-        var workerId = $"test-worker-{Guid.NewGuid():N}";
-        var uniqueCategory = $"SequentialTest_{Guid.NewGuid():N}";
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
+        var uniqueCategory = $"SequentialTest_{Guid.CreateVersion7():N}";
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 

@@ -43,8 +43,8 @@ public class OutboxServiceTests
     public async Task PublishStatusUpdateAsync_ShouldPublishToRabbitMQ_WhenConnectionIsHealthy()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var instanceId = "test-worker-01";
         var status = JobOccurrenceStatus.Running;
@@ -94,8 +94,8 @@ public class OutboxServiceTests
     public async Task PublishStatusUpdateAsync_ShouldStoreLocally_WhenConnectionIsUnhealthy()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var instanceId = "test-worker-01";
         var status = JobOccurrenceStatus.Running;
@@ -145,8 +145,8 @@ public class OutboxServiceTests
     public async Task PublishStatusUpdateAsync_ShouldStoreLocally_WhenRabbitMQPublishFails()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var instanceId = "test-worker-01";
         var status = JobOccurrenceStatus.Completed;
@@ -209,7 +209,7 @@ public class OutboxServiceTests
     public async Task PublishLogAsync_ShouldPublishToRabbitMQ_WhenConnectionIsHealthy()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var log = new OccurrenceLog
         {
@@ -244,7 +244,7 @@ public class OutboxServiceTests
     public async Task PublishLogAsync_ShouldStoreLocally_WhenConnectionIsUnhealthy()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
         var workerId = "test-worker";
         var log = new OccurrenceLog
         {
@@ -319,8 +319,8 @@ public class OutboxServiceTests
             new()
             {
                 Id = 1,
-                CorrelationId = Guid.NewGuid(),
-                JobId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
+                JobId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Status = JobOccurrenceStatus.Completed,
                 RetryCount = 0
@@ -328,8 +328,8 @@ public class OutboxServiceTests
             new()
             {
                 Id = 2,
-                CorrelationId = Guid.NewGuid(),
-                JobId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
+                JobId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Status = JobOccurrenceStatus.Failed,
                 RetryCount = 0
@@ -377,8 +377,8 @@ public class OutboxServiceTests
             new()
             {
                 Id = 1,
-                CorrelationId = Guid.NewGuid(),
-                JobId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
+                JobId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Status = JobOccurrenceStatus.Completed,
                 RetryCount = 5 // Exceeds max retries (default 3)
@@ -459,7 +459,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 1,
-                CorrelationId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Log = new OccurrenceLog { Level = "Information", Message = "Test log 1", Timestamp = DateTime.UtcNow },
                 RetryCount = 0
@@ -467,7 +467,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 2,
-                CorrelationId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Log = new OccurrenceLog { Level = "Warning", Message = "Test log 2", Timestamp = DateTime.UtcNow },
                 RetryCount = 0

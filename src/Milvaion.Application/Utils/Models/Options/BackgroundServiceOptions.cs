@@ -3,7 +3,7 @@ namespace Milvaion.Application.Utils.Models.Options;
 /// <summary>
 /// Configuration base options for background services.
 /// </summary>
-public class BackgrounServiceOptions
+public class BackgroundServiceOptions
 {
     /// <summary>
     /// Whether the service is enabled.

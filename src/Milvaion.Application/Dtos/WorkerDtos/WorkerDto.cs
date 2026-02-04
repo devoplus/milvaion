@@ -64,7 +64,7 @@ public class WorkerDto
     /// <summary>
     /// Metadata associated with the worker in JSON format.
     /// </summary>
-    public string Metadata { get; set; }
+    public WorkerMetadata Metadata { get; set; }
 
     /// <summary>
     /// Active worker instances (replicas).

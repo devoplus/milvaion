@@ -155,7 +155,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         var client = await _factory.CreateClient().LoginAsync();
 
         // Act
-        var httpResponse = await client.GetAsync($"{_baseUrl}/job?JobId={Guid.NewGuid()}");
+        var httpResponse = await client.GetAsync($"{_baseUrl}/job?JobId={Guid.CreateVersion7()}");
         var result = await httpResponse.Content.ReadFromJsonAsync<Response<ScheduledJobDetailDto>>();
 
         // Assert
@@ -333,7 +333,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         var client = await _factory.CreateClient().LoginAsync();
         var request = new UpdateScheduledJobCommand
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             DisplayName = new UpdateProperty<string>("UpdatedName")
         };
 
@@ -384,7 +384,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         var client = await _factory.CreateClient().LoginAsync();
 
         // Act
-        var httpResponse = await client.DeleteAsync($"{_baseUrl}/job?JobId={Guid.NewGuid()}");
+        var httpResponse = await client.DeleteAsync($"{_baseUrl}/job?JobId={Guid.CreateVersion7()}");
         var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
 
         // Assert
@@ -494,7 +494,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         var client = await _factory.CreateClient().LoginAsync();
 
         // Act
-        var httpResponse = await client.GetAsync($"{_baseUrl}/occurrences/occurrence?OccurrenceId={Guid.NewGuid()}");
+        var httpResponse = await client.GetAsync($"{_baseUrl}/occurrences/occurrence?OccurrenceId={Guid.CreateVersion7()}");
         var result = await httpResponse.Content.ReadFromJsonAsync<Response<JobOccurrenceDetailDto>>();
 
         // Assert
@@ -512,7 +512,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
     public async Task TriggerJobAsync_WithoutAuthorization_ShouldReturnUnauthorized()
     {
         // Arrange
-        var request = new TriggerScheduledJobCommand { JobId = Guid.NewGuid() };
+        var request = new TriggerScheduledJobCommand { JobId = Guid.CreateVersion7() };
 
         // Act
         var httpResponse = await _factory.CreateClient().PostAsJsonAsync($"{_baseUrl}/job/trigger", request);
@@ -527,7 +527,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         // Arrange
         await SeedRootUserAndSuperAdminRoleAsync();
         var client = await _factory.CreateClient().LoginAsync();
-        var request = new TriggerScheduledJobCommand { JobId = Guid.NewGuid() };
+        var request = new TriggerScheduledJobCommand { JobId = Guid.CreateVersion7() };
 
         // Act
         var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/job/trigger", request);
@@ -547,7 +547,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
     public async Task CancelJobOccurrenceAsync_WithoutAuthorization_ShouldReturnUnauthorized()
     {
         // Arrange
-        var request = new CancelJobOccurrenceCommand { OccurrenceId = Guid.NewGuid() };
+        var request = new CancelJobOccurrenceCommand { OccurrenceId = Guid.CreateVersion7() };
 
         // Act
         var httpResponse = await _factory.CreateClient().PostAsJsonAsync($"{_baseUrl}/occurrences/cancel", request);
@@ -562,7 +562,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         // Arrange
         await SeedRootUserAndSuperAdminRoleAsync();
         var client = await _factory.CreateClient().LoginAsync();
-        var request = new CancelJobOccurrenceCommand { OccurrenceId = Guid.NewGuid() };
+        var request = new CancelJobOccurrenceCommand { OccurrenceId = Guid.CreateVersion7() };
 
         // Act
         var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/occurrences/cancel", request);
@@ -602,7 +602,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
     public async Task DeleteJobOccurrenceAsync_WithoutAuthorization_ShouldReturnUnauthorized()
     {
         // Arrange
-        var request = new DeleteJobOccurrenceCommand { OccurrenceIdList = [Guid.NewGuid()] };
+        var request = new DeleteJobOccurrenceCommand { OccurrenceIdList = [Guid.CreateVersion7()] };
 
         // Act
         var httpResponse = await _factory.CreateClient().SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/occurrences/occurrence")
@@ -648,7 +648,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         // Arrange
         await SeedRootUserAndSuperAdminRoleAsync();
         var client = await _factory.CreateClient().LoginAsync();
-        var request = new DeleteJobOccurrenceCommand { OccurrenceIdList = [Guid.NewGuid()] };
+        var request = new DeleteJobOccurrenceCommand { OccurrenceIdList = [Guid.CreateVersion7()] };
 
         // Act
         var httpResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/occurrences/occurrence")
@@ -807,7 +807,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         var client = await _factory.CreateClient().LoginAsync();
 
         // Act
-        var httpResponse = await client.GetAsync($"{_baseUrl}/occurrences/occurrence/failed?FailedOccurrenceId={Guid.NewGuid()}");
+        var httpResponse = await client.GetAsync($"{_baseUrl}/occurrences/occurrence/failed?FailedOccurrenceId={Guid.CreateVersion7()}");
         var result = await httpResponse.Content.ReadFromJsonAsync<Response<FailedOccurrenceDetailDto>>();
 
         // Assert
@@ -884,7 +884,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         // Act
         var httpResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/occurrences/occurrence/failed")
         {
-            Content = JsonContent.Create(new { IdList = new[] { Guid.NewGuid() } })
+            Content = JsonContent.Create(new { IdList = new[] { Guid.CreateVersion7() } })
         });
         var result = await httpResponse.Content.ReadFromJsonAsync<Response<List<Guid>>>();
 
@@ -906,7 +906,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         {
             var job = new ScheduledJob
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 DisplayName = $"TestJob{i + 1}",
                 Description = $"Test job {i + 1} description",
                 JobNameInWorker = "TestJob",
@@ -927,7 +927,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
 
         var job = new ScheduledJob
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             DisplayName = displayName,
             JobNameInWorker = "TestJob",
             Description = description,
@@ -951,9 +951,9 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         {
             var occurrence = new JobOccurrence
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 JobId = jobId,
-                CorrelationId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
                 Status = JobOccurrenceStatus.Completed,
                 StartTime = DateTime.UtcNow.AddMinutes(-30 - i),
                 EndTime = DateTime.UtcNow.AddMinutes(-i),
@@ -974,7 +974,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         {
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 DisplayName = "EmailJob",
                 Tags = "email,notification",
                 JobNameInWorker = "TestJob",
@@ -985,7 +985,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
             },
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 DisplayName = "ReportJob",
                 JobNameInWorker = "TestJob",
                 Tags = "report,daily",
@@ -1006,9 +1006,9 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
 
         var occurrence = new JobOccurrence
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             JobId = jobId,
-            CorrelationId = Guid.NewGuid(),
+            CorrelationId = Guid.CreateVersion7(),
             Status = status,
             StartTime = DateTime.UtcNow.AddMinutes(-30),
             EndTime = status == JobOccurrenceStatus.Completed ? DateTime.UtcNow : null,
@@ -1031,9 +1031,9 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         {
             var occurrence = new JobOccurrence
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 JobId = jobId,
-                CorrelationId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
                 Status = JobOccurrenceStatus.Failed,
                 StartTime = DateTime.UtcNow.AddMinutes(-30 - i),
                 EndTime = DateTime.UtcNow.AddMinutes(-i),
@@ -1044,10 +1044,10 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
 
             var failedOccurrence = new FailedOccurrence
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.CreateVersion7(),
                 JobId = jobId,
                 OccurrenceId = occurrence.Id,
-                CorrelationId = Guid.NewGuid(),
+                CorrelationId = Guid.CreateVersion7(),
                 FailedAt = DateTime.UtcNow.AddMinutes(-i * 10),
                 Exception = $"Test error message {i + 1}",
                 JobDisplayName = job.DisplayName,
@@ -1068,9 +1068,9 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
 
         var occurrence = new JobOccurrence
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             JobId = jobId,
-            CorrelationId = Guid.NewGuid(),
+            CorrelationId = Guid.CreateVersion7(),
             Status = JobOccurrenceStatus.Failed,
             StartTime = DateTime.UtcNow.AddMinutes(-30),
             EndTime = DateTime.UtcNow,
@@ -1081,10 +1081,10 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
 
         var failedOccurrence = new FailedOccurrence
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             JobId = jobId,
             OccurrenceId = occurrence.Id,
-            CorrelationId = Guid.NewGuid(),
+            CorrelationId = Guid.CreateVersion7(),
             FailedAt = DateTime.UtcNow.AddMinutes(-30),
             Exception = "Test error message",
             JobDisplayName = job.DisplayName,

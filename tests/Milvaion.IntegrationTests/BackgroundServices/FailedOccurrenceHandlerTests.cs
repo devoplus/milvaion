@@ -34,7 +34,7 @@ public class FailedOccurrenceHandlerTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"FailedTestJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"FailedTestJob_{Guid.CreateVersion7():N}");
         var occurrence = await SeedJobOccurrenceAsync(
             jobId: job.Id,
             jobName: job.JobNameInWorker,
@@ -43,7 +43,7 @@ public class FailedOccurrenceHandlerTests(CustomWebApplicationFactory factory, I
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
-        var uniqueException = $"Test exception message - {Guid.NewGuid():N}";
+        var uniqueException = $"Test exception message - {Guid.CreateVersion7():N}";
 
         // Act - Start the handler first
         var handler = CreateFailedOccurrenceHandler();
@@ -102,7 +102,7 @@ public class FailedOccurrenceHandlerTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"LongExceptionJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"LongExceptionJob_{Guid.CreateVersion7():N}");
         var occurrence = await SeedJobOccurrenceAsync(
             jobId: job.Id,
             jobName: job.JobNameInWorker,
@@ -166,7 +166,7 @@ public class FailedOccurrenceHandlerTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"MaxRetriesJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"MaxRetriesJob_{Guid.CreateVersion7():N}");
         var occurrence = await SeedJobOccurrenceAsync(
             jobId: job.Id,
             jobName: job.JobNameInWorker,
@@ -227,7 +227,7 @@ public class FailedOccurrenceHandlerTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"TimeoutJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"TimeoutJob_{Guid.CreateVersion7():N}");
         var occurrence = await SeedJobOccurrenceAsync(
             jobId: job.Id,
             jobName: job.JobNameInWorker,
@@ -286,7 +286,7 @@ public class FailedOccurrenceHandlerTests(CustomWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
-        var job = await SeedScheduledJobAsync($"NullExceptionJob_{Guid.NewGuid():N}");
+        var job = await SeedScheduledJobAsync($"NullExceptionJob_{Guid.CreateVersion7():N}");
         var occurrence = await SeedJobOccurrenceAsync(
             jobId: job.Id,
             jobName: job.JobNameInWorker,

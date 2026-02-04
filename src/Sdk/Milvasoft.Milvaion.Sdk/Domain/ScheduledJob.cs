@@ -102,6 +102,19 @@ public class ScheduledJob : CreationAuditableEntity<Guid>
     public int? ExecutionTimeoutSeconds { get; set; }
 
     /// <summary>
+    /// Indicates whether this job is from an external scheduler (Quartz, Hangfire, etc.).
+    /// External jobs are not dispatched by Milvaion - they only report their occurrences for monitoring.
+    /// </summary>
+    public bool IsExternal { get; set; }
+
+    /// <summary>
+    /// External job identifier for mapping (e.g., "DEFAULT.MyQuartzJob").
+    /// Used to correlate occurrences from external schedulers.
+    /// </summary>
+    [MaxLength(500)]
+    public string ExternalJobId { get; set; }
+
+    /// <summary>
     /// Job data version for schema evolution and compatibility.
     /// </summary>
     public int Version { get; set; } = 1;

@@ -112,3 +112,183 @@ public class JobStatusUpdateMessage
     /// </summary>
     public DateTime MessageTimestamp { get; set; } = DateTime.UtcNow;
 }
+
+/// <summary>
+/// Message for registering external jobs (Quartz, Hangfire, etc.) to Milvaion for monitoring.
+/// Published to external_job_registration queue.
+/// </summary>
+public class ExternalJobRegistrationMessage
+{
+    /// <summary>
+    /// External job identifier (e.g., "DEFAULT.MyQuartzJob").
+    /// </summary>
+    public string ExternalJobId { get; set; }
+
+    /// <summary>
+    /// Display name for the job.
+    /// </summary>
+    public string DisplayName { get; set; }
+
+    /// <summary>
+    /// Job description.
+    /// </summary>
+    public string Description { get; set; }
+
+    /// <summary>
+    /// Job type name (e.g., "MyApp.Jobs.EmailJob").
+    /// </summary>
+    public string JobTypeName { get; set; }
+
+    /// <summary>
+    /// Cron expression for recurring jobs.
+    /// </summary>
+    public string CronExpression { get; set; }
+
+    /// <summary>
+    /// Next scheduled execution time.
+    /// </summary>
+    public DateTime? NextExecuteAt { get; set; }
+
+    /// <summary>
+    /// JSON serialized job data/parameters.
+    /// </summary>
+    public string JobData { get; set; }
+
+    /// <summary>
+    /// Whether the job is active.
+    /// </summary>
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Source scheduler type (e.g., "Quartz", "Hangfire").
+    /// </summary>
+    public string Source { get; set; }
+
+    /// <summary>
+    /// Worker/instance identifier.
+    /// </summary>
+    public string WorkerId { get; set; }
+
+    /// <summary>
+    /// Optional tags for categorization.
+    /// </summary>
+    public string Tags { get; set; }
+
+    /// <summary>
+    /// Timestamp when this message was created (UTC).
+    /// </summary>
+    public DateTime MessageTimestamp { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Message for reporting external job occurrence events to Milvaion.
+/// Published to external_job_occurrence queue.
+/// </summary>
+public class ExternalJobOccurrenceMessage
+{
+    /// <summary>
+    /// External job identifier (e.g., "DEFAULT.MyQuartzJob").
+    /// </summary>
+    public string ExternalJobId { get; set; }
+
+    /// <summary>
+    /// External occurrence identifier (e.g., Quartz FireInstanceId).
+    /// </summary>
+    public string ExternalOccurrenceId { get; set; }
+
+    /// <summary>
+    /// Unique correlation ID for this occurrence.
+    /// </summary>
+    public Guid CorrelationId { get; set; }
+
+    /// <summary>
+    /// Job type name.
+    /// </summary>
+    public string JobTypeName { get; set; }
+
+    /// <summary>
+    /// Worker/instance identifier.
+    /// </summary>
+    public string WorkerId { get; set; }
+
+    /// <summary>
+    /// Type of occurrence event.
+    /// </summary>
+    public ExternalOccurrenceEventType EventType { get; set; }
+
+    /// <summary>
+    /// Occurrence status.
+    /// </summary>
+    public JobOccurrenceStatus Status { get; set; }
+
+    /// <summary>
+    /// Scheduled fire time.
+    /// </summary>
+    public DateTime? ScheduledFireTime { get; set; }
+
+    /// <summary>
+    /// Actual fire time.
+    /// </summary>
+    public DateTime? ActualFireTime { get; set; }
+
+    /// <summary>
+    /// Start time of execution.
+    /// </summary>
+    public DateTime? StartTime { get; set; }
+
+    /// <summary>
+    /// End time of execution.
+    /// </summary>
+    public DateTime? EndTime { get; set; }
+
+    /// <summary>
+    /// Execution duration in milliseconds.
+    /// </summary>
+    public long? DurationMs { get; set; }
+
+    /// <summary>
+    /// Result message (for completed jobs).
+    /// </summary>
+    public string Result { get; set; }
+
+    /// <summary>
+    /// Exception details (for failed jobs).
+    /// </summary>
+    public string Exception { get; set; }
+
+    /// <summary>
+    /// Job source/scheduler name (e.g., "Quartz", "Hangfire").
+    /// </summary>
+    public string Source { get; set; }
+
+    /// <summary>
+    /// Timestamp when this message was created (UTC).
+    /// </summary>
+    public DateTime MessageTimestamp { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Types of external job occurrence events.
+/// </summary>
+public enum ExternalOccurrenceEventType
+{
+    /// <summary>
+    /// Job is starting execution.
+    /// </summary>
+    Starting = 0,
+
+    /// <summary>
+    /// Job completed (success or failure).
+    /// </summary>
+    Completed = 1,
+
+    /// <summary>
+    /// Job was vetoed/skipped.
+    /// </summary>
+    Vetoed = 2,
+
+    /// <summary>
+    /// Job was cancelled.
+    /// </summary>
+    Cancelled = 3
+}

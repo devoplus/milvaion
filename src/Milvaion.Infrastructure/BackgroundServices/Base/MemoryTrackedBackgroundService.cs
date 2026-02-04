@@ -17,7 +17,7 @@ namespace Milvaion.Infrastructure.BackgroundServices.Base;
 /// <param name="loggerFactory">Logger factory</param>
 /// <param name="options">Memory tracking configuration (optional)</param>
 /// <param name="memoryStatsRegistry">Optional registry for exposing stats via endpoint</param>
-public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactory, BackgrounServiceOptions options, IMemoryStatsRegistry memoryStatsRegistry = null) : BackgroundService
+public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactory, BackgroundServiceOptions options, IMemoryStatsRegistry memoryStatsRegistry = null) : BackgroundService
 {
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<MemoryTrackedBackgroundService>();
     private readonly MemoryTrackingOptions _options = options.MemoryTrackingOptions ?? new MemoryTrackingOptions();

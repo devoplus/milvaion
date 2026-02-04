@@ -480,6 +480,16 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
                   ))}
                 </div>
               )}
+
+              {job.externalJobInfo && (
+                <div className="external-job-info">
+                  <span className="external-badge-large" title="This job is managed by an external scheduler (Quartz, Hangfire, etc.)">
+                    <Icon name="cloud_sync" size={16} />
+                    External Job
+                  </span>
+                  <span className="external-id">ID: {job.externalJobInfo.externalJobId}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -487,8 +497,8 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
             <button
               onClick={handleTrigger}
               className="action-btn trigger-btn"
-              disabled={!job.isActive || triggering}
-              title="Trigger job now"
+              disabled={!job.isActive || triggering || job.externalJobInfo}
+              title={job.externalJobInfo ? "External jobs cannot be triggered from Milvaion" : "Trigger job now"}
             >
               <Icon name="play_arrow" size={20} />
               <span>{triggering ? 'Triggering...' : 'Trigger Now'}</span>
@@ -500,7 +510,8 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
             <button
               onClick={handleDeleteJob}
               className="action-btn delete-btn"
-              title="Delete job"
+              disabled={job.externalJobInfo}
+              title={job.externalJobInfo ? "External jobs cannot be deleted from Milvaion" : "Delete job"}
             >
               <Icon name="delete" size={20} />
               <span>Delete</span>

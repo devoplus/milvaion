@@ -678,7 +678,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             // Normal query - Contains() works better without compiled query
             var dbJobsList = await dbContext.ScheduledJobs
                                             .AsNoTracking()
-                                            .Where(j => cacheMissIds.Contains(j.Id) && j.IsActive)
+                                            .Where(j => cacheMissIds.Contains(j.Id) && j.IsActive && !j.IsExternal)
                                             .Select(ScheduledJob.Projections.CacheJob)
                                             .ToListAsync(cancellationToken);
 
@@ -708,7 +708,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
         #endregion
 
         // 5. Merge cached and DB jobs
-        var allJobs = cachedJobs.Concat(dbJobs).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        var allJobs = cachedJobs.Concat(dbJobs).Where(j => !j.Value.IsExternal).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
         // 5.1. Populate ExecuteAt from ZSET for ALL jobs (since it's no longer in cache/DB)
         // Use bulk pipeline for efficiency (single Redis round-trip)
@@ -753,10 +753,10 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 });
 
                 return false;
-                }
+            }
 
-                // Reschedule recurring job after successful publish
-                await HandleRecurringJobAsync(job, cancellationToken);
+            // Reschedule recurring job after successful publish
+            await HandleRecurringJobAsync(job, cancellationToken);
 
             _logger.Debug("Job {JobId} ({JobType}) dispatched successfully with CorrelationId {CorrelationId}", job.Id, job.JobNameInWorker, occurrence.Id);
 

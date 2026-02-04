@@ -71,8 +71,8 @@ public class StoredStatusUpdateTests
     public void StoredStatusUpdate_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
         // Act
@@ -124,7 +124,7 @@ public class StoredLogTests
     public void StoredLog_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
         var log = new OccurrenceLog
         {
@@ -311,8 +311,8 @@ public class JobStatusUpdateMessageTests
     public void JobStatusUpdateMessage_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var correlationId = Guid.NewGuid();
-        var jobId = Guid.NewGuid();
+        var correlationId = Guid.CreateVersion7();
+        var jobId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
         // Act

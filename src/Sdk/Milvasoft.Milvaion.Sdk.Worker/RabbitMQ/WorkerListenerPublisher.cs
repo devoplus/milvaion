@@ -147,9 +147,6 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
         // Collect all job types for this worker app
         var allJobTypes = _jobConfigs.Keys.ToList();
 
-        // Collect all routing patterns (union of all job configs)
-        var allRoutingPatterns = _jobConfigs.Values.Select(c => c.RoutingPattern).Distinct().ToList();
-
         _logger.Debug("Registering worker with {Count} job configurations:", _jobConfigs.Count);
 
         // Register single worker with ALL job types
@@ -165,17 +162,19 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
             JobTypes = allJobTypes,
             MaxParallelJobs = _options.MaxParallelJobs,
             Version = _version,
-            Metadata = JsonSerializer.Serialize(new
+            Metadata = JsonSerializer.Serialize(new WorkerMetadata
             {
-                Environment.ProcessorCount,
+                IsExternal = !string.IsNullOrWhiteSpace(_options.ExternalScheduler.Source),
+                ExternalScheduler = _options.ExternalScheduler.Source,
+                ProcessorCount = Environment.ProcessorCount,
                 OSVersion = Environment.OSVersion.ToString(),
                 RuntimeVersion = Environment.Version.ToString(),
-                JobConfigs = _jobConfigs.Select(kv => new
+                JobConfigs = _jobConfigs?.Select(kv => new JobConfigMetadata
                 {
                     JobType = kv.Key,
-                    kv.Value.ConsumerId,
-                    kv.Value.MaxParallelJobs,
-                    kv.Value.ExecutionTimeoutSeconds
+                    ConsumerId = kv.Value.ConsumerId,
+                    MaxParallelJobs = kv.Value.MaxParallelJobs,
+                    ExecutionTimeoutSeconds = kv.Value.ExecutionTimeoutSeconds,
                 }).ToList()
             })
         };
@@ -190,7 +189,7 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
 
         _logger.Debug("Worker {WorkerId} (Instance: {InstanceId}) registered with {Count} job types: {JobTypes}", _options.WorkerId, _options.InstanceId, allJobTypes.Count, string.Join(", ", allJobTypes));
 
-        _logger.Debug("Routing Patterns: {Patterns}", string.Join(", ", allRoutingPatterns));
+        _logger.Debug("Routing Patterns: {Patterns}", string.Join(", ", _jobConfigs.Values.Select(c => c.RoutingPattern).Distinct().ToList()));
     }
 
     /// <summary>

@@ -3,7 +3,7 @@ namespace Milvaion.Application.Utils.Models.Options;
 /// <summary>
 /// Configuration options for LogCollectorService.
 /// </summary>
-public class StatusTrackerOptions : BackgrounServiceOptions
+public class StatusTrackerOptions : BackgroundServiceOptions
 {
     /// <summary>
     /// Section key in configuration files.

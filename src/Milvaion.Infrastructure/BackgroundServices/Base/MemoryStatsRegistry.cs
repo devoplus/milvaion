@@ -69,7 +69,7 @@ public class MemoryStatsRegistry : IMemoryStatsRegistry
             Gen0Collections = GC.CollectionCount(0),
             Gen1Collections = GC.CollectionCount(1),
             Gen2Collections = GC.CollectionCount(2),
-            ServiceStats = serviceStats
+            ServiceStats = serviceStats?.OrderBy(i => i.ServiceName).ToList()
         };
     }
 }

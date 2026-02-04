@@ -161,7 +161,8 @@ public static class InfraServiceCollectionExtensions
                 .AddFailedOccurrenceHandler(configuration)
                 .AddWorkerAutoDiscovery(configuration)
                 .AddLogCollector(configuration)
-                .AddStatusTracker(configuration);
+                .AddStatusTracker(configuration)
+                .AddExternalJobTracker(configuration);
 
         return services;
     }
@@ -265,6 +266,24 @@ public static class InfraServiceCollectionExtensions
         services.AddOptions<JobAutoDisableOptions>().Bind(configuration.GetSection(JobAutoDisableOptions.SectionKey)).ValidateDataAnnotations();
 
         services.AddHostedService<StatusTrackerService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers external job consumer background service.
+    /// Consumes job registration and occurrence messages from Quartz/Hangfire workers.
+    /// </summary>
+    /// <param name="services">Service collection</param>
+    /// <param name="configuration">Configuration</param>
+    /// <returns>Service collection for chaining</returns>
+    public static IServiceCollection AddExternalJobTracker(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Configure ExternalJobTrackerOptions from appsettings
+        services.AddOptions<ExternalJobTrackerOptions>().Bind(configuration.GetSection(ExternalJobTrackerOptions.SectionKey)).ValidateDataAnnotations();
+
+        // Register the external job tracker background service
+        services.AddHostedService<ExternalJobTrackerService>();
 
         return services;
     }

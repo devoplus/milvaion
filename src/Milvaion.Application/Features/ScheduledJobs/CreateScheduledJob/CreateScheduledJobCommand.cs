@@ -1,5 +1,7 @@
 ﻿using Milvaion.Application.Dtos.ScheduledJobDtos;
+using Milvasoft.Attributes.Annotations;
 using Milvasoft.Components.CQRS.Command;
+using System.Text.Json.Serialization;
 
 namespace Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob;
 
@@ -82,7 +84,26 @@ public record CreateScheduledJobCommand : ICommand<Guid>
     public int? ExecutionTimeoutSeconds { get; set; }
 
     /// <summary>
+    /// Indicates whether this job is from an external scheduler (Quartz, Hangfire, etc.).
+    /// External jobs are not dispatched by Milvaion - they only report their occurrences for monitoring.
+    /// </summary>
+    public bool IsExternal { get; set; }
+
+    /// <summary>
+    /// External job identifier for mapping (e.g., "DEFAULT.MyQuartzJob").
+    /// Required when IsExternal is true.
+    /// </summary>
+    public string ExternalJobId { get; set; }
+
+    /// <summary>
     /// Auto-disable settings for the scheduled job.
     /// </summary>
     public UpsertJobAutoDisableSettings AutoDisableSettings { get; set; } = new();
+
+    /// <summary>
+    /// Determines if the request is internal(from code) or not.
+    /// </summary>
+    [JsonIgnore]
+    [ExcludeFromMetadata]
+    public bool InternalRequest { get; set; }
 }

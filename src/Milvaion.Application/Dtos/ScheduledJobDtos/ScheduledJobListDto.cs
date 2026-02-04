@@ -54,6 +54,12 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
     public string Tags { get; set; }
 
     /// <summary>
+    /// Indicates whether this job is from an external scheduler (Quartz, Hangfire, etc.).
+    /// External jobs are not dispatched by Milvaion - they only report their occurrences for monitoring.
+    /// </summary>
+    public bool IsExternal { get; set; }
+
+    /// <summary>
     /// Projection expression for mapping ScheduledJob to ScheduledJobListDto.
     /// </summary>
     [JsonIgnore]
@@ -68,6 +74,7 @@ public class ScheduledJobListDto : MilvaionBaseDto<Guid>
         JobType = r.JobNameInWorker,
         IsActive = r.IsActive,
         ConcurrentExecutionPolicy = r.ConcurrentExecutionPolicy,
-        Tags = r.Tags
+        Tags = r.Tags,
+        IsExternal = r.IsExternal
     };
 }

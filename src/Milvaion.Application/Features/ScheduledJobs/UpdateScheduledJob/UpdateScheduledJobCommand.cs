@@ -2,6 +2,7 @@
 using Milvasoft.Attributes.Annotations;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Types.Structs;
+using System.Text.Json.Serialization;
 
 namespace Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob;
 
@@ -74,4 +75,11 @@ public class UpdateScheduledJobCommand : MilvaionBaseDto<Guid>, ICommand<Guid>
     /// </summary>
     [UpdatableIgnore]
     public UpdateProperty<UpsertJobAutoDisableSettings> AutoDisableSettings { get; set; } = new();
+
+    /// <summary>
+    /// Defines whether the update request is coming from an internal system component (e.g., worker, scheduler) rather than an external client.
+    /// </summary>
+    [JsonIgnore]
+    [ExcludeFromMetadata]
+    public bool InternalRequest { get; set; } = false;
 }

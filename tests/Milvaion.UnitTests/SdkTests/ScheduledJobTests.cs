@@ -35,7 +35,7 @@ public class ScheduledJobTests
     public void ScheduledJob_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var id = Guid.NewGuid();
+        var id = Guid.CreateVersion7();
         var executeAt = DateTime.UtcNow.AddHours(1);
 
         // Act

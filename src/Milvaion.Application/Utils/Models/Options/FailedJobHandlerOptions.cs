@@ -3,7 +3,7 @@ namespace Milvaion.Application.Utils.Models.Options;
 /// <summary>
 /// Configuration options for FailedOccurrenceHandlerService.
 /// </summary>
-public class FailedOccurrenceHandlerOptions : BackgrounServiceOptions
+public class FailedOccurrenceHandlerOptions : BackgroundServiceOptions
 {
     /// <summary>
     /// Section key in configuration files.

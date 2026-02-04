@@ -2886,6 +2886,23 @@
             Projection expression for mapping Role entity to RoleListDto.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.ExternalJobInfoDto">
+            <summary>
+            Data transfer object for scheduledjob list.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ExternalJobInfoDto.IsExternal">
+            <summary>
+            Indicates whether this job is from an external scheduler (Quartz, Hangfire, etc.).
+            External jobs are not dispatched by Milvaion - they only report their occurrences for monitoring.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ExternalJobInfoDto.ExternalJobId">
+            <summary>
+            External job identifier for mapping (e.g., "DEFAULT.MyQuartzJob").
+            Used to correlate occurrences from external schedulers.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto">
             <summary>
             Data transfer object for scheduledjob list.
@@ -2968,6 +2985,12 @@
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto.JobVersion">
             <summary>
             Running job version at the time of execution.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto.ExternalJobId">
+            <summary>
+            External job identifier for mapping (e.g., "DEFAULT.MyQuartzJob").
+            Used to correlate occurrences from external schedulers.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.JobOccurrenceDetailDto.Projection">
@@ -3180,6 +3203,11 @@
             Auto disable settings for the scheduled job.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.ExternalJobInfo">
+            <summary>
+            Information about the external job associated with this scheduled job.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobDetailDto.Projection">
             <summary>
             Projection expression for mapping ScheduledJob scheduledjob to ScheduledJobDetailDto.
@@ -3231,6 +3259,12 @@
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.Tags">
             <summary>
             Latest run time of the job.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.IsExternal">
+            <summary>
+            Indicates whether this job is from an external scheduler (Quartz, Hangfire, etc.).
+            External jobs are not dispatched by Milvaion - they only report their occurrences for monitoring.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.ScheduledJobListDto.Projection">
@@ -5534,9 +5568,26 @@
             Default: null (use worker config, typically 3600 seconds = 1 hour).
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.IsExternal">
+            <summary>
+            Indicates whether this job is from an external scheduler (Quartz, Hangfire, etc.).
+            External jobs are not dispatched by Milvaion - they only report their occurrences for monitoring.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.ExternalJobId">
+            <summary>
+            External job identifier for mapping (e.g., "DEFAULT.MyQuartzJob").
+            Required when IsExternal is true.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.AutoDisableSettings">
             <summary>
             Auto-disable settings for the scheduled job.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommand.InternalRequest">
+            <summary>
+            Determines if the request is internal(from code) or not.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.CreateScheduledJob.CreateScheduledJobCommandHandler">
@@ -5917,6 +5968,11 @@
         <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.AutoDisableSettings">
             <summary>
             Auto-disable settings for the scheduled job.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommand.InternalRequest">
+            <summary>
+            Defines whether the update request is coming from an internal system component (e.g., worker, scheduler) rather than an external client.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.UpdateScheduledJob.UpdateScheduledJobCommandHandler">
@@ -7025,6 +7081,40 @@
             <param name="cancellationToken">Cancellation token</param>
             <returns>True if updated, false if job not in cache</returns>
         </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.GetJobIdByExternalIdAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets the internal job ID for an external job ID from Redis cache.
+            Returns null if not found in cache.
+            </summary>
+            <param name="externalJobId">External job identifier (e.g., "DEFAULT.MyQuartzJob")</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Internal job ID or null if not found</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.GetJobIdsByExternalIdsBulkAsync(System.Collections.Generic.IEnumerable{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Gets internal job IDs for multiple external job IDs in bulk (optimized with pipeline).
+            Returns dictionary with externalJobId as key. Missing mappings are not included.
+            </summary>
+            <param name="externalJobIds">List of external job identifiers</param>
+            <param name="cancellationToken">Cancellation token</param>
+            <returns>Dictionary of mappings (externalJobId ? jobId)</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.SetExternalJobIdMappingAsync(System.String,System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Sets the mapping from external job ID to internal job ID in Redis.
+            Used when a new external job (Quartz/Hangfire) is registered.
+            </summary>
+            <param name="externalJobId">External job identifier (e.g., "Samples.SampleLogJob")</param>
+            <param name="jobId">Internal job identifier</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.SetExternalJobIdMappingsBulkAsync(System.Collections.Generic.Dictionary{System.String,System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Sets multiple external job ID to internal job ID mappings in bulk.
+            </summary>
+            <param name="mappings">Dictionary of externalJobId ? jobId mappings</param>
+            <param name="cancellationToken">Cancellation token</param>
+        </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.TryMarkJobAsRunningAsync(System.Guid,System.Guid,System.Threading.CancellationToken)">
             <summary>
             Atomically tries to mark a job as running in Redis (for ConcurrentExecutionPolicy check).
@@ -8065,17 +8155,17 @@
         <member name="M:Milvaion.Application.Utils.LinkedWithFormatters.YesNoFormatter.Format(System.Object)">
             <inheritdoc/>
         </member>
-        <member name="T:Milvaion.Application.Utils.Models.Options.BackgrounServiceOptions">
+        <member name="T:Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions">
             <summary>
             Configuration base options for background services.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Utils.Models.Options.BackgrounServiceOptions.Enabled">
+        <member name="P:Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions.Enabled">
             <summary>
             Whether the service is enabled.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Utils.Models.Options.BackgrounServiceOptions.MemoryTrackingOptions">
+        <member name="P:Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions.MemoryTrackingOptions">
             <summary>
             Memory tracking options for the background service.
             </summary>
@@ -8123,6 +8213,31 @@
         <member name="P:Milvaion.Application.Utils.Models.Options.CorsPolicyConfig.AllowCredentials">
             <summary>
             Allow credentials for CORS requests
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions">
+            <summary>
+            Configuration options for the external job consumer service.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions.SectionKey">
+            <summary>
+            Configuration section key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions.RegistrationBatchSize">
+            <summary>
+            Batch size for processing job registration messages.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions.OccurrenceBatchSize">
+            <summary>
+            Batch size for processing occurrence messages.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions.BatchIntervalMs">
+            <summary>
+            Interval in milliseconds between batch processing cycles.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.FailedOccurrenceHandlerOptions">

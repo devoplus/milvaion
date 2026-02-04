@@ -148,14 +148,19 @@ function JobForm() {
     autoDisableSettings: {
       enabled: true,
       threshold: ''
-    }
+    },
+    // External job info (read-only)
+    externalJobInfo: null
   })
+
+  // Check if this is an external job (fields are restricted)
+  const isExternalJob = !!formData.externalJobInfo
 
   const [scheduleType, setScheduleType] = useState('cron') // 'cron' or 'once'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [workers, setWorkers] = useState([])           // ← YENİ
-  const [selectedWorker, setSelectedWorker] = useState(null) // ← YENİ
+  const [workers, setWorkers] = useState([])
+  const [selectedWorker, setSelectedWorker] = useState(null)
   const [tagInput, setTagInput] = useState('') // Input for new tag
 
   const loadWorkers = useCallback(async () => {
@@ -169,9 +174,12 @@ function JobForm() {
         workerData = response.data.data
       }
 
-      const activeWorkers = workerData.filter(w => w.status === 'Active')
-      setWorkers(activeWorkers)
-      return activeWorkers
+      // Filter: Only active workers AND exclude external workers (Quartz/Hangfire)
+      const activeInternalWorkers = workerData.filter(w =>
+        w.status === 'Active' && !w.metadata?.isExternal
+      )
+      setWorkers(activeInternalWorkers)
+      return activeInternalWorkers
     } catch (err) {
       console.error('Failed to load workers:', err)
       setError('Failed to load workers. Check console for details.')
@@ -201,7 +209,8 @@ function JobForm() {
         autoDisableSettings: {
           enabled: data.autoDisableSettings?.enabled ?? true,
           threshold: data.autoDisableSettings?.threshold || ''
-        }
+        },
+        externalJobInfo: data.externalJobInfo || null
       })
 
       setScheduleType(data.cronExpression ? 'cron' : 'once')
@@ -404,6 +413,23 @@ function JobForm() {
 
       {error && <div className="error-message">{error}</div>}
 
+      {/* External Job Warning Banner */}
+      {isExternalJob && (
+        <div className="external-job-warning">
+          <div className="warning-icon">
+            <Icon name="cloud_sync" size={24} />
+          </div>
+          <div className="warning-content">
+            <h3>External Job</h3>
+            <p>
+              This job is managed by an external scheduler ({formData.externalJobInfo?.externalJobId}).
+              Schedule, worker, and job type settings cannot be modified from here.
+              You can only update display name, description and tags.
+            </p>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="job-form" id="job-form">
         {/* Main Form Section */}
         <div className="main-form-section">
@@ -484,9 +510,12 @@ function JobForm() {
           </div>
 
           {/* Worker & Job Type Card */}
-          <div className="form-card">
+          <div className={`form-card ${isExternalJob ? 'disabled-section' : ''}`}>
             <div className="form-section">
-              <h3 className="form-section-title">Worker Configuration</h3>
+              <h3 className="form-section-title">
+                Worker Configuration
+                {isExternalJob && <span className="external-label">Managed by external scheduler</span>}
+              </h3>
 
               <div className="form-row">
                 <div className="form-group">
@@ -499,6 +528,8 @@ function JobForm() {
                     value={formData.workerId}
                     onChange={handleWorkerChange}
                     required
+                    disabled={isExternalJob}
+                    title={isExternalJob ? "External jobs cannot change worker" : ""}
                   >
                     <option value="">Select a worker...</option>
                     {workers.map(worker => (
@@ -520,7 +551,8 @@ function JobForm() {
                     value={formData.selectedJobName}
                     onChange={handleChange}
                     required
-                    disabled={!selectedWorker}
+                    disabled={!selectedWorker || isExternalJob}
+                    title={isExternalJob ? "External jobs cannot change job type" : ""}
                   >
                     <option value="">
                       {!selectedWorker ? 'Select a worker first...' : 'Select job type...'}
@@ -542,31 +574,36 @@ function JobForm() {
           </div>
 
           {/* Schedule Card */}
-          <div className="form-card">
+          <div className={`form-card ${isExternalJob ? 'disabled-section' : ''}`}>
             <div className="form-section">
-              <h3 className="form-section-title">Schedule</h3>
+              <h3 className="form-section-title">
+                Schedule
+                {isExternalJob && <span className="external-label">Managed by external scheduler</span>}
+              </h3>
 
               <div className="form-group">
                 <label>
                   Schedule Type <span className="required">*</span>
                 </label>
                 <div className="radio-group">
-                  <label className="radio-option">
+                  <label className={`radio-option ${isExternalJob ? 'disabled' : ''}`}>
                     <input
                       type="radio"
                       value="cron"
                       checked={scheduleType === 'cron'}
                       onChange={(e) => setScheduleType(e.target.value)}
+                      disabled={isExternalJob}
                     />
                     <Icon name="refresh" size={18} />
                     <span>Recurring (Cron)</span>
                   </label>
-                  <label className="radio-option">
+                  <label className={`radio-option ${isExternalJob ? 'disabled' : ''}`}>
                     <input
                       type="radio"
                       value="once"
                       checked={scheduleType === 'once'}
                       onChange={(e) => setScheduleType(e.target.value)}
+                      disabled={isExternalJob}
                     />
                     <Icon name="event" size={18} />
                     <span>One-time</span>
@@ -583,6 +620,7 @@ function JobForm() {
                     value={formData.cronExpression}
                     onChange={handleChange}
                     required={scheduleType === 'cron'}
+                    disabled={isExternalJob}
                   />
                 </div>
               ) : (
@@ -604,9 +642,12 @@ function JobForm() {
           </div>
 
           {/* Job Data Card */}
-          <div className="form-card">
+          <div className={`form-card ${isExternalJob ? 'disabled-section' : ''}`}>
             <div className="form-section">
-              <h3 className="form-section-title">Job Data (JSON)</h3>
+              <h3 className="form-section-title">
+                Job Data (JSON)
+                {isExternalJob && <span className="external-label">Managed by external scheduler</span>}
+              </h3>
 
               <div className="form-group">
                 <JsonEditor
@@ -616,6 +657,7 @@ function JobForm() {
                   rows={10}
                   placeholder='{"key": "value"}'
                   hint="JSON configuration data that will be passed to the job"
+                  disabled={isExternalJob}
                 />
               </div>
               {/* Show Job Data Schema if available */}
@@ -659,7 +701,10 @@ function JobForm() {
         <div className="form-sidebar">
           {/* Settings Card */}
           <div className="sidebar-card">
-            <h4 className="sidebar-card-title">Settings</h4>
+            <h4 className="sidebar-card-title">
+              Settings
+              {isExternalJob && <span className="external-label-small">Some settings managed externally</span>}
+            </h4>
 
             <div className="form-group">
               <label htmlFor="executionTimeoutSeconds">
@@ -674,6 +719,8 @@ function JobForm() {
                 min="1"
                 max="86400"
                 placeholder="Default: 3600 (1 hour - from worker, if not changed)"
+                disabled={isExternalJob}
+                title={isExternalJob ? "External jobs manage their own timeout" : ""}
               />
               <small>Max execution time before job is cancelled (default: 1 hour)</small>
             </div>
@@ -704,6 +751,8 @@ function JobForm() {
                 name="concurrentExecutionPolicy"
                 value={formData.concurrentExecutionPolicy}
                 onChange={handleChange}
+                disabled={isExternalJob}
+                title={isExternalJob ? "External jobs manage their own concurrency" : ""}
               >
                 <option value={0}>
                   🚫 Skip
@@ -726,12 +775,15 @@ function JobForm() {
                     onChange={handleChange}
                     id="isActive"
                     className="switch-input"
+                    disabled={isExternalJob}
+                    title={isExternalJob ? "External jobs manage their own active status" : ""}
                   />
-                  <label htmlFor="isActive" className="switch">
+                  <label htmlFor="isActive" className={`switch ${isExternalJob ? 'disabled' : ''}`}>
                     <span className="switch-slider"></span>
                   </label>
                   <span className="switch-status">
                     {formData.isActive ? 'Active' : 'Inactive'}
+                    {isExternalJob && ' (External)'}
                   </span>
                 </div>
               </label>
@@ -740,10 +792,11 @@ function JobForm() {
           </div>
 
           {/* Auto-Disable Settings Card */}
-          <div className="sidebar-card">
+          <div className={`sidebar-card ${isExternalJob ? 'disabled-card' : ''}`}>
             <h4 className="sidebar-card-title">
               <Icon name="power_off" size={18} />
               Auto-Disable (Circuit Breaker)
+              {isExternalJob && <span className="external-label-small">Not applicable for external jobs</span>}
             </h4>
 
             <div className="form-group">
@@ -757,8 +810,9 @@ function JobForm() {
                     onChange={handleAutoDisableChange}
                     id="autoDisableEnabled"
                     className="switch-input"
+                    disabled={isExternalJob}
                   />
-                  <label htmlFor="autoDisableEnabled" className="switch">
+                  <label htmlFor="autoDisableEnabled" className={`switch ${isExternalJob ? 'disabled' : ''}`}>
                     <span className="switch-slider"></span>
                   </label>
                   <span className="switch-status">
@@ -783,6 +837,7 @@ function JobForm() {
                   min="1"
                   max="100"
                   placeholder="Default: 5 (if not changed)"
+                  disabled={isExternalJob}
                 />
                 <small>Number of consecutive failures before auto-disable (default: 5)</small>
               </div>
