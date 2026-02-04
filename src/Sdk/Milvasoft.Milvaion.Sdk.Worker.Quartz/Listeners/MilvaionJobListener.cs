@@ -7,7 +7,6 @@ using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
 using Quartz;
-using System.Collections.Concurrent;
 
 namespace Milvasoft.Milvaion.Sdk.Worker.Quartz.Listeners;
 
@@ -21,9 +20,6 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
     private readonly MilvaionExternalSchedulerOptions _options = workerOptions.Value.ExternalScheduler;
     private readonly WorkerOptions _workerOptions = workerOptions?.Value;
     private readonly IMilvaLogger _logger = loggerFactory?.CreateMilvaLogger<MilvaionJobListener>();
-
-    // Track correlation IDs for job executions (FireInstanceId -> CorrelationId)
-    private readonly ConcurrentDictionary<string, Guid> _correlationIds = new();
 
     public string Name => "MilvaionJobListener";
 
@@ -39,9 +35,6 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
 
             var correlationId = Guid.CreateVersion7();
             var fireInstanceId = context.FireInstanceId;
-
-            // Store correlation ID for later use in JobWasExecuted
-            _correlationIds[fireInstanceId] = correlationId;
 
             // Store correlation ID in JobDataMap so job can access it for logging
             context.MergedJobDataMap.Put("Milvaion_CorrelationId", correlationId.ToString());
@@ -82,17 +75,10 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
             if (_publisher == null || _options == null)
                 return;
 
-            var fireInstanceId = context.FireInstanceId;
-
-            // Get correlation ID from tracking dictionary
-            if (!_correlationIds.TryRemove(fireInstanceId, out var correlationId))
-            {
-                _logger?.Warning("Could not find correlation ID for fire instance {FireInstanceId}", fireInstanceId);
-                correlationId = Guid.CreateVersion7();
-            }
-
             var endTime = DateTime.UtcNow;
             var status = jobException == null ? JobOccurrenceStatus.Completed : JobOccurrenceStatus.Failed;
+            var correlationIdString = context.MergedJobDataMap.GetString("Milvaion_CorrelationId");
+            var correlationId = !string.IsNullOrEmpty(correlationIdString) && Guid.TryParse(correlationIdString, out var parsedGuid) ? parsedGuid : Guid.CreateVersion7();
 
             var message = new ExternalJobOccurrenceMessage
             {
