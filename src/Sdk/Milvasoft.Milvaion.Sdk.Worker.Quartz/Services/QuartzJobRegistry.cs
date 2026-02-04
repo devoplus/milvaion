@@ -17,9 +17,7 @@ public class QuartzJobRegistry
     {
         lock (_lock)
         {
-            var externalJobId = string.IsNullOrEmpty(jobGroup) || jobGroup == "DEFAULT"
-                ? jobName
-                : $"{jobGroup}.{jobName}";
+            var externalJobId = string.IsNullOrEmpty(jobGroup) || jobGroup == "DEFAULT" ? jobName : $"{jobGroup}.{jobName}";
 
             var config = new JobConsumerConfig
             {

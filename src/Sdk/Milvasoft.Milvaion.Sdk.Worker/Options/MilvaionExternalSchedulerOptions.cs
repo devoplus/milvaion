@@ -1,4 +1,4 @@
-namespace Milvasoft.Milvaion.Sdk.Worker.Quartz.Options;
+namespace Milvasoft.Milvaion.Sdk.Worker.Options;
 
 /// <summary>
 /// Configuration options for Milvaion Quartz integration.

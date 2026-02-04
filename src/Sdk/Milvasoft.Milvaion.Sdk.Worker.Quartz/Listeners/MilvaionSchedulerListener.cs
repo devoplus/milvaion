@@ -4,7 +4,6 @@ using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
-using Milvasoft.Milvaion.Sdk.Worker.Quartz.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
 using Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
 using Quartz;
@@ -119,6 +118,7 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
             };
 
             await _publisher.PublishJobRegistrationAsync(message, cancellationToken);
+
             _logger?.Information("Marked job as inactive in Milvaion: {JobKey}", jobKey);
         }
         catch (Exception ex)
@@ -169,13 +169,13 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
 
             _logger?.Information("Starting WorkerListenerPublisher with {Count} Quartz jobs...", jobConfigs.Count);
 
-            _workerListenerPublisher = new WorkerListenerPublisher(
-                Microsoft.Extensions.Options.Options.Create(_workerOptions),
-                _logger,
-                _serviceProvider,
-                jobConfigs);
+            _workerListenerPublisher = new WorkerListenerPublisher(Microsoft.Extensions.Options.Options.Create(_workerOptions),
+                                                                   _logger,
+                                                                   _serviceProvider,
+                                                                   jobConfigs);
 
             await _workerListenerPublisher.StartAsync(cancellationToken);
+
             _logger?.Debug("WorkerListenerPublisher started successfully");
         }
         catch (Exception ex)
@@ -196,6 +196,7 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
             if (_workerListenerPublisher != null)
             {
                 await _workerListenerPublisher.StopAsync(cancellationToken);
+
                 _logger?.Debug("WorkerListenerPublisher stopped successfully");
             }
         }
@@ -213,6 +214,7 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
         try
         {
             _logger?.Information("Quartz scheduler shut down");
+
             _workerListenerPublisher = null;
         }
         catch (Exception ex)

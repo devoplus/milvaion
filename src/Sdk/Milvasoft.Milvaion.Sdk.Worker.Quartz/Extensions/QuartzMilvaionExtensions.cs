@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Listeners;
-using Milvasoft.Milvaion.Sdk.Worker.Quartz.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
 using Quartz;
 
@@ -30,7 +29,9 @@ public static class QuartzMilvaionExtensions
 
         // 2. Bind Quartz-specific options
         var options = new MilvaionExternalSchedulerOptions();
+
         configuration.GetSection(MilvaionExternalSchedulerOptions.SectionKey).Bind(options);
+
         services.AddSingleton(options);
 
         // 3. Register ExternalJobPublisher for publishing job events to RabbitMQ

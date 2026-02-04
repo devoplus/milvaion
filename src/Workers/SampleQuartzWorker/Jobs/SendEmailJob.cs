@@ -30,8 +30,7 @@ public class SendEmailJob(ILogger<SendEmailJob> logger, ILogPublisher logPublish
         _logger.LogInformation("📧 Sending email to {Recipient} with subject: {Subject}", recipient, subject);
 
         // Publish log to Milvaion
-        await PublishLogAsync(correlationId, workerId, LogLevel.Information,
-            $"Starting email send to {recipient}", new { Recipient = recipient, Subject = subject });
+        await PublishLogAsync(correlationId, workerId, LogLevel.Information, $"Starting email send to {recipient}", new { Recipient = recipient, Subject = subject });
 
         // Simulate email sending delay
         await Task.Delay(500);
@@ -51,16 +50,14 @@ public class SendEmailJob(ILogger<SendEmailJob> logger, ILogPublisher logPublish
         // Simulate random failure for testing
         if (Random.Shared.Next(10) == 0)
         {
-            await PublishLogAsync(correlationId, workerId, LogLevel.Error,
-                "Email sending failed - simulated error", new { Error = "SimulatedFailure" });
+            await PublishLogAsync(correlationId, workerId, LogLevel.Error, "Email sending failed - simulated error", new { Error = "SimulatedFailure" });
             throw new InvalidOperationException("Simulated email sending failure");
         }
 
         _logger.LogInformation("✅ Email sent successfully to {Recipient}", recipient);
 
         // Publish success log
-        await PublishLogAsync(correlationId, workerId, LogLevel.Information,
-            $"Email sent successfully to {recipient}", new { Recipient = recipient, SentAt = DateTime.UtcNow });
+        await PublishLogAsync(correlationId, workerId, LogLevel.Information, $"Email sent successfully to {recipient}", new { Recipient = recipient, SentAt = DateTime.UtcNow });
 
         // Flush logs before job completes
         await _logPublisher.FlushAsync();

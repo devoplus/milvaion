@@ -568,7 +568,7 @@ const { modalProps, showModal } = useModal()
           </div>
           {occurrence.externalJobId && (
             <div className="info-item">
-              <label>EXTERNAL JOB</label>
+              <label>EXTERNAL ID</label>
               <span className="external-badge-detail" title="This occurrence is from an external scheduler (Quartz, Hangfire, etc.)">
                 <Icon name="cloud_sync" size={14} />
                 {occurrence.externalJobId}

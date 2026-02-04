@@ -49,12 +49,11 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
             var json = JsonSerializer.Serialize(message);
             var body = Encoding.UTF8.GetBytes(json);
 
-            await _channel!.BasicPublishAsync(
-                exchange: string.Empty,
-                routingKey: WorkerConstant.Queues.ExternalJobRegistration,
-                mandatory: false,
-                body: body,
-                cancellationToken: cancellationToken);
+            await _channel!.BasicPublishAsync(exchange: string.Empty,
+                                              routingKey: WorkerConstant.Queues.ExternalJobRegistration,
+                                              mandatory: false,
+                                              body: body,
+                                              cancellationToken: cancellationToken);
 
             _logger?.Debug("Published job registration for {ExternalJobId}", message.ExternalJobId);
         }
@@ -76,20 +75,17 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
             var json = JsonSerializer.Serialize(message);
             var body = Encoding.UTF8.GetBytes(json);
 
-            await _channel!.BasicPublishAsync(
-                exchange: string.Empty,
-                routingKey: WorkerConstant.Queues.ExternalJobOccurrence,
-                mandatory: false,
-                body: body,
-                cancellationToken: cancellationToken);
+            await _channel!.BasicPublishAsync(exchange: string.Empty,
+                                              routingKey: WorkerConstant.Queues.ExternalJobOccurrence,
+                                              mandatory: false,
+                                              body: body,
+                                              cancellationToken: cancellationToken);
 
-            _logger?.Debug("Published occurrence event {EventType} for {ExternalJobId}, CorrelationId: {CorrelationId}",
-                message.EventType, message.ExternalJobId, message.CorrelationId);
+            _logger?.Debug("Published occurrence event {EventType} for {ExternalJobId}, CorrelationId: {CorrelationId}", message.EventType, message.ExternalJobId, message.CorrelationId);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to publish occurrence event for {ExternalJobId}, CorrelationId: {CorrelationId}",
-                message.ExternalJobId, message.CorrelationId);
+            _logger?.Error(ex, "Failed to publish occurrence event for {ExternalJobId}, CorrelationId: {CorrelationId}", message.ExternalJobId, message.CorrelationId);
             throw;
         }
     }
@@ -119,19 +115,17 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
             _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
 
             // Declare queues
-            await _channel.QueueDeclareAsync(
-                queue: WorkerConstant.Queues.ExternalJobRegistration,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                cancellationToken: cancellationToken);
+            await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
+                                             durable: true,
+                                             exclusive: false,
+                                             autoDelete: false,
+                                             cancellationToken: cancellationToken);
 
-            await _channel.QueueDeclareAsync(
-                queue: WorkerConstant.Queues.ExternalJobOccurrence,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                cancellationToken: cancellationToken);
+            await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobOccurrence,
+                                             durable: true,
+                                             exclusive: false,
+                                             autoDelete: false,
+                                             cancellationToken: cancellationToken);
 
             _logger?.Information("Connected to RabbitMQ at {Host}:{Port}", _workerOptions.RabbitMQ.Host, _workerOptions.RabbitMQ.Port);
         }

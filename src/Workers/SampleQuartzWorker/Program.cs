@@ -46,7 +46,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(sendEmailJobKey)
         .WithIdentity("SendEmailJob-Trigger")
-        .WithCronSchedule("0/10 * * * * ?") // Every minute at :00
+        .WithCronSchedule("0/10 * * * * ?") // Every 10 sec
         .WithDescription("Triggers SendEmailJob every minute"));
 });
 

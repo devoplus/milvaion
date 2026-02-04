@@ -146,19 +146,17 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         _occurrenceChannel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
         // Declare queues
-        await _registrationChannel.QueueDeclareAsync(
-            queue: WorkerConstant.Queues.ExternalJobRegistration,
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
-            cancellationToken: stoppingToken);
+        await _registrationChannel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
+                                                     durable: true,
+                                                     exclusive: false,
+                                                     autoDelete: false,
+                                                     cancellationToken: stoppingToken);
 
-        await _occurrenceChannel.QueueDeclareAsync(
-            queue: WorkerConstant.Queues.ExternalJobOccurrence,
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
-            cancellationToken: stoppingToken);
+        await _occurrenceChannel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobOccurrence,
+                                                   durable: true,
+                                                   exclusive: false,
+                                                   autoDelete: false,
+                                                   cancellationToken: stoppingToken);
 
         // Set prefetch
         await _registrationChannel.BasicQosAsync(0, 10, false, stoppingToken);
@@ -194,21 +192,17 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             }
         };
 
-        await _registrationChannel.BasicConsumeAsync(
-            queue: WorkerConstant.Queues.ExternalJobRegistration,
-            autoAck: false,
-            consumer: registrationConsumer,
-            cancellationToken: stoppingToken);
+        await _registrationChannel.BasicConsumeAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
+                                                     autoAck: false,
+                                                     consumer: registrationConsumer,
+                                                     cancellationToken: stoppingToken);
 
-        await _occurrenceChannel.BasicConsumeAsync(
-            queue: WorkerConstant.Queues.ExternalJobOccurrence,
-            autoAck: false,
-            consumer: occurrenceConsumer,
-            cancellationToken: stoppingToken);
+        await _occurrenceChannel.BasicConsumeAsync(queue: WorkerConstant.Queues.ExternalJobOccurrence,
+                                                   autoAck: false,
+                                                   consumer: occurrenceConsumer,
+                                                   cancellationToken: stoppingToken);
 
-        _logger.Information("ExternalJobTracker consuming from {Queue1} and {Queue2}",
-            WorkerConstant.Queues.ExternalJobRegistration,
-            WorkerConstant.Queues.ExternalJobOccurrence);
+        _logger.Information("ExternalJobTracker consuming from {Queue1} and {Queue2}", WorkerConstant.Queues.ExternalJobRegistration, WorkerConstant.Queues.ExternalJobOccurrence);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
@@ -235,6 +229,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process registration message");
+
             await _registrationChannel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
         }
     }
@@ -261,6 +256,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process occurrence message");
+
             await _occurrenceChannel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
         }
     }
@@ -372,10 +368,9 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                             createdCount++;
 
                             // Get the created job ID from DB and add to Redis mapping
-                            var createdJob = await dbContext.ScheduledJobs
-                                .Where(j => j.IsExternal && j.ExternalJobId == externalId)
-                                .Select(j => new { j.Id, j.ExternalJobId })
-                                .FirstOrDefaultAsync(cancellationToken);
+                            var createdJob = await dbContext.ScheduledJobs.Where(j => j.IsExternal && j.ExternalJobId == externalId)
+                                                                          .Select(j => new { j.Id, j.ExternalJobId })
+                                                                          .FirstOrDefaultAsync(cancellationToken);
 
                             if (createdJob != null)
                                 newMappings[externalId] = createdJob.Id;
@@ -394,6 +389,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             if (newMappings.Count > 0)
             {
                 await _redisSchedulerService.SetExternalJobIdMappingsBulkAsync(newMappings, cancellationToken);
+
                 _logger.Debug("Added {Count} external job ID mappings to Redis", newMappings.Count);
             }
 
@@ -453,6 +449,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
                 // Fallback to DB for any missing mappings
                 var missingExternalIds = externalJobIds.Except(jobIdMap.Keys).ToList();
+
                 if (missingExternalIds.Count > 0)
                 {
                     var dbMappings = await dbContext.ScheduledJobs.Where(j => j.IsExternal && missingExternalIds.Contains(j.ExternalJobId))
@@ -484,7 +481,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                         WorkerId = message.WorkerId,
                         Status = JobOccurrenceStatus.Running,
                         StartTime = message.StartTime ?? message.ActualFireTime ?? DateTime.UtcNow,
-                        ExternalJobId = message.ExternalJobId,
+                        ExternalJobId = message.ExternalOccurrenceId,
                         StatusChangeLogs =
                         [
                             new() {

@@ -192,6 +192,11 @@ public class ExternalJobOccurrenceMessage
     public string ExternalJobId { get; set; }
 
     /// <summary>
+    /// External occurrence identifier (e.g., Quartz FireInstanceId).
+    /// </summary>
+    public string ExternalOccurrenceId { get; set; }
+
+    /// <summary>
     /// Unique correlation ID for this occurrence.
     /// </summary>
     public Guid CorrelationId { get; set; }

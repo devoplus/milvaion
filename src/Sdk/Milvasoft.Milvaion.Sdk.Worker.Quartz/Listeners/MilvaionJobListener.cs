@@ -5,7 +5,6 @@ using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
-using Milvasoft.Milvaion.Sdk.Worker.Quartz.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
 using Quartz;
 using System.Collections.Concurrent;
@@ -52,6 +51,7 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
             {
                 CorrelationId = correlationId,
                 ExternalJobId = GetExternalJobId(context.JobDetail.Key),
+                ExternalOccurrenceId = fireInstanceId,
                 Source = _options.Source,
                 JobTypeName = context.JobDetail.JobType.FullName ?? context.JobDetail.JobType.Name,
                 EventType = ExternalOccurrenceEventType.Starting,
@@ -64,8 +64,7 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
 
             await _publisher.PublishOccurrenceEventAsync(message, cancellationToken);
 
-            _logger?.Debug("Job starting: {JobKey}, CorrelationId: {CorrelationId}",
-                context.JobDetail.Key, correlationId);
+            _logger?.Debug("Job starting: {JobKey}, CorrelationId: {CorrelationId}", context.JobDetail.Key, correlationId);
         }
         catch (Exception ex)
         {
@@ -114,8 +113,7 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
 
             await _publisher.PublishOccurrenceEventAsync(message, cancellationToken);
 
-            _logger?.Debug("Job completed: {JobKey}, Status: {Status}, Duration: {Duration}ms, CorrelationId: {CorrelationId}",
-                context.JobDetail.Key, status, context.JobRunTime.TotalMilliseconds, correlationId);
+            _logger?.Debug("Job completed: {JobKey}, Status: {Status}, Duration: {Duration}ms, CorrelationId: {CorrelationId}", context.JobDetail.Key, status, context.JobRunTime.TotalMilliseconds, correlationId);
         }
         catch (Exception ex)
         {
