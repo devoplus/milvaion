@@ -383,7 +383,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                         new("DisplayName", job.DisplayName ?? string.Empty),
                         new("Description", job.Description ?? string.Empty),
                         new("Tags", job.Tags ?? string.Empty),
-                        new("JobType", job.JobNameInWorker),
+                        new("JobType", job.JobNameInWorker ?? string.Empty),
                         new("JobData", job.JobData ?? string.Empty),
                         new("CronExpression", job.CronExpression ?? string.Empty),
                         new("IsActive", job.IsActive.ToString()),
@@ -397,7 +397,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                         new("CreatorUserName", job.CreatorUserName ?? string.Empty),
                         new("ExecuteAt", job.ExecuteAt.ToString("O")),
                         new("IsExternal", job.IsExternal.ToString()),
-                        new("ExternalJobId", job.ExternalJobId)
+                        new("ExternalJobId", job.ExternalJobId ?? string.Empty)
                     };
 
                     // HMSET + EXPIRE in transaction
