@@ -20,7 +20,7 @@ public class CreateInternalNotificationCommand : InternalNotificationRequest, IC
     /// </summary>
     /// <param name="type"></param>
     /// <param name="data"></param>
-    public CreateInternalNotificationCommand(NotificationType type, object data) : base(type, data)
+    public CreateInternalNotificationCommand(AlertType type, object data) : base(type, data)
     {
     }
 }

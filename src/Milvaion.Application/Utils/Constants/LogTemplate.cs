@@ -12,5 +12,7 @@ public static class LogTemplate
     public const string RequestResponse = "{TransactionId}{Severity}{Timestamp}{Path}{@RequestInfoJson}{@ResponseInfoJson}{ElapsedMs}{IpAddress}{UserName}{@Exception}";
     public const string JobException = "Exception occured in {JobName}. {message}";
     public const string JobExecuted = "{JobName} executed successfully! Affected rows : {RowCount}";
+    public const string GoogleChatNotificationFail = "Google Chat notification failed: {StatusCode} - {Body}";
+    public const string GoogleChatNotificationException = "HTTP Request Error for: {Config} - {Reason}";
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 }

@@ -1,4 +1,6 @@
-﻿namespace Milvaion.Application.Dtos.NotificationDtos;
+﻿using Milvaion.Application.Dtos.AlertingDtos;
+
+namespace Milvaion.Application.Dtos.NotificationDtos;
 
 /// <summary>
 /// Represents the data required to publish a new notification.
@@ -9,9 +11,9 @@
 public class InternalNotificationRequest
 {
     /// <summary>
-    /// The type of notification (e.g., NewComment, NewFollower).
+    /// The type of notification/alert.
     /// </summary>
-    public NotificationType Type { get; set; }
+    public AlertType Type { get; set; }
 
     /// <summary>
     /// JSON payload for dynamic content and localization.
@@ -61,7 +63,7 @@ public class InternalNotificationRequest
     /// </summary>
     /// <param name="type"></param>
     /// <param name="data"></param>
-    public InternalNotificationRequest(NotificationType type, object data)
+    public InternalNotificationRequest(AlertType type, object data)
     {
         Type = type;
         Data = data;

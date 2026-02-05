@@ -52,10 +52,16 @@ public class NotificationService(IMilvaionRepositoryBase<InternalNotification> n
             if (request.FindRecipientsFromType)
             {
                 var jsonValue = JsonSerializer.Serialize(request.Type);
+                var jsonAllValue = JsonSerializer.Serialize(AlertType.All);
 
+                // User receives notification if:
+                // 1. They have the specific alert type in their allowed list, OR
+                // 2. They have AlertType.All in their allowed list (meaning they want all notifications)
                 userExpression = userExpression == null
                     ? u => NpgsqlJsonDbFunctionsExtensions.JsonContains(EF.Functions, u.AllowedNotifications, jsonValue)
-                    : userExpression.AndAlso(u => NpgsqlJsonDbFunctionsExtensions.JsonContains(EF.Functions, u.AllowedNotifications, jsonValue));
+                         || NpgsqlJsonDbFunctionsExtensions.JsonContains(EF.Functions, u.AllowedNotifications, jsonAllValue)
+                    : userExpression.AndAlso(u => NpgsqlJsonDbFunctionsExtensions.JsonContains(EF.Functions, u.AllowedNotifications, jsonValue)
+                         || NpgsqlJsonDbFunctionsExtensions.JsonContains(EF.Functions, u.AllowedNotifications, jsonAllValue));
             }
 
             if (!request.Recipients.IsNullOrEmpty())

@@ -21,14 +21,14 @@ public class InternalNotificationDetailDto : MilvaionBaseDto<long>
     /// <summary>
     /// Notification type.
     /// </summary>
-    public NotificationType Type { get; set; }
+    public AlertType Type { get; set; }
 
     /// <summary>
     /// Notification type description.
     /// </summary>
     [Filterable(false)]
     [Browsable(false)]
-    [LinkedWith<EnumFormatter<NotificationType>>(nameof(EntityType), $"{EnumFormatter<NotificationType>.FormatterName}.{nameof(NotificationType)}")]
+    [LinkedWith<EnumFormatter<AlertType>>(nameof(EntityType), $"{EnumFormatter<AlertType>.FormatterName}.{nameof(AlertType)}")]
     public string TypeDescription { get; set; }
 
     /// <summary>

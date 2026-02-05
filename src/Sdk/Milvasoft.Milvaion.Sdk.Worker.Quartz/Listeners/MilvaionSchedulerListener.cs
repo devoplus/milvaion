@@ -386,10 +386,7 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
     /// </summary>
     private ExternalJobRegistrationMessage CreateJobRegistrationMessage(IJobDetail jobDetail, ITrigger trigger, DateTimeOffset? nextFireTime)
     {
-        string cronExpression = null;
-
-        if (trigger is ICronTrigger cronTrigger)
-            cronExpression = cronTrigger.CronExpressionString;
+        string cronExpression = GetCronExpression(trigger);
 
         string jobData = null;
 
@@ -420,6 +417,71 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
             WorkerId = _workerOptions?.WorkerId,
             IsActive = true
         };
+    }
+
+    private string GetCronExpression(ITrigger trigger)
+    {
+        string cronExpression = null;
+        int? intervalSeconds;
+
+        // Extract schedule info based on trigger type
+        if (trigger is ICronTrigger cronTrigger)
+        {
+            cronExpression = cronTrigger.CronExpressionString;
+        }
+        else if (trigger is ISimpleTrigger simpleTrigger)
+        {
+            // Convert TimeSpan interval to seconds
+            intervalSeconds = (int)simpleTrigger.RepeatInterval.TotalSeconds;
+            int? repeatCount = simpleTrigger.RepeatCount;
+
+            // Convert interval to cron for Milvaion compatibility
+            cronExpression = MilvaionSdkExtensions.IntervalToCron(intervalSeconds.Value);
+
+            _logger?.Debug("SimpleTrigger detected: Interval={IntervalSeconds}s, RepeatCount={RepeatCount}, GeneratedCron={Cron}", intervalSeconds, repeatCount, cronExpression);
+        }
+        else if (trigger is ICalendarIntervalTrigger calendarTrigger)
+        {
+            // Calendar interval trigger (e.g., every 2 hours, every 3 days)
+            var interval = calendarTrigger.RepeatInterval;
+            var unit = calendarTrigger.RepeatIntervalUnit;
+
+            intervalSeconds = unit switch
+            {
+                IntervalUnit.Second => interval,
+                IntervalUnit.Minute => interval * 60,
+                IntervalUnit.Hour => interval * 3600,
+                IntervalUnit.Day => interval * 86400,
+                IntervalUnit.Week => interval * 604800,
+                IntervalUnit.Month => interval * 2592000, // Approximate
+                IntervalUnit.Year => interval * 31536000, // Approximate
+                _ => interval * 60 // Default to minutes
+            };
+
+            cronExpression = MilvaionSdkExtensions.IntervalToCron(intervalSeconds.Value);
+
+            _logger?.Debug("CalendarIntervalTrigger detected: Interval={Interval} {Unit}, GeneratedCron={Cron}", interval, unit, cronExpression);
+        }
+        else if (trigger is IDailyTimeIntervalTrigger dailyTrigger)
+        {
+            // Daily time interval trigger
+            var interval = dailyTrigger.RepeatInterval;
+            var unit = dailyTrigger.RepeatIntervalUnit;
+
+            intervalSeconds = unit switch
+            {
+                IntervalUnit.Second => interval,
+                IntervalUnit.Minute => interval * 60,
+                IntervalUnit.Hour => interval * 3600,
+                _ => interval * 60
+            };
+
+            cronExpression = MilvaionSdkExtensions.IntervalToCron(intervalSeconds.Value);
+
+            _logger?.Debug("DailyTimeIntervalTrigger detected: Interval={Interval} {Unit}, GeneratedCron={Cron}", interval, unit, cronExpression);
+        }
+
+        return cronExpression;
     }
 
     /// <summary>

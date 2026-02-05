@@ -8,6 +8,7 @@ public class MilvaionConfig
     public JobDispatcherOptions JobDispatcher { get; set; }
     public ZombieOccurrenceDetectorOptions ZombieOccurrenceDetector { get; set; }
     public JobAutoDisableOptions JobAutoDisable { get; set; }
+    public AlertingOptions Alerting { get; set; }
 }
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

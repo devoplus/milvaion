@@ -45,5 +45,5 @@ public record CreateUserCommand : ICommand<int>
     /// <summary>
     /// Allowed notification types for the user.
     /// </summary>
-    public List<NotificationType> AllowedNotifications { get; set; }
+    public List<AlertType> AllowedNotifications { get; set; }
 }

@@ -14,7 +14,7 @@ public sealed class CreateInternalNotificationCommandValidator : AbstractValidat
     {
         RuleFor(query => query.Type)
             .IsInEnum()
-            .WithMessage(localizer[MessageKey.PleaseSendCorrect, localizer[nameof(NotificationType)]]);
+            .WithMessage(localizer[MessageKey.PleaseSendCorrect, localizer[nameof(AlertType)]]);
 
         RuleFor(query => query.RelatedEntity)
             .IsInEnum()

@@ -14,6 +14,7 @@ public class SampleLogJob(ILogger<SampleLogJob> logger)
 {
     private readonly ILogger<SampleLogJob> _logger = logger;
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "<Pending>")]
     public async Task ExecuteAsync(PerformContext context, CancellationToken cancellationToken)
     {
         _logger.LogInformation("🚀 SampleLogJob started at {Time}", DateTime.UtcNow);
@@ -77,7 +78,7 @@ public class SendEmailJob(ILogger<SendEmailJob> logger, ILogPublisher logPublish
         await PublishLogAsync(correlationId, workerId, LogLevel.Information, $"Email sent successfully to {recipient}", new { Recipient = recipient, SentAt = DateTime.UtcNow });
 
         // Flush logs before job completes
-        await _logPublisher.FlushAsync();
+        await _logPublisher.FlushAsync(cancellationToken);
     }
 
     private async Task PublishLogAsync(Guid correlationId, string workerId, LogLevel level, string message, object data = null)

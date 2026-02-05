@@ -40,7 +40,7 @@ public class User : MilvaUser<int>, IFullAuditable<int>
     /// Allowed notification types for this user.
     /// </summary>
     [Column(TypeName = "jsonb")]
-    public List<NotificationType> AllowedNotifications { get; set; } = [];
+    public List<AlertType> AllowedNotifications { get; set; } = [];
 
     #region Auditing
 

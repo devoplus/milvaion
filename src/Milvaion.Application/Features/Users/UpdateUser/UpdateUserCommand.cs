@@ -38,5 +38,5 @@ public class UpdateUserCommand : MilvaionBaseDto<int>, ICommand<int>
     /// <summary>
     /// Allowed notification types for the user.
     /// </summary>
-    public UpdateProperty<List<NotificationType>> AllowedNotifications { get; set; }
+    public UpdateProperty<List<AlertType>> AllowedNotifications { get; set; }
 }

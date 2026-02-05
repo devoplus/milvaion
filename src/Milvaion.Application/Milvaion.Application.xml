@@ -1130,6 +1130,159 @@
             Timestamp of health check
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.AlertingDtos.AlertPayload">
+            <summary>
+            Represents the payload data for an alert notification.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.Title">
+            <summary>
+            Gets or sets the title of the alert.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.Message">
+            <summary>
+            Gets or sets the main message content of the alert.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.Severity">
+            <summary>
+            Gets or sets the severity level of the alert.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.AdditionalData">
+            <summary>
+            Gets or sets additional structured data associated with the alert.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.Source">
+            <summary>
+            Gets or sets the source or origin of the alert.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.Timestamp">
+            <summary>
+            Gets or sets the timestamp when the alert was generated.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.ActionLink">
+            <summary>
+            Gets or sets an optional action link for the alert.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.UserFilter">
+            <summary>
+            Gets or sets optional user filter expression for internal notifications.
+            When set, internal notifications will only be sent to users matching this expression.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.Recipients">
+            <summary>
+            Gets or sets specific recipient usernames for internal notifications.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertPayload.ThreadKey">
+            <summary>
+            Gets or sets the thread key for grouping messages in Google Chat.
+            When set, messages with the same thread key will be grouped together.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.AlertingDtos.AlertResult">
+            <summary>
+            Represents the result of sending an alert through one or more channels.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertResult.Success">
+            <summary>
+            Gets or sets whether the overall alert operation was successful.
+            True if at least one channel succeeded.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.AlertResult.ChannelResults">
+            <summary>
+            Gets or sets the individual channel results.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Dtos.AlertingDtos.AlertResult.Successful(System.Collections.Generic.List{Milvaion.Application.Dtos.AlertingDtos.ChannelResult})">
+            <summary>
+            Creates a successful result.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Dtos.AlertingDtos.AlertResult.Failed(System.Collections.Generic.List{Milvaion.Application.Dtos.AlertingDtos.ChannelResult})">
+            <summary>
+            Creates a failed result.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Dtos.AlertingDtos.AlertResult.Skipped(System.String)">
+            <summary>
+            Creates a skipped result when alert is disabled.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.AlertingDtos.ChannelResult">
+            <summary>
+            Represents the result of sending an alert through a specific channel.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.ChannelResult.ChannelName">
+            <summary>
+            Gets or sets the name of the channel.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.ChannelResult.Success">
+            <summary>
+            Gets or sets whether the channel operation was successful.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.ChannelResult.Message">
+            <summary>
+            Gets or sets an optional message describing the result.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AlertingDtos.ChannelResult.Exception">
+            <summary>
+            Gets or sets the exception if the operation failed.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Dtos.AlertingDtos.ChannelResult.Successful(System.String,System.String)">
+            <summary>
+            Creates a successful channel result.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Dtos.AlertingDtos.ChannelResult.Failed(System.String,System.String,System.Exception)">
+            <summary>
+            Creates a failed channel result.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Dtos.AlertingDtos.ChannelResult.Skipped(System.String,System.String)">
+            <summary>
+            Creates a skipped channel result.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.AlertingDtos.AlertSeverity">
+            <summary>
+            Defines the severity levels for alerts.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.AlertingDtos.AlertSeverity.Info">
+            <summary>
+            Informational alert - no action required.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.AlertingDtos.AlertSeverity.Warning">
+            <summary>
+            Warning alert - attention may be needed.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.AlertingDtos.AlertSeverity.Error">
+            <summary>
+            Error alert - action should be taken.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Dtos.AlertingDtos.AlertSeverity.Critical">
+            <summary>
+            Critical alert - immediate action required.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.AuditDto`1">
             <summary>
             Represents an audit data transfer object.
@@ -2399,21 +2552,6 @@
             Name of related domain.
             </summary>
         </member>
-        <member name="T:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatSpace">
-            <summary>
-            Google Chat space enumeration.
-            </summary>
-        </member>
-        <member name="F:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatSpace.HubNotifications">
-            <summary>
-            Hub Notifications space.
-            </summary>
-        </member>
-        <member name="F:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatSpace.MonitoringAlerts">
-            <summary>
-            Monitoring Alerts space.
-            </summary>
-        </member>
         <member name="T:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatThread">
             <summary>
             Thread information for message grouping.
@@ -2427,21 +2565,6 @@
         <member name="P:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatThread.Name">
             <summary>
             For reply existsing thread, the name of the thread.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatNotification">
-            <summary>
-            The root model for a Google Chat Card V2 message payload.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatNotification.Space">
-            <summary>
-            Belonging Google Chat space.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatNotification.CardMessage">
-            <summary>
-            Card message payload to be sent.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.NotificationDtos.GoogleChat.GoogleChatCardMessage">
@@ -2760,7 +2883,7 @@
         </member>
         <member name="P:Milvaion.Application.Dtos.NotificationDtos.InternalNotificationRequest.Type">
             <summary>
-            The type of notification (e.g., NewComment, NewFollower).
+            The type of notification/alert.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.NotificationDtos.InternalNotificationRequest.Data">
@@ -2804,7 +2927,7 @@
             Creates a new instance of InternalNotificationRequest.  
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Dtos.NotificationDtos.InternalNotificationRequest.#ctor(Milvaion.Domain.Enums.NotificationType,System.Object)">
+        <member name="M:Milvaion.Application.Dtos.NotificationDtos.InternalNotificationRequest.#ctor(Milvaion.Domain.Enums.AlertType,System.Object)">
             <summary>
             Creates a new instance of InternalNotificationRequest.    
             </summary>
@@ -4953,7 +5076,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Application.Features.InternalNotifications.CreateInternalNotification.CreateInternalNotificationCommand"/> class.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.InternalNotifications.CreateInternalNotification.CreateInternalNotificationCommand.#ctor(Milvaion.Domain.Enums.NotificationType,System.Object)">
+        <member name="M:Milvaion.Application.Features.InternalNotifications.CreateInternalNotification.CreateInternalNotificationCommand.#ctor(Milvaion.Domain.Enums.AlertType,System.Object)">
             <summary>
             Initializes a new instance of the <see cref="T:Milvaion.Application.Features.InternalNotifications.CreateInternalNotification.CreateInternalNotificationCommand"/> class.
             </summary>
@@ -6489,6 +6612,74 @@
             </summary>
             <returns>Database statistics</returns>
         </member>
+        <member name="T:Milvaion.Application.Interfaces.IAlertChannel">
+            <summary>
+            Defines the contract for alert notification channels.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IAlertChannel.ChannelName">
+            <summary>
+            Gets the unique name of this channel.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Interfaces.IAlertChannel.IsEnabled">
+            <summary>
+            Gets whether this channel is enabled based on configuration.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAlertChannel.CanSend">
+            <summary>
+            Determines whether this channel can send alerts in the current environment.
+            </summary>
+            <returns>True if the channel can send alerts; otherwise, false.</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAlertChannel.SendAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <summary>
+            Sends an alert through this channel.
+            </summary>
+            <param name="alertType">The type of alert being sent.</param>
+            <param name="payload">The alert payload containing the notification data.</param>
+            <param name="cancellationToken">A token to cancel the operation.</param>
+            <returns>The result of the send operation.</returns>
+        </member>
+        <member name="T:Milvaion.Application.Interfaces.IAlertNotifier">
+            <summary>
+            Provides a unified interface for sending alerts through multiple channels.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAlertNotifier.SendAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <summary>
+            Sends an alert to all configured channels for the specified alert type.
+            This method awaits the completion of all channel operations.
+            </summary>
+            <param name="alertType">The type of alert to send.</param>
+            <param name="payload">The alert payload containing the notification data.</param>
+            <param name="cancellationToken">A token to cancel the operation.</param>
+            <returns>The aggregated result from all channels.</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAlertNotifier.SendFireAndForget(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload)">
+            <summary>
+            Sends an alert in a fire-and-forget manner. This method returns immediately
+            and does not block the calling thread. All errors are handled internally.
+            Use this method when you don't need to know the result of the alert operation.
+            </summary>
+            <param name="alertType">The type of alert to send.</param>
+            <param name="payload">The alert payload containing the notification data.</param>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAlertNotifier.IsAlertEnabled(Milvaion.Domain.Enums.AlertType)">
+            <summary>
+            Checks if the specified alert type is enabled.
+            </summary>
+            <param name="alertType">The alert type to check.</param>
+            <returns>True if the alert type is enabled; otherwise, false.</returns>
+        </member>
+        <member name="M:Milvaion.Application.Interfaces.IAlertNotifier.GetRoutesForAlert(Milvaion.Domain.Enums.AlertType)">
+            <summary>
+            Gets the configured routes (channel names) for the specified alert type.
+            </summary>
+            <param name="alertType">The alert type to get routes for.</param>
+            <returns>A list of channel names that the alert will be routed to.</returns>
+        </member>
         <member name="T:Milvaion.Application.Interfaces.IDeveloperService">
             <summary>
             Developer service.
@@ -7446,6 +7637,11 @@
             Property name case insensitive JSON serializer options.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Utils.Constants.ConstantJsonOptions.WriteIndented">
+            <summary>
+            Property name case insensitive JSON serializer options.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Constants.GlobalConstant">
             <summary>
             Represents a class that contains global constants for the application.
@@ -8154,6 +8350,197 @@
         </member>
         <member name="M:Milvaion.Application.Utils.LinkedWithFormatters.YesNoFormatter.Format(System.Object)">
             <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.AlertingOptions">
+            <summary>
+            Root configuration for the alerting system.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.AlertingOptions.SectionKey">
+            <summary>
+            Configuration section key in appsettings.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AlertingOptions.MilvaionAppUrl">
+            <summary>
+            Gets or sets the base URL of the Milvaion application.
+            Used to construct full URLs for action links in alerts.
+            Example: "https://milvaion.example.com"
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AlertingOptions.DefaultChannel">
+            <summary>
+            Gets or sets the default channel to use when an alert type has no specific routing.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AlertingOptions.SendOnlyInProduction">
+            <summary>
+            Gets or sets whether to send alerts only in production environment by default.
+            Individual channels can override this setting.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AlertingOptions.Channels">
+            <summary>
+            Gets or sets the channel configurations.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AlertingOptions.Alerts">
+            <summary>
+            Gets or sets the alert type configurations with their routing.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Utils.Models.Options.AlertingOptions.BuildActionUrl(System.String)">
+            <summary>
+            Builds a full action URL by combining the base URL with the given path.
+            </summary>
+            <param name="path">The relative path (e.g., "/jobs/123")</param>
+            <returns>Full URL or just the path if base URL is not configured</returns>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.AlertChannelsOptions">
+            <summary>
+            Container for all channel configurations.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.ChannelConfigBase">
+            <summary>
+            Base configuration for alert channels.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ChannelConfigBase.Enabled">
+            <summary>
+            Gets or sets whether this channel is enabled.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.ChannelConfigBase.SendOnlyInProduction">
+            <summary>
+            Gets or sets whether to send alerts only in production environment.
+            If null, uses the global setting from <see cref="P:Milvaion.Application.Utils.Models.Options.AlertingOptions.SendOnlyInProduction"/>.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.GoogleChatChannelOptions">
+            <summary>
+            Google Chat channel configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.GoogleChatChannelOptions.DefaultSpace">
+            <summary>
+            Gets or sets the default space to send alerts to when not specified.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.GoogleChatChannelOptions.Spaces">
+            <summary>
+            Gets or sets the configured spaces with their webhook URLs.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.GoogleChatSpaceConfig">
+            <summary>
+            Google Chat space configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.GoogleChatSpaceConfig.Space">
+            <summary>
+            Gets or sets the space identifier/name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.GoogleChatSpaceConfig.WebhookUrl">
+            <summary>
+            Gets or sets the webhook URL for this space.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.SlackChannelOptions">
+            <summary>
+            Slack channel configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SlackChannelOptions.DefaultChannel">
+            <summary>
+            Gets or sets the default channel to send alerts to when not specified.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.SlackChannelOptions.Channels">
+            <summary>
+            Gets or sets the configured Slack channels with their webhook URLs.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.SlackChannelConfig">
+            <summary>
+            Slack channel configuration.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.EmailChannelOptions">
+            <summary>
+            Email channel configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EmailChannelOptions.DisplayName">
+            <summary>
+            Gets or sets the display name for the sender.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EmailChannelOptions.From">
+            <summary>
+            Gets or sets the 'From' email address.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EmailChannelOptions.SenderEmail">
+            <summary>
+            Gets or sets the sender email address for authentication.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EmailChannelOptions.SenderPassword">
+            <summary>
+            Gets or sets the sender password for authentication.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EmailChannelOptions.SmtpHost">
+            <summary>
+            Gets or sets the SMTP server host.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EmailChannelOptions.SmtpPort">
+            <summary>
+            Gets or sets the SMTP server port.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EmailChannelOptions.UseSsl">
+            <summary>
+            Gets or sets whether to use SSL for SMTP connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.EmailChannelOptions.DefaultRecipients">
+            <summary>
+            Gets or sets the default recipient email addresses.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.InternalNotificationChannelOptions">
+            <summary>
+            Internal notification channel configuration.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.AlertConfigBase">
+            <summary>
+            Base configuration for alert types.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AlertConfigBase.Enabled">
+            <summary>
+            Gets or sets whether this alert type is enabled.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.AlertConfig">
+            <summary>
+            Configuration for a specific alert type including its routing.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.AlertConfig.Routes">
+            <summary>
+            Gets or sets the channels to route this alert to.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.AlertChannelType">
+            <summary>
+            Defines the available alert channel types.
+            </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions">
             <summary>

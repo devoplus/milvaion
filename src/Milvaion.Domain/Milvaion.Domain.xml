@@ -180,29 +180,69 @@
             Navigation property to the contents.
             </summary>
         </member>
+        <member name="T:Milvaion.Domain.Enums.AlertType">
+            <summary>
+            Defines the types of alerts that can be sent through the alerting system.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.All">
+            <summary>
+            Recieve all types of alerts.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.JobDispatcherMemoryUsageCritical">
+            <summary>
+            Job dispatcher memory usage has reached critical levels.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.DatabaseConnectionFailed">
+            <summary>
+            Database connection failed or is unavailable.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.ZombieOccurrenceDetected">
+            <summary>
+            A zombie occurrence was detected (job stuck in running state).
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.JobAutoDisabled">
+            <summary>
+            A job was automatically disabled due to consecutive failures.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.QueueDepthCritical">
+            <summary>
+            Queue depth has reached critical threshold.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.WorkerDisconnected">
+            <summary>
+            A worker has disconnected unexpectedly.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.RedisConnectionFailed">
+            <summary>
+            Redis connection failed or is unavailable.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.RabbitMQConnectionFailed">
+            <summary>
+            RabbitMQ connection failed or is unavailable.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.JobExecutionFailed">
+            <summary>
+            A scheduled job execution failed.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.UnknownException">
+            <summary>
+            An unknown or unhandled exception occurred.
+            </summary>
+        </member>
         <member name="T:Milvaion.Domain.Enums.NotificationEntity">
             <summary>
             Notication related entity types.
-            </summary>
-        </member>
-        <member name="T:Milvaion.Domain.Enums.NotificationType">
-            <summary>
-            Notification types.
-            </summary>
-        </member>
-        <member name="F:Milvaion.Domain.Enums.NotificationType.OrderApproved">
-            <summary>
-            Order approved notification.
-            </summary>
-        </member>
-        <member name="F:Milvaion.Domain.Enums.NotificationType.JobAutoDisabled">
-            <summary>
-            Job was automatically disabled due to consecutive failures.
-            </summary>
-        </member>
-        <member name="F:Milvaion.Domain.Enums.NotificationType.JobReEnabled">
-            <summary>
-            Job was manually re-enabled after being auto-disabled.
             </summary>
         </member>
         <member name="T:Milvaion.Domain.Enums.UserActivity">

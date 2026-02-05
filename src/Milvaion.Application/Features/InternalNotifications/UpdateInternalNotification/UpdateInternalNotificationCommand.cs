@@ -11,7 +11,7 @@ public class UpdateInternalNotificationCommand : MilvaionBaseDto<long>, ICommand
     /// <summary>
     /// The type of notification (e.g., NewComment, NewFollower).
     /// </summary>
-    public UpdateProperty<NotificationType> Type { get; set; }
+    public UpdateProperty<AlertType> Type { get; set; }
 
     /// <summary>
     /// JSON payload for dynamic content and localization.

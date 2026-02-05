@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
@@ -24,6 +25,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 public class StatusTrackerService(IServiceProvider serviceProvider,
                                   IRedisSchedulerService redisScheduler,
                                   IRedisStatsService redisStatsService,
+                                  IAlertNotifier alertNotifier,
                                   IOptions<RabbitMQOptions> rabbitOptions,
                                   IOptions<StatusTrackerOptions> options,
                                   IOptions<JobAutoDisableOptions> autoDisableOptions,
@@ -34,6 +36,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly IRedisSchedulerService _redisScheduler = redisScheduler;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
+    private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<StatusTrackerService>();
     private readonly RabbitMQOptions _rabbitOptions = rabbitOptions.Value;
     private readonly StatusTrackerOptions _options = options.Value;
@@ -763,6 +766,9 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     await _redisScheduler.RemoveCachedJobsBulkAsync(autoDisabledJobIds, cancellationToken);
 
                     _logger.Debug("Removed {Count} auto-disabled jobs from Redis scheduler in batch", autoDisabledJobs.Count);
+
+                    // Send alerts for auto-disabled jobs (fire-and-forget, non-blocking)
+                    SendAutoDisabledJobAlerts(autoDisabledJobs);
                 }
                 catch (Exception ex)
                 {
@@ -782,6 +788,34 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             return "Unknown error";
 
         return exception.Length <= maxLength ? exception : exception[..(maxLength - 3)] + "...";
+    }
+
+    /// <summary>
+    /// Sends alerts for auto-disabled jobs using fire-and-forget pattern.
+    /// This method returns immediately and never blocks the main processing flow.
+    /// </summary>
+    private void SendAutoDisabledJobAlerts(List<ScheduledJob> autoDisabledJobs)
+    {
+        foreach (var job in autoDisabledJobs)
+        {
+            _alertNotifier.SendFireAndForget(AlertType.JobAutoDisabled, new AlertPayload
+            {
+                Title = "Job Auto-Disabled",
+                Message = $"Job '{job.DisplayName ?? job.JobNameInWorker}' has been auto-disabled after {job.AutoDisableSettings.ConsecutiveFailureCount} consecutive failures.",
+                Severity = AlertSeverity.Warning,
+                Source = nameof(StatusTrackerService),
+                ThreadKey = $"job-auto-disabled-{job.Id}",
+                ActionLink = $"/jobs/{job.Id}",
+                AdditionalData = new
+                {
+                    JobId = job.Id,
+                    JobName = job.DisplayName ?? job.JobNameInWorker,
+                    FailureCount = job.AutoDisableSettings.ConsecutiveFailureCount,
+                    job.AutoDisableSettings.DisableReason,
+                    job.AutoDisableSettings.DisabledAt
+                }
+            });
+        }
     }
 
     /// <summary>

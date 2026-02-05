@@ -3,22 +3,6 @@
 namespace Milvaion.Application.Dtos.NotificationDtos.GoogleChat;
 
 /// <summary>
-/// Google Chat space enumeration.
-/// </summary>
-public enum GoogleChatSpace
-{
-    /// <summary>
-    /// Hub Notifications space.
-    /// </summary>
-    HubNotifications,
-
-    /// <summary>
-    /// Monitoring Alerts space.
-    /// </summary>
-    MonitoringAlerts,
-}
-
-/// <summary>
 /// Thread information for message grouping.
 /// </summary>
 public class GoogleChatThread
@@ -34,22 +18,6 @@ public class GoogleChatThread
     /// </summary>
     [JsonPropertyName("name")]
     public string Name { get; set; }
-}
-
-/// <summary>
-/// The root model for a Google Chat Card V2 message payload.
-/// </summary>
-public class GoogleChatNotification
-{
-    /// <summary>
-    /// Belonging Google Chat space.
-    /// </summary>
-    public GoogleChatSpace Space { get; set; }
-
-    /// <summary>
-    /// Card message payload to be sent.
-    /// </summary>
-    public GoogleChatCardMessage CardMessage { get; set; }
 }
 
 /// <summary>

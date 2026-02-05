@@ -141,6 +141,7 @@ public class DatabaseMigrator(IServiceProvider serviceProvider)
             TwoFactorEnabled = false,
             LockoutEnabled = false,
             AccessFailedCount = 0,
+            AllowedNotifications = [AlertType.All],
             RoleRelations =
             [
                 new()

@@ -38,7 +38,6 @@ builder.Services.AddHangfireServer(options =>
     options.Queues = ["default", "critical"];
 });
 
-
 // Build and run
 var host = builder.Build();
 

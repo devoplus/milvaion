@@ -340,7 +340,7 @@
             Consumes job status updates from RabbitMQ and updates JobOccurrence records.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes job status updates from RabbitMQ and updates JobOccurrence records.
             </summary>
@@ -360,6 +360,12 @@
             <summary>
             Processes circuit breaker updates for jobs that completed or failed.
             Increments failure count on failure, resets on success, auto-disables if threshold reached.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.SendAutoDisabledJobAlerts(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Sends alerts for auto-disabled jobs using fire-and-forget pattern.
+            This method returns immediately and never blocks the main processing flow.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.SafeAckAsync(System.UInt64,System.Threading.CancellationToken)">
@@ -616,6 +622,14 @@
             <summary>
             Registers external job consumer background service.
             Consumes job registration and occurrence messages from Quartz/Hangfire workers.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddAlerting(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers alerting services for multi-channel notifications.
             </summary>
             <param name="services">Service collection</param>
             <param name="configuration">Configuration</param>
@@ -1083,6 +1097,210 @@
             <summary>
             Raw DTO for large occurrence query (matches PostgreSQL column names).
             </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1">
+            <summary>
+            Base class for alert channels providing common functionality.
+            </summary>
+            <typeparam name="TChannelOptions">The type of channel-specific options.</typeparam>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1._alertingOptions">
+            <summary>
+            The alerting options.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1._channelOptions">
+            <summary>
+            The channel-specific options.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions})">
+            <summary>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1"/> class.
+            </summary>
+            <param name="alertingOptions">The alerting options.</param>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.ChannelName">
+            <inheritdoc/>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.IsEnabled">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.GetChannelOptions(Milvaion.Application.Utils.Models.Options.AlertingOptions)">
+            <summary>
+            Gets the channel-specific options from the alerting options.
+            </summary>
+            <param name="options">The alerting options.</param>
+            <returns>The channel-specific options.</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.CanSend">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.SendAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.SendCoreAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <summary>
+            Performs the actual send operation. Override this in derived classes.
+            </summary>
+            <param name="alertType">The type of alert being sent.</param>
+            <param name="payload">The alert payload.</param>
+            <param name="cancellationToken">A token to cancel the operation.</param>
+            <returns>The result of the send operation.</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.GetSeverityColor(Milvaion.Application.Dtos.AlertingDtos.AlertSeverity)">
+            <summary>
+            Gets the severity color for visual indicators.
+            </summary>
+            <param name="severity">The alert severity.</param>
+            <returns>A color string appropriate for the channel.</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertChannelBase`1.GetSeverityEmoji(Milvaion.Application.Dtos.AlertingDtos.AlertSeverity)">
+            <summary>
+            Gets the severity emoji for text-based channels.
+            </summary>
+            <param name="severity">The alert severity.</param>
+            <returns>An emoji representing the severity.</returns>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Alerting.AlertNotifier">
+            <summary>
+            Orchestrates sending alerts through multiple configured channels.
+            All operations are designed to be non-blocking and resource-efficient.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.AlertNotifier"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Collections.Generic.IEnumerable{Milvaion.Application.Interfaces.IAlertChannel},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Orchestrates sending alerts through multiple configured channels.
+            All operations are designed to be non-blocking and resource-efficient.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.AlertNotifier"/> class.
+            </remarks>
+        </member>
+        <member name="F:Milvaion.Infrastructure.Services.Alerting.AlertNotifier._defaultTimeout">
+            <summary>
+            Default timeout for alert operations (10 seconds).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.SendAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.SendFireAndForget(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.IsAlertEnabled(Milvaion.Domain.Enums.AlertType)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.AlertNotifier.GetRoutesForAlert(Milvaion.Domain.Enums.AlertType)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel">
+            <summary>
+            Alert channel implementation for Email using SMTP.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Alert channel implementation for Email using SMTP.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel.ChannelName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel.GetChannelOptions(Milvaion.Application.Utils.Models.Options.AlertingOptions)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel.CanSend">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.EmailAlertChannel.SendCoreAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Alerting.Channels.GoogleChatAlertChannel">
+            <summary>
+            Alert channel implementation for Google Chat.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.GoogleChatAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.GoogleChatAlertChannel.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Net.Http.IHttpClientFactory,System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Alert channel implementation for Google Chat.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.GoogleChatAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Alerting.Channels.GoogleChatAlertChannel.ChannelName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.GoogleChatAlertChannel.GetChannelOptions(Milvaion.Application.Utils.Models.Options.AlertingOptions)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.GoogleChatAlertChannel.SendCoreAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Alerting.Channels.InternalNotificationAlertChannel">
+            <summary>
+            Alert channel implementation for Internal Notifications (database-stored notifications for users).
+            Uses IServiceProvider to create scoped INotificationService instances since this channel is registered as Singleton.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.InternalNotificationAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.InternalNotificationAlertChannel.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.IServiceProvider,System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Alert channel implementation for Internal Notifications (database-stored notifications for users).
+            Uses IServiceProvider to create scoped INotificationService instances since this channel is registered as Singleton.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.InternalNotificationAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Alerting.Channels.InternalNotificationAlertChannel.ChannelName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.InternalNotificationAlertChannel.GetChannelOptions(Milvaion.Application.Utils.Models.Options.AlertingOptions)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.InternalNotificationAlertChannel.SendCoreAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Alerting.Channels.SlackAlertChannel">
+            <summary>
+            Alert channel implementation for Slack using Incoming Webhooks.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.SlackAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.SlackAlertChannel.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Net.Http.IHttpClientFactory,System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Alert channel implementation for Slack using Incoming Webhooks.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.SlackAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Alerting.Channels.SlackAlertChannel.ChannelName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.SlackAlertChannel.GetChannelOptions(Milvaion.Application.Utils.Models.Options.AlertingOptions)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.SlackAlertChannel.SendCoreAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.DeveloperService">
             <summary>

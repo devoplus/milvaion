@@ -18,6 +18,8 @@ using Milvaion.Infrastructure.LazyImpl;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Persistence.Repository;
 using Milvaion.Infrastructure.Services;
+using Milvaion.Infrastructure.Services.Alerting;
+using Milvaion.Infrastructure.Services.Alerting.Channels;
 using Milvaion.Infrastructure.Services.Monitoring;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Services.Redis;
@@ -156,6 +158,7 @@ public static class InfraServiceCollectionExtensions
 
         services.AddRedisStorage(configuration)
                 .AddRabbitMQ(configuration)
+                .AddAlerting(configuration)
                 .AddJobDispatcher(configuration)
                 .AddZombieOccurrenceDetector(configuration)
                 .AddFailedOccurrenceHandler(configuration)
@@ -284,6 +287,33 @@ public static class InfraServiceCollectionExtensions
 
         // Register the external job tracker background service
         services.AddHostedService<ExternalJobTrackerService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers alerting services for multi-channel notifications.
+    /// </summary>
+    /// <param name="services">Service collection</param>
+    /// <param name="configuration">Configuration</param>
+    /// <returns>Service collection for chaining</returns>
+    public static IServiceCollection AddAlerting(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Configure AlertingOptions from appsettings
+        services.AddOptions<AlertingOptions>().Bind(configuration.GetSection(AlertingOptions.SectionKey)).ValidateDataAnnotations();
+
+        // Register HttpClient for alert channels (if not already registered)
+        services.AddHttpClient(nameof(GoogleChatAlertChannel));
+        services.AddHttpClient(nameof(SlackAlertChannel));
+
+        // Register alert channels as Singleton (they are stateless and can be safely shared)
+        services.AddSingleton<IAlertChannel, GoogleChatAlertChannel>();
+        services.AddSingleton<IAlertChannel, SlackAlertChannel>();
+        services.AddSingleton<IAlertChannel, EmailAlertChannel>();
+        services.AddSingleton<IAlertChannel, InternalNotificationAlertChannel>();
+
+        // Register the alert notifier orchestrator as Singleton
+        services.AddSingleton<IAlertNotifier, AlertNotifier>();
 
         return services;
     }

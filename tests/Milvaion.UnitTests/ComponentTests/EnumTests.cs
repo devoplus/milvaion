@@ -78,10 +78,8 @@ public class EnumTests
     }
 
     [Theory]
-    [InlineData(NotificationType.OrderApproved, 0)]
-    [InlineData(NotificationType.JobAutoDisabled, 1)]
-    [InlineData(NotificationType.JobReEnabled, 2)]
-    public void NotificationType_Value_ShouldMatch(NotificationType type, byte expectedValue)
+    [InlineData(AlertType.JobAutoDisabled, 4)]
+    public void NotificationType_Value_ShouldMatch(AlertType type, byte expectedValue)
     {
         // Act
         var value = (byte)type;
@@ -94,7 +92,7 @@ public class EnumTests
     public void NotificationType_ShouldHaveThreeValues()
     {
         // Act
-        var values = Enum.GetValues<NotificationType>();
+        var values = Enum.GetValues<AlertType>();
 
         // Assert
         values.Should().HaveCount(3);

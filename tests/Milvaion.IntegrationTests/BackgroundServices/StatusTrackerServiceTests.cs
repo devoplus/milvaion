@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Models.Options;
@@ -501,6 +502,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new RabbitMQOptions
             {
                 Host = _factory.GetRabbitMqHost(),

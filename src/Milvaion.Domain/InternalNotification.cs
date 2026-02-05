@@ -25,7 +25,7 @@ public class InternalNotification : CreationAuditableEntity<long>
     /// <summary>
     /// Notification type.
     /// </summary>
-    public NotificationType Type { get; set; }
+    public AlertType Type { get; set; }
 
     /// <summary>
     /// Date when the user marked this notification as seen.

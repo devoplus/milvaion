@@ -14,4 +14,12 @@ public static class ConstantJsonOptions
     {
         PropertyNameCaseInsensitive = true
     };
+
+    /// <summary>
+    /// Property name case insensitive JSON serializer options.
+    /// </summary>
+    public static JsonSerializerOptions WriteIndented { get; } = new JsonSerializerOptions
+    {
+        WriteIndented = true
+    };
 }
