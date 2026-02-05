@@ -25,8 +25,7 @@ public class InternalNotificationAlertChannel(IOptions<AlertingOptions> alerting
     public override string ChannelName => nameof(AlertChannelType.InternalNotification);
 
     /// <inheritdoc/>
-    protected override InternalNotificationChannelOptions GetChannelOptions(AlertingOptions options)
-        => options.Channels?.InternalNotification;
+    protected override InternalNotificationChannelOptions GetChannelOptions(AlertingOptions options) => options.Channels?.InternalNotification;
 
     /// <inheritdoc/>
     protected override async Task<ChannelResult> SendCoreAsync(AlertType alertType, AlertPayload payload, CancellationToken cancellationToken)

@@ -69,9 +69,7 @@ public class AlertNotifier(IOptions<AlertingOptions> options,
 
         var hasAnySuccess = channelResults.Exists(r => r.Success);
 
-        return hasAnySuccess
-            ? AlertResult.Successful(channelResults)
-            : AlertResult.Failed(channelResults);
+        return hasAnySuccess ? AlertResult.Successful(channelResults) : AlertResult.Failed(channelResults);
     }
 
     /// <inheritdoc/>
@@ -82,6 +80,7 @@ public class AlertNotifier(IOptions<AlertingOptions> options,
             return;
 
         var routes = GetRoutesForAlert(alertType);
+
         if (routes.Count == 0)
             return;
 
@@ -124,16 +123,13 @@ public class AlertNotifier(IOptions<AlertingOptions> options,
             return alertConfig.Routes;
 
         // Return default channel if no specific routes configured
-        return string.IsNullOrWhiteSpace(_options.DefaultChannel)
-            ? []
-            : [_options.DefaultChannel];
+        return string.IsNullOrWhiteSpace(_options.DefaultChannel) ? [] : [_options.DefaultChannel];
     }
 
-    private async Task<ChannelResult> SendToChannelWithTimeoutAsync(
-        IAlertChannel channel,
-        AlertType alertType,
-        AlertPayload payload,
-        CancellationToken cancellationToken)
+    private async Task<ChannelResult> SendToChannelWithTimeoutAsync(IAlertChannel channel,
+                                                                    AlertType alertType,
+                                                                    AlertPayload payload,
+                                                                    CancellationToken cancellationToken)
     {
         try
         {

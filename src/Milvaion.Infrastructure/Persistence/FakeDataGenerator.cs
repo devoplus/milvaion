@@ -1,7 +1,6 @@
 ﻿using Bogus;
 using Milvaion.Application.Utils.PermissionManager;
 using Milvaion.Domain;
-using Milvaion.Domain.Enums;
 using Milvasoft.Identity.Concrete;
 
 namespace Milvaion.Infrastructure.Persistence;

@@ -43,7 +43,9 @@ public class SlackAlertChannel(IOptions<AlertingOptions> alertingOptions,
             return ChannelResult.Skipped(ChannelName, "No webhook URL configured for the default channel");
 
         var slackMessage = CreateSlackMessage(alertType, payload);
+
         var jsonPayload = JsonSerializer.Serialize(slackMessage, _jsonOptions);
+
         var content = new StringContent(jsonPayload, Encoding.UTF8, MimeTypeNames.ApplicationJson);
 
         var response = await _httpClient.PostAsync(channelConfig.WebhookUrl, content, cancellationToken);
@@ -52,6 +54,7 @@ public class SlackAlertChannel(IOptions<AlertingOptions> alertingOptions,
             return ChannelResult.Successful(ChannelName);
 
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
         _logger.Value.Warning("Slack alert failed. Status: {StatusCode}, Response: {Response}", response.StatusCode, responseBody);
 
         return ChannelResult.Failed(ChannelName, $"HTTP {response.StatusCode}: {responseBody}");

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Utils.Constants;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using System.Net;
 using System.Net.Mail;
 using System.Text;
@@ -41,7 +42,7 @@ public class EmailAlertChannel(IOptions<AlertingOptions> alertingOptions, Lazy<I
     /// <inheritdoc/>
     protected override async Task<ChannelResult> SendCoreAsync(AlertType alertType, AlertPayload payload, CancellationToken cancellationToken)
     {
-        if (_channelOptions.DefaultRecipients == null || _channelOptions.DefaultRecipients.Count == 0)
+        if (_channelOptions.DefaultRecipients.IsNullOrEmpty())
             return ChannelResult.Skipped(ChannelName, "No recipients configured");
 
         using var smtpClient = CreateSmtpClient();

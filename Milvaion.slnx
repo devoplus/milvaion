@@ -80,6 +80,8 @@
     <File Path="docs/portaldocs/15-sql-worker.md" />
     <File Path="docs/portaldocs/16-email-worker.md" />
     <File Path="docs/portaldocs/17-maintenance-worker.md" />
+    <File Path="docs/portaldocs/18-external-scheduler.md" />
+    <File Path="docs/portaldocs/19-alerting.md" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/MilvaionUI/" Type="Website" DisplayName="MilvaionUI">

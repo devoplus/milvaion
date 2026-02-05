@@ -43,7 +43,9 @@ public class GoogleChatAlertChannel(IOptions<AlertingOptions> alertingOptions,
             return ChannelResult.Skipped(ChannelName, "No webhook URL configured for the default space");
 
         var cardMessage = CreateCardMessage(alertType, payload);
+
         var jsonPayload = JsonSerializer.Serialize(cardMessage, _jsonOptions);
+
         var content = new StringContent(jsonPayload, Encoding.UTF8, MimeTypeNames.ApplicationJson);
 
         // Add thread reply option if thread key is specified
@@ -158,9 +160,7 @@ public class GoogleChatAlertChannel(IOptions<AlertingOptions> alertingOptions,
                     }
                 }
             ],
-            Thread = !string.IsNullOrWhiteSpace(payload.ThreadKey)
-                ? new GoogleChatThread { ThreadKey = payload.ThreadKey }
-                : null
+            Thread = !string.IsNullOrWhiteSpace(payload.ThreadKey) ? new GoogleChatThread { ThreadKey = payload.ThreadKey } : null
         };
     }
 

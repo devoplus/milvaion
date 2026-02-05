@@ -1,6 +1,4 @@
-﻿using Milvaion.Application.Dtos.AlertingDtos;
-
-namespace Milvaion.Application.Dtos.NotificationDtos;
+﻿namespace Milvaion.Application.Dtos.NotificationDtos;
 
 /// <summary>
 /// Represents the data required to publish a new notification.
