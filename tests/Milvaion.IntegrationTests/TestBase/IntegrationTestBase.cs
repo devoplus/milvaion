@@ -46,14 +46,12 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
         Environment.SetEnvironmentVariable("MilvaionConfig:ZombieOccurrenceDetector:Enabled", "false");
         Environment.SetEnvironmentVariable("MilvaionConfig:FailedOccurrenceHandler:Enabled", "false");
         Environment.SetEnvironmentVariable("MilvaionConfig:LogCollector:Enabled", "false");
+        Environment.SetEnvironmentVariable("MilvaionConfig:Alerting", "{}");
 
         var waf = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
-                // Internal cron jobs have been moved to MilvaionMaintenanceWorker
-                // No need to remove them from hosted services anymore
-
                 configureServices?.Invoke(services);
             });
 

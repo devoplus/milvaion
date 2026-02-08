@@ -249,6 +249,61 @@
             Dispatches due jobs from Redis to RabbitMQ.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.GetDueJobIdsFromRedisAsync(System.Threading.CancellationToken)">
+            <summary>
+            Gets due job IDs from Redis ZSET.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.GetWorkerCapacitiesAsync(System.Collections.Generic.IEnumerable{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Threading.CancellationToken)">
+            <summary>
+            Gets worker capacities for all unique workers.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.GetConsumerCapacitiesAsync(System.Collections.Generic.IEnumerable{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Threading.CancellationToken)">
+            <summary>
+            Gets consumer capacities for all unique worker+jobType combinations.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.ValidateAndFilterJobs(System.Collections.Generic.List{System.Guid},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.HashSet{System.Guid},System.Collections.Generic.Dictionary{System.String,System.ValueTuple{System.Int32,System.Nullable{System.Int32}}},System.Collections.Generic.Dictionary{System.String,System.ValueTuple{System.Int32,System.Nullable{System.Int32}}})">
+            <summary>
+            Validates jobs and filters based on concurrency policy and worker capacity.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.AcquireLocksAndCreateOccurrencesAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Threading.CancellationToken)">
+            <summary>
+            Acquires distributed locks and creates job occurrences.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.PersistOccurrencesAsync(Microsoft.Extensions.DependencyInjection.AsyncServiceScope,Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+            <summary>
+            Persists occurrences to database and publishes events.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.HandleDbUpdateExceptionAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+            <summary>
+            Handles DbUpdateException by removing stale jobs from Redis.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.RecordDispatchMetrics(System.Diagnostics.Stopwatch,System.Int32)">
+            <summary>
+            Records dispatch metrics.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.UpdateRedisCountersAfterDispatchAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Updates Redis counters after successful dispatch.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.DispatchJobsToRabbitMQAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
+            <summary>
+            Dispatches jobs to RabbitMQ in parallel.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.HandleFailedDispatchesAsync(Microsoft.Extensions.DependencyInjection.AsyncServiceScope,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Concurrent.ConcurrentBag{Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog},System.Threading.CancellationToken)">
+            <summary>
+            Handles failed dispatch occurrences with exponential backoff retry scheduling.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.GetDueJobsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
             <summary>
             Gets due jobs from Redis or database.
@@ -390,7 +445,7 @@
             Records batch processing metrics.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ProcessCircuitBreakerUpdatesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.Dictionary{System.Guid,System.ValueTuple{System.Boolean,System.String}},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ProcessCircuitBreakerUpdatesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.Dictionary{System.Guid,Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.CircuitBreakerUpdate},System.Threading.CancellationToken)">
             <summary>
             Processes circuit breaker updates for jobs that completed or failed.
             Increments failure count on failure, resets on success, auto-disables if threshold reached.
@@ -409,11 +464,36 @@
             <param name="cancellationToken"></param>
             <returns></returns>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.UpdateConsumerCountersBatchAsync(System.Collections.Generic.List{System.ValueTuple{System.String,System.String,System.String,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus}},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.UpdateConsumerCountersBatchAsync(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ConsumerCounterUpdate},System.Threading.CancellationToken)">
             <summary>
             Updates consumer-level job counters in Redis (batch operation with Lua script).
             Groups updates by workerId/instanceId/jobType and applies net changes in SINGLE Redis call.
             Example: 100 updates with net change calculation → 1 Lua script call
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.CircuitBreakerUpdate">
+            <summary>
+            Represents a circuit breaker update for a job.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.CircuitBreakerUpdate.#ctor(System.Boolean,System.String)">
+            <summary>
+            Represents a circuit breaker update for a job.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ConsumerCounterUpdate">
+            <summary>
+            Represents a consumer counter update for Redis batch processing.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ConsumerCounterUpdate.#ctor(System.String,System.String,System.String,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus,Milvasoft.Milvaion.Sdk.Domain.Enums.JobOccurrenceStatus)">
+            <summary>
+            Represents a consumer counter update for Redis batch processing.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.StatusUpdateResult">
+            <summary>
+            Result of applying status updates to occurrences.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService">

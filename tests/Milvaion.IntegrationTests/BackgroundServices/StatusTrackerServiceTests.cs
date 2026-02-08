@@ -499,25 +499,12 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
         updatedOccurrence.Result.Should().Be(uniqueResult);
     }
 
-    private StatusTrackerService CreateStatusTrackerService()
-    {
-        var rabbitOptions = Options.Create(new RabbitMQOptions
-        {
-            Host = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
-            Username = "guest",
-            Password = "guest",
-            VirtualHost = "/"
-        });
-
-        var rabbitMQFactory = new RabbitMQConnectionFactory(rabbitOptions, _serviceProvider.GetRequiredService<ILoggerFactory>());
-
-        return new StatusTrackerService(
+    private StatusTrackerService CreateStatusTrackerService() => new StatusTrackerService(
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
-            rabbitMQFactory,
+            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
             Options.Create(new StatusTrackerOptions
             {
                 Enabled = true,
@@ -533,7 +520,6 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
-    }
 
     private async Task PublishStatusUpdateAsync(JobStatusUpdateMessage message, CancellationToken cancellationToken)
     {

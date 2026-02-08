@@ -468,22 +468,9 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
         log.Data.Should().ContainKey("recordsProcessed");
     }
 
-    private LogCollectorService CreateLogCollectorService()
-    {
-        var rabbitOptions = Options.Create(new RabbitMQOptions
-        {
-            Host = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
-            Username = "guest",
-            Password = "guest",
-            VirtualHost = "/"
-        });
-
-        var rabbitMQFactory = new RabbitMQConnectionFactory(rabbitOptions, _serviceProvider.GetRequiredService<ILoggerFactory>());
-
-        return new LogCollectorService(
+    private LogCollectorService CreateLogCollectorService() => new LogCollectorService(
             _serviceProvider,
-            rabbitMQFactory,
+            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
             Options.Create(new LogCollectorOptions
             {
                 Enabled = true,
@@ -493,7 +480,6 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
-    }
 
     private async Task PublishLogMessageAsync(WorkerLogBatchMessage message, CancellationToken cancellationToken)
     {
