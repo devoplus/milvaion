@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Infrastructure.Extensions;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
@@ -8,149 +9,207 @@ using RabbitMQ.Client.Events;
 namespace Milvaion.Infrastructure.Services.RabbitMQ;
 
 /// <summary>
-/// Manages RabbitMQ connection lifecycle for job dispatcher.
+/// Manages RabbitMQ connection lifecycle.
+/// Provides shared connection with per-caller channel creation.
 /// </summary>
-public class RabbitMQConnectionFactory : IDisposable
+/// <remarks>
+/// RabbitMQ Best Practice:
+/// - 1 Connection per application (TCP socket, heavy)
+/// - 1 Channel per operation (lightweight, NOT thread-safe)
+/// - Caller is responsible for channel disposal
+///
+/// Usage:
+/// 1. Call InitializeAsync() once at application startup
+/// 2. Use CreateChannelAsync() for each operation
+/// 3. Dispose channel after use (await using)
+/// </remarks>
+/// <remarks>
+/// Initializes a new instance of the <see cref="RabbitMQConnectionFactory"/> class.
+/// </remarks>
+public class RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILoggerFactory loggerFactory) : IAsyncDisposable, IDisposable
 {
-    private readonly IMilvaLogger _logger;
-    private readonly RabbitMQOptions _options;
-    private readonly Lazy<IConnection> _lazyConnection;
-    private IChannel _channel;
-    private readonly SemaphoreSlim _channelLock = new(1, 1);
+    private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<RabbitMQConnectionFactory>();
+    private readonly RabbitMQOptions _options = options.Value;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+    private IConnection _connection;
+    private bool _disposed;
+    private volatile bool _initialized;
 
     /// <summary>
     /// Gets the active RabbitMQ connection.
+    /// Throws if InitializeAsync() has not been called.
     /// </summary>
-    public IConnection Connection => _lazyConnection.Value;
+    public IConnection Connection => _connection ?? throw new InvalidOperationException("RabbitMQ connection not initialized. Call InitializeAsync() first.");
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="RabbitMQConnectionFactory"/> class.
+    /// Initializes connection, queues and exchanges.
+    /// Must be called once at application startup before using CreateChannelAsync().
+    /// Thread-safe and idempotent - safe to call multiple times from multiple threads.
     /// </summary>
-    public RabbitMQConnectionFactory(IOptions<RabbitMQOptions> options, ILoggerFactory loggerFactory)
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        _logger = loggerFactory.CreateMilvaLogger<RabbitMQConnectionFactory>();
-        _options = options.Value;
-        _lazyConnection = new Lazy<IConnection>(() =>
-        {
-            try
-            {
-                var factory = new ConnectionFactory
-                {
-                    HostName = _options.Host,
-                    Port = _options.Port,
-                    UserName = _options.Username,
-                    Password = _options.Password,
-                    VirtualHost = _options.VirtualHost,
-                    RequestedHeartbeat = TimeSpan.FromSeconds(_options.Heartbeat),
-                    AutomaticRecoveryEnabled = _options.AutomaticRecoveryEnabled,
-                    NetworkRecoveryInterval = TimeSpan.FromSeconds(_options.NetworkRecoveryInterval),
-                    RequestedConnectionTimeout = TimeSpan.FromSeconds(_options.ConnectionTimeout)
-                };
+        // Fast path - already initialized
+        if (_initialized)
+            return;
 
-                var connection = factory.CreateConnectionAsync().GetAwaiter().GetResult();
-
-                connection.ConnectionShutdownAsync += OnConnectionShutdownAsync;
-                connection.CallbackExceptionAsync += OnCallbackExceptionAsync;
-                connection.ConnectionBlockedAsync += OnConnectionBlockedAsync;
-
-                _logger.Information("RabbitMQ connection established: {Host}:{Port}, VirtualHost: {VirtualHost}", _options.Host, _options.Port, _options.VirtualHost);
-
-                return connection;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Failed to connect to RabbitMQ at {Host}:{Port}", _options.Host, _options.Port);
-                throw;
-            }
-        });
-    }
-
-    /// <summary>
-    /// Gets or creates a channel for publishing messages.
-    /// </summary>
-    public async Task<IChannel> GetChannelAsync(CancellationToken cancellationToken = default)
-    {
-        await _channelLock.WaitAsync(cancellationToken);
+        await _initLock.WaitAsync(cancellationToken);
 
         try
         {
-            if (_channel == null || _channel.IsClosed)
-            {
-                _channel = await Connection.CreateChannelAsync(cancellationToken: cancellationToken);
+            // Double-check after acquiring lock
+            if (_initialized)
+                return;
 
-                // 1. Create Dead Letter Exchange (DLX)
-                await _channel.ExchangeDeclareAsync(exchange: WorkerConstant.DeadLetterExchangeName,
-                                                    type: "direct",
-                                                    durable: true,
-                                                    autoDelete: false,
-                                                    arguments: null,
-                                                    cancellationToken: cancellationToken);
+            await InitializeCoreAsync(cancellationToken);
 
-                // 2. Create Dead Letter Queue (DLQ)
-                await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.FailedOccurrences,
-                                                 durable: true,
-                                                 exclusive: false,
-                                                 autoDelete: false,
-                                                 arguments: null,
-                                                 cancellationToken: cancellationToken);
-
-                // 3. Bind DLQ to DLX
-                await _channel.QueueBindAsync(queue: WorkerConstant.Queues.FailedOccurrences,
-                                              exchange: WorkerConstant.DeadLetterExchangeName,
-                                              routingKey: WorkerConstant.DeadLetterRoutingKey,
-                                              arguments: null,
-                                              cancellationToken: cancellationToken);
-
-                // 4. Create Main Queue with DLX settings
-                var mainQueueArgs = new Dictionary<string, object>
-                {
-                    { "x-dead-letter-exchange", WorkerConstant.DeadLetterExchangeName },
-                    { "x-dead-letter-routing-key", WorkerConstant.DeadLetterRoutingKey }
-                };
-
-                await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.Jobs,
-                                                 durable: _options.Durable,
-                                                 exclusive: false,
-                                                 autoDelete: _options.AutoDelete,
-                                                 arguments: mainQueueArgs,
-                                                 cancellationToken: cancellationToken);
-
-                _logger.Information("RabbitMQ channel created with DLQ support. Main queue: {MainQueue}, DLQ: {DLQ}, DLX: {DLX}", WorkerConstant.Queues.Jobs, WorkerConstant.Queues.FailedOccurrences, WorkerConstant.DeadLetterExchangeName);
-            }
-
-            return _channel;
+            _initialized = true;
         }
         finally
         {
-            _channelLock.Release();
+            _initLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Core initialization logic - creates connection and declares queues/exchanges.
+    /// </summary>
+    private async Task InitializeCoreAsync(CancellationToken cancellationToken)
+    {
+        // Create connection
+        var factory = new ConnectionFactory
+        {
+            HostName = _options.Host,
+            Port = _options.Port,
+            UserName = _options.Username,
+            Password = _options.Password,
+            VirtualHost = _options.VirtualHost,
+            RequestedHeartbeat = TimeSpan.FromSeconds(_options.Heartbeat),
+            AutomaticRecoveryEnabled = _options.AutomaticRecoveryEnabled,
+            NetworkRecoveryInterval = TimeSpan.FromSeconds(_options.NetworkRecoveryInterval),
+            RequestedConnectionTimeout = TimeSpan.FromSeconds(_options.ConnectionTimeout)
+        };
+
+        _connection = await factory.CreateConnectionAsync(cancellationToken);
+
+        _connection.ConnectionShutdownAsync += OnConnectionShutdownAsync;
+        _connection.CallbackExceptionAsync += OnCallbackExceptionAsync;
+        _connection.ConnectionBlockedAsync += OnConnectionBlockedAsync;
+        _connection.RecoverySucceededAsync += OnRecoverySucceededAsync;
+
+        _logger.Information("RabbitMQ connection established: {Host}:{Port}, VirtualHost: {VirtualHost}",
+            _options.Host, _options.Port, _options.VirtualHost);
+
+        // Declare all queues and exchanges
+        await DeclareTopologyAsync(cancellationToken);
+
+        _logger.Information("RabbitMQ initialized. Jobs queue: {Queue}, DLQ: {DLQ}, DLX: {DLX}, Exchange: {Exchange}",
+                            WorkerConstant.Queues.Jobs,
+                            WorkerConstant.Queues.FailedOccurrences,
+                            WorkerConstant.DeadLetterExchangeName,
+                            WorkerConstant.ExchangeName);
+    }
+
+    /// <summary>
+    /// Declares all queues, exchanges and bindings.
+    /// Called on initial connection and after recovery.
+    /// </summary>
+    private async Task DeclareTopologyAsync(CancellationToken cancellationToken = default)
+    {
+        await using var channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        // 1. Topic Exchange for job routing
+        await channel.ExchangeDeclareAsync(exchange: WorkerConstant.ExchangeName,
+                                           type: "topic",
+                                           durable: true,
+                                           autoDelete: false,
+                                           arguments: null,
+                                           cancellationToken: cancellationToken);
+
+        // 2. Dead Letter Exchange (DLX)
+        await channel.ExchangeDeclareAsync(exchange: WorkerConstant.DeadLetterExchangeName,
+                                           type: "direct",
+                                           durable: true,
+                                           autoDelete: false,
+                                           arguments: null,
+                                           cancellationToken: cancellationToken);
+
+        // 3. Dead Letter Queue (DLQ)
+        await channel.QueueDeclareAsync(queue: WorkerConstant.Queues.FailedOccurrences,
+                                        durable: true,
+                                        exclusive: false,
+                                        autoDelete: false,
+                                        arguments: null,
+                                        cancellationToken: cancellationToken);
+
+        // 4. Bind DLQ to DLX
+        await channel.QueueBindAsync(queue: WorkerConstant.Queues.FailedOccurrences,
+                                     exchange: WorkerConstant.DeadLetterExchangeName,
+                                     routingKey: WorkerConstant.DeadLetterRoutingKey,
+                                     arguments: null,
+                                     cancellationToken: cancellationToken);
+
+        // 5. Main Jobs Queue with DLX settings
+        var mainQueueArgs = new Dictionary<string, object>
+        {
+            { "x-dead-letter-exchange", WorkerConstant.DeadLetterExchangeName },
+            { "x-dead-letter-routing-key", WorkerConstant.DeadLetterRoutingKey }
+        };
+
+        await channel.QueueDeclareAsync(queue: WorkerConstant.Queues.Jobs,
+                                        durable: _options.Durable,
+                                        exclusive: false,
+                                        autoDelete: _options.AutoDelete,
+                                        arguments: mainQueueArgs,
+                                        cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Creates a new channel. Caller is responsible for disposal.
+    /// </summary>
+    public async Task<IChannel> CreateChannelAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_initialized)
+            throw new InvalidOperationException("RabbitMQ not initialized. Call InitializeAsync() first.");
+
+        var channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        _logger.Debug("Channel created: {ChannelNumber}", channel.ChannelNumber);
+
+        return channel;
     }
 
     /// <summary>
     /// Checks if RabbitMQ connection is healthy.
-    /// Creates connection if not already created.
     /// </summary>
-    public bool IsHealthy()
-    {
-        try
-        {
-            // Force connection creation if not already created
-            // This ensures health check actually tests connectivity
-            var connection = Connection;
-
-            return connection != null && connection.IsOpen;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    public bool IsHealthy() => _initialized && _connection != null && _connection.IsOpen;
 
     private Task OnConnectionShutdownAsync(object sender, ShutdownEventArgs e)
     {
         _logger.Warning("RabbitMQ connection shutdown: {ReplyCode} - {ReplyText}", e.ReplyCode, e.ReplyText);
 
+        // Reset initialized flag so topology is re-declared after recovery
+        _initialized = false;
+
         return Task.CompletedTask;
+    }
+
+    private async Task OnRecoverySucceededAsync(object sender, AsyncEventArgs e)
+    {
+        _logger.Information("RabbitMQ connection recovered. Re-declaring topology...");
+
+        try
+        {
+            // Re-declare topology after recovery
+            await DeclareTopologyAsync();
+
+            _initialized = true;
+
+            _logger.Information("RabbitMQ topology re-declared after recovery");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to re-declare topology after recovery");
+        }
     }
 
     private Task OnCallbackExceptionAsync(object sender, CallbackExceptionEventArgs e)
@@ -168,29 +227,45 @@ public class RabbitMQConnectionFactory : IDisposable
     }
 
     /// <summary>
-    /// Disposes the RabbitMQ connection and channel.
+    /// Disposes the RabbitMQ connection asynchronously.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        if (_connection != null)
+        {
+            _logger.Information("Closing RabbitMQ connection...");
+
+            await _connection.SafeCloseAsync(_logger, CancellationToken.None);
+        }
+
+        _initLock.Dispose();
+
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes the RabbitMQ connection synchronously.
     /// </summary>
     public void Dispose()
     {
-        _channelLock.Wait();
+        if (_disposed)
+            return;
 
-        try
+        _disposed = true;
+
+        if (_connection != null)
         {
-            _channel?.Dispose();
-            _channel = null;
+            _logger.Information("Closing RabbitMQ connection...");
 
-            if (_lazyConnection.IsValueCreated)
-            {
-                _logger.Information("Closing RabbitMQ connection...");
+            _connection.Dispose();
+        }
 
-                Connection.Dispose();
-            }
-        }
-        finally
-        {
-            _channelLock.Release();
-            _channelLock.Dispose();
-        }
+        _initLock.Dispose();
 
         GC.SuppressFinalize(this);
     }

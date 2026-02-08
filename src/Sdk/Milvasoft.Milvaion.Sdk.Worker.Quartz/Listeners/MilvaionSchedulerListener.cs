@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
@@ -157,7 +158,7 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
 
             var jobConfigs = _jobRegistry?.GetJobConfigs();
 
-            if (jobConfigs == null || jobConfigs.Count == 0)
+            if (jobConfigs.IsNullOrEmpty())
             {
                 _logger?.Warning("No Quartz jobs found in registry. WorkerListenerPublisher will not start.");
                 return;
@@ -390,7 +391,7 @@ public class MilvaionSchedulerListener(IExternalJobPublisher publisher,
 
         string jobData = null;
 
-        if (jobDetail.JobDataMap?.Count > 0)
+        if (!jobDetail.JobDataMap.IsNullOrEmpty())
         {
             try
             {

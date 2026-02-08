@@ -92,11 +92,11 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 var isNewInstance = !existingInstanceRegisteredAt.HasValue || existingInstanceRegisteredAt.IsNullOrEmpty;
 
                 if (isNewWorker && isNewInstance)
-                    _logger.Information($"[REDIS] New worker registered: {registration.WorkerId}:{registration.InstanceId} (TTL: {_instanceTTL.TotalMinutes}min, Host: {registration.HostName})");
+                    _logger.Information("[REDIS] New worker registered: {WorkerId}:{InstanceId} (TTL: {TTLMinutes}min, Host: {HostName})", registration.WorkerId, registration.InstanceId, _instanceTTL.TotalMinutes, registration.HostName);
                 else if (isNewInstance)
-                    _logger.Information($"[REDIS] New instance registered for existing worker: {registration.WorkerId}:{registration.InstanceId} (TTL: {_instanceTTL.TotalMinutes}min, Host: {registration.HostName})");
+                    _logger.Information("[REDIS] New instance registered for existing worker: {WorkerId}:{InstanceId} (TTL: {TTLMinutes}min, Host: {HostName})", registration.WorkerId, registration.InstanceId, _instanceTTL.TotalMinutes, registration.HostName);
                 else
-                    _logger.Debug($"[REDIS] Worker metadata refreshed: {registration.WorkerId}:{registration.InstanceId} (TTL: {_instanceTTL.TotalMinutes}min)");
+                    _logger.Debug("[REDIS] Worker metadata refreshed: {WorkerId}:{InstanceId} (TTL: {TTLMinutes}min)", registration.WorkerId, registration.InstanceId, _instanceTTL.TotalMinutes);
 
                 return await Task.FromResult(true);
             },
@@ -117,7 +117,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 var instanceExists = await _db.KeyExistsAsync(instanceKey);
                 if (!instanceExists)
                 {
-                    _logger.Warning($"[REDIS] UpdateHeartbeat FAILED: Instance key '{instanceKey}' does not exist. Instance may have expired due to missing heartbeats.");
+                    _logger.Warning("[REDIS] UpdateHeartbeat FAILED: Instance key '{InstanceKey}' does not exist. Instance may have expired due to missing heartbeats.", instanceKey);
                     return false;
                 }
 
@@ -140,16 +140,16 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
 
                 if (!instanceTtlSet || !workerTtlSet || !instanceSetTtlSet)
                 {
-                    _logger.Warning($"[REDIS] UpdateHeartbeat: TTL refresh failed for {instanceKey}. InstanceTTL={instanceTtlSet}, WorkerTTL={workerTtlSet}, InstanceSetTTL={instanceSetTtlSet}");
+                    _logger.Warning("[REDIS] UpdateHeartbeat: TTL refresh failed for {InstanceKey}. InstanceTTL={InstanceTtlSet}, WorkerTTL={WorkerTtlSet}, InstanceSetTTL={InstanceSetTtlSet}", instanceKey, instanceTtlSet, workerTtlSet, instanceSetTtlSet);
                 }
 
-                _logger.Debug($"[REDIS] UpdateHeartbeat SUCCESS: {instanceKey} -> currentJobs={currentJobs}, TTL refreshed to {_instanceTTL.TotalMinutes}min");
+                _logger.Debug("[REDIS] UpdateHeartbeat SUCCESS: {InstanceKey} -> currentJobs={CurrentJobs}, TTL refreshed to {TTLMinutes}min", instanceKey, currentJobs, _instanceTTL.TotalMinutes);
 
                 return true;
             },
             fallback: async () =>
             {
-                _logger.Error($"[REDIS] UpdateHeartbeat circuit breaker triggered for {workerId}:{instanceId}");
+                _logger.Error("[REDIS] UpdateHeartbeat circuit breaker triggered for {WorkerId}:{InstanceId}", workerId, instanceId);
                 return false;
             },
             operationName: "UpdateHeartbeat",
@@ -161,7 +161,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     /// </summary>
     public async Task<int> BulkUpdateHeartbeatsAsync(List<(string WorkerId, string InstanceId, int CurrentJobs, DateTime Timestamp)> updates, CancellationToken cancellationToken = default)
     {
-        if (updates == null || updates.Count == 0)
+        if (updates.IsNullOrEmpty())
             return 0;
 
         try
@@ -302,7 +302,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 }
 
                 // If no active instances found after pipeline fetch, remove stale metadata
-                if (instances.Count == 0)
+                if (instances.IsNullOrEmpty())
                 {
                     _logger.Warning("[GetWorkerAsync] Worker {WorkerId} metadata exists but all instances expired. Removing stale metadata.", workerId);
 
@@ -352,7 +352,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
             {
                 // O(1) fetch from index set
                 var workerIds = await _db.SetMembersAsync(_workersIndexKey);
-                if (workerIds.Length == 0)
+                if (workerIds.IsNullOrEmpty())
                     return [];
 
                 // Phase 1: Fetch worker metadata and instance sets
@@ -388,7 +388,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 foreach (var workerId in workerIds.Select(x => x.ToString()))
                 {
                     var meta = await metadataTasks[workerId];
-                    if (meta.Length == 0)
+                    if (meta.IsNullOrEmpty())
                         continue;
 
                     var metaDict = meta.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
@@ -405,7 +405,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
 
                         var instanceData = await instanceTask;
 
-                        if (instanceData.Length == 0)
+                        if (instanceData.IsNullOrEmpty())
                             continue;
 
                         var instanceDict = instanceData.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
@@ -437,7 +437,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                         });
                     }
 
-                    if (instances.Count == 0)
+                    if (instances.IsNullOrEmpty())
                         continue;
 
                     workers.Add(new CachedWorker
@@ -589,7 +589,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
     public Task BatchUpdateConsumerJobCountsAsync(Dictionary<string, int> updates, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
-                if (updates.Count == 0)
+                if (updates.IsNullOrEmpty())
                     return true;
 
                 try
@@ -695,7 +695,7 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                     var instanceIds = await _db.SetMembersAsync(instanceSetKey);
 
                     // Delete all instance keys
-                    if (instanceIds.Length > 0)
+                    if (!instanceIds.IsNullOrEmpty())
                     {
                         var instanceKeys = instanceIds.Select(id => (RedisKey)$"workers:{workerId}:instances:{id}").ToArray();
                         await _db.KeyDeleteAsync(instanceKeys);

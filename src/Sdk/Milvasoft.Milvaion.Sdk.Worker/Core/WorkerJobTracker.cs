@@ -22,7 +22,7 @@ public class WorkerJobTracker(ILoggerFactory loggerFactory)
     {
         var newCount = _currentJobs.AddOrUpdate(workerId, 1, (_, count) => count + 1);
 
-        _logger.Debug($"[JobTracker] IncrementJobCount({workerId}) -> {newCount} (ProcessId: {Environment.ProcessId})");
+        _logger.Debug("[JobTracker] IncrementJobCount({WorkerId}) -> {NewCount} (ProcessId: {ProcessId})", workerId, newCount, Environment.ProcessId);
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public class WorkerJobTracker(ILoggerFactory loggerFactory)
     {
         var newCount = _currentJobs.AddOrUpdate(workerId, 0, (_, count) => Math.Max(0, count - 1));
 
-        _logger.Debug($"[JobTracker] DecrementJobCount({workerId}) -> {newCount} (ProcessId: {Environment.ProcessId})");
+        _logger.Debug("[JobTracker] DecrementJobCount({WorkerId}) -> {NewCount} (ProcessId: {ProcessId})", workerId, newCount, Environment.ProcessId);
     }
 
     /// <summary>

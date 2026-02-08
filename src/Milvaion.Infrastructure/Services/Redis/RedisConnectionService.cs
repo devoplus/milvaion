@@ -9,11 +9,12 @@ namespace Milvaion.Infrastructure.Services.Redis;
 /// <summary>
 /// Manages Redis connection lifecycle for job scheduler.
 /// </summary>
-public class RedisConnectionService : IDisposable
+public class RedisConnectionService : IDisposable, IAsyncDisposable
 {
     private readonly IMilvaLogger _logger;
     private readonly RedisOptions _options;
     private readonly Lazy<ConnectionMultiplexer> _lazyConnection;
+    private bool _disposed;
 
     /// <summary>
     /// Gets the active Redis connection multiplexer.
@@ -115,15 +116,57 @@ public class RedisConnectionService : IDisposable
     }
 
     /// <summary>
-    /// Disposes the Redis connection.
+    /// Disposes the Redis connection asynchronously.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        if (_lazyConnection.IsValueCreated)
+        {
+            _logger.Information("Closing Redis connection asynchronously...");
+
+            try
+            {
+                await Connection.CloseAsync();
+                await Connection.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Error closing Redis connection");
+            }
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes the Redis connection synchronously.
+    /// Prefer DisposeAsync when possible.
     /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
         if (_lazyConnection.IsValueCreated)
         {
-            _logger.Information("Closing Redis connection");
-            Connection.Close();
-            Connection.Dispose();
+            _logger.Information("Closing Redis connection...");
+
+            try
+            {
+                Connection.Close();
+                Connection.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Error closing Redis connection");
+            }
         }
 
         GC.SuppressFinalize(this);

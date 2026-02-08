@@ -26,7 +26,7 @@ public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOpt
     {
         try
         {
-            var channel = await _connectionFactory.GetChannelAsync(cancellationToken);
+            await using var channel = await _connectionFactory.CreateChannelAsync(cancellationToken);
 
             // Use QueueDeclare with passive=true instead of QueueDeclarePassive
             var queueInfo = await channel.QueueDeclarePassiveAsync(queueName, cancellationToken);
@@ -83,7 +83,7 @@ public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOpt
     {
         try
         {
-            var channel = await _connectionFactory.GetChannelAsync(cancellationToken);
+            await using var channel = await _connectionFactory.CreateChannelAsync(cancellationToken);
             var queueInfo = await channel.QueueDeclarePassiveAsync(queueName, cancellationToken);
 
             var healthStatus = DetermineHealthStatus(queueInfo.MessageCount);

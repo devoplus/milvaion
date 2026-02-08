@@ -439,7 +439,7 @@ public static class WorkerServiceCollectionExtensions
             jobConfigs[jobSection.Key] = config;
         }
 
-        if (jobConfigs.Count == 0)
+        if (jobConfigs.IsNullOrEmpty())
             throw new InvalidOperationException($"No job consumer configurations found in '{JobConsumerOptions.SectionKey}' section");
 
         // Register dedicated consumers for each job
@@ -492,7 +492,7 @@ public static class WorkerServiceCollectionExtensions
         }
 
         // Register single worker registration publisher for ALL job consumers
-        if (jobConfigs.Count > 0)
+        if (!jobConfigs.IsNullOrEmpty())
         {
             services.AddHostedService(sp =>
             {

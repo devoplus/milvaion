@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using RabbitMQ.Client;
@@ -130,7 +131,7 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
                 batch.Add(log);
             }
 
-            if (batch.Count == 0)
+            if (batch.IsNullOrEmpty())
                 return;
 
             try

@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using RabbitMQ.Client;
 using System.Text;
@@ -15,20 +15,16 @@ namespace Milvaion.Infrastructure.Services.RabbitMQ;
 public class RabbitMQPublisher : IRabbitMQPublisher
 {
     private readonly RabbitMQConnectionFactory _connectionFactory;
-    private readonly RabbitMQOptions _options;
     private readonly IMilvaLogger _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQPublisher"/> class.
     /// </summary>
-    public RabbitMQPublisher(RabbitMQConnectionFactory connectionFactory,
-                             IOptions<RabbitMQOptions> options,
-                             ILoggerFactory loggerFactory)
+    public RabbitMQPublisher(RabbitMQConnectionFactory connectionFactory, ILoggerFactory loggerFactory)
     {
         _connectionFactory = connectionFactory;
         _logger = loggerFactory.CreateMilvaLogger<RabbitMQPublisher>();
-        _options = options.Value;
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -43,15 +39,7 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     {
         try
         {
-            var channel = await _connectionFactory.GetChannelAsync(cancellationToken);
-
-            // Declare topic exchange (idempotent)
-            await channel.ExchangeDeclareAsync(exchange: WorkerConstant.ExchangeName,
-                                               type: "topic",
-                                               durable: true,
-                                               autoDelete: false,
-                                               arguments: null,
-                                               cancellationToken: cancellationToken);
+            await using var channel = await _connectionFactory.CreateChannelAsync(cancellationToken);
 
             // Serialize job to JSON
             var json = JsonSerializer.Serialize(job, _jsonOptions);
@@ -154,12 +142,11 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     /// <inheritdoc/>
     public async Task<int> PublishBatchAsync(Dictionary<ScheduledJob, Guid> jobsWithCorrelation, CancellationToken cancellationToken = default)
     {
-        if (jobsWithCorrelation.Count == 0)
+        if (jobsWithCorrelation.IsNullOrEmpty())
             return 0;
 
         try
         {
-            var channel = await _connectionFactory.GetChannelAsync(cancellationToken);
             var publishedCount = 0;
 
             foreach (var (job, correlationId) in jobsWithCorrelation)
@@ -185,7 +172,7 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     {
         try
         {
-            var channel = await _connectionFactory.GetChannelAsync(cancellationToken);
+            await using var channel = await _connectionFactory.CreateChannelAsync(cancellationToken);
 
             // If routingPatterns provided, use them. Otherwise fall back to default "all" queue.
             string queueName;

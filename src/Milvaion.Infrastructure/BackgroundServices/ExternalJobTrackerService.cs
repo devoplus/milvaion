@@ -10,7 +10,9 @@ using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
+using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
@@ -27,7 +29,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 /// Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
 /// </summary>
 public class ExternalJobTrackerService(IServiceProvider serviceProvider,
-                                       IOptions<RabbitMQOptions> rabbitOptions,
+                                       RabbitMQConnectionFactory rabbitMQFactory,
                                        IOptions<ExternalJobTrackerOptions> options,
                                        IRedisSchedulerService redisSchedulerService,
                                        IRedisStatsService redisStatsService,
@@ -36,14 +38,13 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                                        IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
     private readonly IRedisSchedulerService _redisSchedulerService = redisSchedulerService;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<ExternalJobTrackerService>();
-    private readonly RabbitMQOptions _rabbitOptions = rabbitOptions.Value;
     private readonly ExternalJobTrackerOptions _options = options.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
 
-    private IConnection _connection;
     private IChannel _registrationChannel;
     private IChannel _occurrenceChannel;
 
@@ -52,6 +53,10 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
     private readonly ConcurrentQueue<ExternalJobOccurrenceMessage> _occurrenceBatch = new();
     private readonly SemaphoreSlim _registrationBatchLock = new(1, 1);
     private readonly SemaphoreSlim _occurrenceBatchLock = new(1, 1);
+
+    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
+    private readonly SemaphoreSlim _registrationChannelLock = new(1, 1);
+    private readonly SemaphoreSlim _occurrenceChannelLock = new(1, 1);
 
     /// <inheritdoc/>
     protected override string ServiceName => "ExternalJobTracker";
@@ -121,29 +126,9 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
-        var factory = new ConnectionFactory
-        {
-            HostName = _rabbitOptions.Host,
-            Port = _rabbitOptions.Port,
-            UserName = _rabbitOptions.Username,
-            Password = _rabbitOptions.Password,
-            VirtualHost = _rabbitOptions.VirtualHost,
-            AutomaticRecoveryEnabled = true,
-            NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
-            TopologyRecoveryEnabled = true
-        };
-
-        _connection = await factory.CreateConnectionAsync(stoppingToken);
-
-        _connection.ConnectionShutdownAsync += async (sender, args) =>
-        {
-            _logger.Warning("ExternalJobTracker RabbitMQ connection shutdown. Reason: {Reason}", args.ReplyText);
-            await Task.CompletedTask;
-        };
-
-        // Create channels for both queues
-        _registrationChannel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-        _occurrenceChannel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+        // Get channels from shared connection factory
+        _registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        _occurrenceChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
 
         // Declare queues
         await _registrationChannel.QueueDeclareAsync(queue: WorkerConstant.Queues.ExternalJobRegistration,
@@ -162,7 +147,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         await _registrationChannel.BasicQosAsync(0, 10, false, stoppingToken);
         await _occurrenceChannel.BasicQosAsync(0, 20, false, stoppingToken);
 
-        _logger.Information("ExternalJobTracker connected to RabbitMQ");
+        _logger.Information("ExternalJobTracker connected to RabbitMQ (shared connection). RegistrationChannel: {RegCh}, OccurrenceChannel: {OccCh}", _registrationChannel.ChannelNumber, _occurrenceChannel.ChannelNumber);
 
         // Setup registration consumer
         var registrationConsumer = new AsyncEventingBasicConsumer(_registrationChannel);
@@ -215,7 +200,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
             if (message == null)
             {
-                await _registrationChannel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
+                await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -224,13 +209,13 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             if (_registrationBatch.Count >= _options.RegistrationBatchSize)
                 await ProcessRegistrationBatchAsync(cancellationToken);
 
-            await _registrationChannel.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
+            await _registrationChannel.SafeAckAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process registration message");
 
-            await _registrationChannel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
+            await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
         }
     }
 
@@ -242,7 +227,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
             if (message == null)
             {
-                await _occurrenceChannel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
+                await _occurrenceChannel.SafeNackAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -251,13 +236,13 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             if (_occurrenceBatch.Count >= _options.OccurrenceBatchSize)
                 await ProcessOccurrenceBatchAsync(cancellationToken);
 
-            await _occurrenceChannel.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
+            await _occurrenceChannel.SafeAckAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process occurrence message");
 
-            await _occurrenceChannel.BasicNackAsync(ea.DeliveryTag, false, false, cancellationToken);
+            await _occurrenceChannel.SafeNackAsync(ea.DeliveryTag, _occurrenceChannelLock, _logger, cancellationToken);
         }
     }
 
@@ -614,28 +599,27 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         _logger.Information("ExternalJobTracker stopping...");
 
         // Process remaining batches
-        await ProcessRegistrationBatchAsync(cancellationToken);
-        await ProcessOccurrenceBatchAsync(cancellationToken);
-
-        // Close channels and connection
-        if (_registrationChannel != null)
+        try
         {
-            await _registrationChannel.CloseAsync(cancellationToken);
-            await _registrationChannel.DisposeAsync();
+            await ProcessRegistrationBatchAsync(CancellationToken.None);
+            await ProcessOccurrenceBatchAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to process remaining batches during shutdown");
         }
 
-        if (_occurrenceChannel != null)
-        {
-            await _occurrenceChannel.CloseAsync(cancellationToken);
-            await _occurrenceChannel.DisposeAsync();
-        }
+        // Dispose semaphores
+        _registrationBatchLock?.Dispose();
+        _occurrenceBatchLock?.Dispose();
+        _registrationChannelLock?.Dispose();
+        _occurrenceChannelLock?.Dispose();
 
-        if (_connection != null)
-        {
-            await _connection.CloseAsync(cancellationToken);
-            await _connection.DisposeAsync();
-        }
+        // Close only channels (connection is managed by RabbitMQConnectionFactory)
+        await _registrationChannel.SafeCloseAsync(_logger, cancellationToken);
+        await _occurrenceChannel.SafeCloseAsync(_logger, cancellationToken);
 
         await base.StopAsync(cancellationToken);
+        _logger.Information("ExternalJobTracker stopped");
     }
 }

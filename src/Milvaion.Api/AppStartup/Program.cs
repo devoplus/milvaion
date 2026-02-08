@@ -10,6 +10,7 @@ using Milvaion.Application.Utils.LinkedWithFormatters;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Domain;
 using Milvaion.Infrastructure;
+using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvasoft.Components.Rest;
 using Milvasoft.Core.Utils.Converters;
 using Serilog;
@@ -125,6 +126,10 @@ try
     app.MapFallbackToFile("index.html");
 
     #endregion
+
+    // Initialize RabbitMQ queues and exchanges before starting the application
+    var rabbitMQFactory = app.Services.GetRequiredService<RabbitMQConnectionFactory>();
+    await rabbitMQFactory.InitializeAsync();
 
     await app.RunAsync();
 

@@ -1,4 +1,5 @@
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
 
 namespace Milvasoft.Milvaion.Sdk.Worker.Persistence;
@@ -189,7 +190,7 @@ public class OutboxService(ILocalStateStore localStore,
         {
             var pendingUpdates = await _localStore.GetPendingStatusUpdatesAsync(maxBatchSize, cancellationToken);
 
-            if (pendingUpdates.Count == 0)
+            if (pendingUpdates.IsNullOrEmpty())
             {
                 result.Success = true;
                 result.Message = "No pending status updates";
@@ -277,7 +278,7 @@ public class OutboxService(ILocalStateStore localStore,
         {
             var pendingLogs = await _localStore.GetPendingLogsAsync(maxBatchSize, cancellationToken);
 
-            if (pendingLogs.Count == 0)
+            if (pendingLogs.IsNullOrEmpty())
             {
                 result.Success = true;
                 result.Message = "No pending logs";

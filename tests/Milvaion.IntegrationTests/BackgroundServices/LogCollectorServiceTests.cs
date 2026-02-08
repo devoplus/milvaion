@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
+using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
@@ -467,16 +468,22 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
         log.Data.Should().ContainKey("recordsProcessed");
     }
 
-    private LogCollectorService CreateLogCollectorService() => new(
+    private LogCollectorService CreateLogCollectorService()
+    {
+        var rabbitOptions = Options.Create(new RabbitMQOptions
+        {
+            Host = _factory.GetRabbitMqHost(),
+            Port = _factory.GetRabbitMqPort(),
+            Username = "guest",
+            Password = "guest",
+            VirtualHost = "/"
+        });
+
+        var rabbitMQFactory = new RabbitMQConnectionFactory(rabbitOptions, _serviceProvider.GetRequiredService<ILoggerFactory>());
+
+        return new LogCollectorService(
             _serviceProvider,
-            Options.Create(new RabbitMQOptions
-            {
-                Host = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
-                Username = "guest",
-                Password = "guest",
-                VirtualHost = "/"
-            }),
+            rabbitMQFactory,
             Options.Create(new LogCollectorOptions
             {
                 Enabled = true,
@@ -486,6 +493,7 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
+    }
 
     private async Task PublishLogMessageAsync(WorkerLogBatchMessage message, CancellationToken cancellationToken)
     {

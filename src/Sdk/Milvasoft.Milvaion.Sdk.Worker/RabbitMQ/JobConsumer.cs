@@ -77,12 +77,12 @@ public class JobConsumer : BackgroundService
         _jobConfigs = jobConsumerOptions.Value ?? new Dictionary<string, JobConsumerConfig>();
         _outboxService = outboxService;
 
-        _logger.Debug($"[JOBCONSUMER INIT] JobConsumerOptions.Value is null: {jobConsumerOptions.Value == null}");
-        _logger.Debug($"[JOBCONSUMER INIT] Consumers count: {_jobConfigs.Count}");
-        _logger.Debug($"[JOBCONSUMER INIT] OutboxService: {(_outboxService != null ? "Enabled" : "Disabled")}");
+        _logger.Debug("[JOBCONSUMER INIT] JobConsumerOptions.Value is null: {IsNull}", jobConsumerOptions.Value == null);
+        _logger.Debug("[JOBCONSUMER INIT] Consumers count: {Count}", _jobConfigs.Count);
+        _logger.Debug("[JOBCONSUMER INIT] OutboxService: {OutboxStatus}", _outboxService != null ? "Enabled" : "Disabled");
 
         foreach (var (jobName, config) in _jobConfigs)
-            _logger.Debug($"[JOBCONSUMER INIT]   - {jobName}: Timeout={config.ExecutionTimeoutSeconds}s");
+            _logger.Debug("[JOBCONSUMER INIT]   - {JobName}: Timeout={Timeout}s", jobName, config.ExecutionTimeoutSeconds);
     }
 
     /// <inheritdoc/>

@@ -8,6 +8,7 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
+using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain;
@@ -498,19 +499,25 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
         updatedOccurrence.Result.Should().Be(uniqueResult);
     }
 
-    private StatusTrackerService CreateStatusTrackerService() => new(
+    private StatusTrackerService CreateStatusTrackerService()
+    {
+        var rabbitOptions = Options.Create(new RabbitMQOptions
+        {
+            Host = _factory.GetRabbitMqHost(),
+            Port = _factory.GetRabbitMqPort(),
+            Username = "guest",
+            Password = "guest",
+            VirtualHost = "/"
+        });
+
+        var rabbitMQFactory = new RabbitMQConnectionFactory(rabbitOptions, _serviceProvider.GetRequiredService<ILoggerFactory>());
+
+        return new StatusTrackerService(
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<IAlertNotifier>(),
-            Options.Create(new RabbitMQOptions
-            {
-                Host = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
-                Username = "guest",
-                Password = "guest",
-                VirtualHost = "/"
-            }),
+            rabbitMQFactory,
             Options.Create(new StatusTrackerOptions
             {
                 Enabled = true,
@@ -526,6 +533,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
+    }
 
     private async Task PublishStatusUpdateAsync(JobStatusUpdateMessage message, CancellationToken cancellationToken)
     {

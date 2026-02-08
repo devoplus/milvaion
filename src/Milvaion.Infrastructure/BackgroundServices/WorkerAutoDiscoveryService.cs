@@ -4,6 +4,8 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
+using Milvaion.Infrastructure.Extensions;
+using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
@@ -21,7 +23,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 /// Stores runtime state in Redis for high performance.
 /// </summary>
 public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
-                                        IOptions<RabbitMQOptions> rabbitOptions,
+                                        RabbitMQConnectionFactory rabbitMQFactory,
                                         IOptions<WorkerAutoDiscoveryOptions> options,
                                         ILoggerFactory loggerFactory,
                                         IServiceProvider serviceProvider,
@@ -29,17 +31,20 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                                         IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IRedisWorkerService _redisWorkerService = redisWorkerService;
+    private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<WorkerAutoDiscoveryService>();
-    private readonly RabbitMQOptions _rabbitOptions = rabbitOptions.Value;
     private readonly WorkerAutoDiscoveryOptions _options = options.Value;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly BackgroundServiceMetrics _metrics = metrics;
-    private IConnection _connection;
     private IChannel _registrationChannel;
     private IChannel _heartbeatChannel;
 
     // Heartbeat batch processing with per-instance deduplication
     private readonly SemaphoreSlim _batchLock = new(1, 1);
+
+    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
+    private readonly SemaphoreSlim _heartbeatChannelLock = new(1, 1);
+    private readonly SemaphoreSlim _registrationChannelLock = new(1, 1);
 
     // Per-instance deduplication: only keep latest heartbeat per instance
     // This dramatically reduces Redis load when workers send many heartbeats rapidly
@@ -92,19 +97,9 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
-        var factory = new ConnectionFactory
-        {
-            HostName = _rabbitOptions.Host,
-            Port = _rabbitOptions.Port,
-            UserName = _rabbitOptions.Username,
-            Password = _rabbitOptions.Password,
-            VirtualHost = _rabbitOptions.VirtualHost,
-            AutomaticRecoveryEnabled = true
-        };
-
-        _connection = await factory.CreateConnectionAsync(stoppingToken);
-        _registrationChannel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-        _heartbeatChannel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+        // Get channels from shared connection factory
+        _registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
+        _heartbeatChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
 
         // Declare queues
         await _registrationChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, null, cancellationToken: stoppingToken);
@@ -114,7 +109,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         await _registrationChannel.BasicQosAsync(0, 10, false, stoppingToken);
         await _heartbeatChannel.BasicQosAsync(0, 500, false, stoppingToken); // High prefetch for high-frequency heartbeats
 
-        _logger.Information("Connected to RabbitMQ. Consuming worker registration and heartbeat messages");
+        _logger.Information("WorkerAutoDiscovery connected to RabbitMQ (shared connection). RegistrationChannel: {RegCh}, HeartbeatChannel: {HbCh}", _registrationChannel.ChannelNumber, _heartbeatChannel.ChannelNumber);
 
         // Registration consumer
         var registrationConsumer = new AsyncEventingBasicConsumer(_registrationChannel);
@@ -163,7 +158,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             {
                 _logger.Debug("Failed to deserialize worker registration");
 
-                await SafeNackAsync(_registrationChannel, ea.DeliveryTag, cancellationToken);
+                await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
 
                 return;
             }
@@ -185,13 +180,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 _logger.Error("Failed to register worker {WorkerId} in Redis", registration.WorkerId);
             }
 
-            await SafeAckAsync(_registrationChannel, ea.DeliveryTag, false, cancellationToken);
+            await _registrationChannel.SafeAckAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process worker registration");
 
-            await SafeNackAsync(_registrationChannel, ea.DeliveryTag, cancellationToken);
+            await _registrationChannel.SafeNackAsync(ea.DeliveryTag, _registrationChannelLock, _logger, cancellationToken);
         }
     }
 
@@ -209,7 +204,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
             if (heartbeat == null)
             {
-                await SafeNackAsync(_heartbeatChannel, ea.DeliveryTag, cancellationToken);
+                await _heartbeatChannel.SafeNackAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -239,7 +234,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 if (success)
                     _logger.Information("Worker instance {InstanceId} cleaned up successfully on graceful shutdown", heartbeat.InstanceId);
 
-                await SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, false, cancellationToken);
+                await _heartbeatChannel.SafeAckAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -260,13 +255,13 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                     if (heartbeat.Timestamp >= existing.Heartbeat.Timestamp)
                     {
                         // New heartbeat is newer - ACK the old one
-                        _ = SafeAckAsync(_heartbeatChannel, existing.DeliveryTag, false, cancellationToken);
+                        _ = _heartbeatChannel.SafeAckAsync(existing.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
                         return (heartbeat, ea.DeliveryTag, now);
                     }
                     else
                     {
                         // Existing heartbeat is newer - ACK the incoming one
-                        _ = SafeAckAsync(_heartbeatChannel, ea.DeliveryTag, false, cancellationToken);
+                        _ = _heartbeatChannel.SafeAckAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
                         return existing;
                     }
                 });
@@ -276,7 +271,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process worker heartbeat");
-            await SafeNackAsync(_heartbeatChannel, ea.DeliveryTag, cancellationToken);
+            await _heartbeatChannel.SafeNackAsync(ea.DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
         }
     }
 
@@ -318,7 +313,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
             // ACK each message individually (can't use bulk ACK with deduplication since delivery tags aren't sequential)
             foreach (var (InstanceId, Heartbeat, DeliveryTag) in snapshot)
-                await SafeAckAsync(_heartbeatChannel, DeliveryTag, false, cancellationToken);
+                await _heartbeatChannel.SafeAckAsync(DeliveryTag, _heartbeatChannelLock, _logger, cancellationToken);
 
             // Record metrics
             _metrics.RecordWorkerHeartbeats(successCount);
@@ -334,62 +329,6 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         finally
         {
             _batchLock.Release();
-        }
-    }
-
-    /// <summary>
-    /// Safe ACK operation that checks channel state before acknowledgment.
-    /// Prevents "Already closed" exceptions during shutdown.
-    /// </summary>
-    /// <param name="channel">The RabbitMQ channel.</param>
-    /// <param name="deliveryTag">The delivery tag to acknowledge.</param>
-    /// <param name="multiple">If true, ACKs all messages up to and including deliveryTag (bulk ACK).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task SafeAckAsync(IChannel channel, ulong deliveryTag, bool multiple, CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (cancellationToken.IsCancellationRequested || channel == null || channel.IsClosed)
-            {
-                _logger.Debug("Skipping ACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
-                return;
-            }
-
-            await channel.BasicAckAsync(deliveryTag, multiple, cancellationToken);
-        }
-        catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
-        {
-            _logger.Debug("Channel already closed during ACK (DeliveryTag: {DeliveryTag})", deliveryTag);
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Failed to ACK message (DeliveryTag: {DeliveryTag})", deliveryTag);
-        }
-    }
-
-    /// <summary>
-    /// Safe NACK operation that checks channel state before negative acknowledgment.
-    /// Prevents "Already closed" exceptions during shutdown.
-    /// </summary>
-    private async Task SafeNackAsync(IChannel channel, ulong deliveryTag, CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (cancellationToken.IsCancellationRequested || channel == null || channel.IsClosed)
-            {
-                _logger.Debug("Skipping NACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
-                return;
-            }
-
-            await channel.BasicNackAsync(deliveryTag, false, false, cancellationToken);
-        }
-        catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
-        {
-            _logger.Debug("Channel already closed during NACK (DeliveryTag: {DeliveryTag})", deliveryTag);
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Failed to NACK message (DeliveryTag: {DeliveryTag})", deliveryTag);
         }
     }
 
@@ -413,58 +352,17 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
             _logger.Warning(ex, "Failed to process remaining heartbeats during shutdown");
         }
 
-        // Dispose batch lock
+        // Dispose semaphores
         _batchLock?.Dispose();
+        _heartbeatChannelLock?.Dispose();
+        _registrationChannelLock?.Dispose();
 
-        try
-        {
-            if (_registrationChannel != null && !_registrationChannel.IsClosed)
-            {
-                await _registrationChannel.CloseAsync(cancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Error closing registration channel");
-        }
-        finally
-        {
-            _registrationChannel?.Dispose();
-        }
-
-        try
-        {
-            if (_heartbeatChannel != null && !_heartbeatChannel.IsClosed)
-            {
-                await _heartbeatChannel.CloseAsync(cancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Error closing heartbeat channel");
-        }
-        finally
-        {
-            _heartbeatChannel?.Dispose();
-        }
-
-        try
-        {
-            if (_connection != null && _connection.IsOpen)
-            {
-                await _connection.CloseAsync(cancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Error closing connection");
-        }
-        finally
-        {
-            _connection?.Dispose();
-        }
+        // Close only channels (connection is managed by RabbitMQConnectionFactory)
+        await _registrationChannel.SafeCloseAsync(_logger, cancellationToken);
+        await _heartbeatChannel.SafeCloseAsync(_logger, cancellationToken);
 
         await base.StopAsync(cancellationToken);
+        _logger.Information("Worker auto discovery stopped");
     }
 
     /// <summary>

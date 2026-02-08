@@ -6,7 +6,9 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
+using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
+using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Core.Helpers;
@@ -23,19 +25,21 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 /// Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
 /// </summary>
 public class LogCollectorService(IServiceProvider serviceProvider,
-                                 IOptions<RabbitMQOptions> rabbitOptions,
+                                 RabbitMQConnectionFactory rabbitMQFactory,
                                  IOptions<LogCollectorOptions> logCollectorOptions,
                                  ILoggerFactory loggerFactory,
                                  BackgroundServiceMetrics metrics,
                                  IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, logCollectorOptions.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogCollectorService>();
-    private readonly RabbitMQOptions _rabbitOptions = rabbitOptions.Value;
     private readonly LogCollectorOptions _options = logCollectorOptions.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
-    private IConnection _connection;
     private IChannel _channel;
+
+    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
+    private readonly SemaphoreSlim _channelLock = new(1, 1);
 
     // Batch processing
     private readonly ConcurrentQueue<WorkerLogMessage> _logBatch = new();
@@ -117,21 +121,8 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 
     private async Task ConnectAndConsumeAsync(CancellationToken stoppingToken)
     {
-        // Setup RabbitMQ connection
-        var factory = new ConnectionFactory
-        {
-            HostName = _rabbitOptions.Host,
-            Port = _rabbitOptions.Port,
-            UserName = _rabbitOptions.Username,
-            Password = _rabbitOptions.Password,
-            VirtualHost = _rabbitOptions.VirtualHost,
-            AutomaticRecoveryEnabled = true,
-            NetworkRecoveryInterval = TimeSpan.FromSeconds(10)
-        };
-
-        _connection = await factory.CreateConnectionAsync(stoppingToken);
-
-        _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+        // Get channel from shared connection factory
+        _channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
 
         // Declare queue (idempotent)
         await _channel.QueueDeclareAsync(queue: WorkerConstant.Queues.WorkerLogs,
@@ -144,7 +135,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
         // Set prefetch count
         await _channel.BasicQosAsync(0, 10, false, stoppingToken);
 
-        _logger.Information("Connected to RabbitMQ. Queue: {Queue}", WorkerConstant.Queues.WorkerLogs);
+        _logger.Information("LogCollector connected to RabbitMQ (shared connection). Queue: {Queue}, ChannelNumber: {ChannelNumber}", WorkerConstant.Queues.WorkerLogs, _channel.ChannelNumber);
 
         // Setup consumer
         var consumer = new AsyncEventingBasicConsumer(_channel);
@@ -196,7 +187,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 }
 
                 // ACK the message (safe operation)
-                await SafeAckAsync(ea.DeliveryTag, cancellationToken);
+                await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -206,7 +197,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             if (singleMessage == null)
             {
                 _logger.Debug("Failed to deserialize log message");
-                await SafeNackAsync(ea.DeliveryTag, cancellationToken);
+                await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -214,7 +205,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             if (_logBatch.Count >= _maxQueueSize)
             {
                 _logger.Warning("Log batch queue is full ({Count} messages). Dropping message to prevent OOM.", _logBatch.Count);
-                await SafeAckAsync(ea.DeliveryTag, cancellationToken);
+                await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
                 return;
             }
 
@@ -228,12 +219,12 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             }
 
             // ACK the message (safe operation)
-            await SafeAckAsync(ea.DeliveryTag, cancellationToken);
+            await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to process log message");
-            await SafeNackAsync(ea.DeliveryTag, cancellationToken);
+            await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
         }
     }
 
@@ -503,58 +494,6 @@ public class LogCollectorService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Safe ACK operation that checks channel state before acknowledgment.
-    /// Prevents "Already closed" exceptions during shutdown.
-    /// </summary>
-    private async Task SafeAckAsync(ulong deliveryTag, CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (cancellationToken.IsCancellationRequested || _channel == null || _channel.IsClosed)
-            {
-                _logger.Debug("Skipping ACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
-                return;
-            }
-
-            await _channel.BasicAckAsync(deliveryTag, false, cancellationToken);
-        }
-        catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
-        {
-            _logger.Debug("Channel already closed during ACK (DeliveryTag: {DeliveryTag})", deliveryTag);
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Failed to ACK message (DeliveryTag: {DeliveryTag})", deliveryTag);
-        }
-    }
-
-    /// <summary>
-    /// Safe NACK operation that checks channel state before negative acknowledgment.
-    /// Prevents "Already closed" exceptions during shutdown.
-    /// </summary>
-    private async Task SafeNackAsync(ulong deliveryTag, CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (cancellationToken.IsCancellationRequested || _channel == null || _channel.IsClosed)
-            {
-                _logger.Debug("Skipping NACK: Channel closed or shutdown requested (DeliveryTag: {DeliveryTag})", deliveryTag);
-                return;
-            }
-
-            await _channel.BasicNackAsync(deliveryTag, false, false, cancellationToken);
-        }
-        catch (RabbitMQ.Client.Exceptions.AlreadyClosedException)
-        {
-            _logger.Debug("Channel already closed during NACK (DeliveryTag: {DeliveryTag})", deliveryTag);
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Failed to NACK message (DeliveryTag: {DeliveryTag})", deliveryTag);
-        }
-    }
-
-    /// <summary>
     /// Stops the background service and cleans up resources.
     /// </summary>
     /// <param name="cancellationToken"></param>
@@ -573,41 +512,14 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             _logger.Warning(ex, "Failed to process remaining logs during shutdown");
         }
 
-        // Dispose semaphore
+        // Dispose semaphores
         _batchLock?.Dispose();
+        _channelLock?.Dispose();
 
-        try
-        {
-            if (_channel != null && !_channel.IsClosed)
-            {
-                await _channel.CloseAsync(cancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Error closing RabbitMQ channel");
-        }
-        finally
-        {
-            _channel?.Dispose();
-        }
-
-        try
-        {
-            if (_connection != null && _connection.IsOpen)
-            {
-                await _connection.CloseAsync(cancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Error closing RabbitMQ connection");
-        }
-        finally
-        {
-            _connection?.Dispose();
-        }
+        // Close only channel (connection is managed by RabbitMQConnectionFactory)
+        await _channel.SafeCloseAsync(_logger, cancellationToken);
 
         await base.StopAsync(cancellationToken);
+        _logger.Information("LogCollectorService stopped");
     }
 }

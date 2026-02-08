@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Extensions;
@@ -93,7 +94,7 @@ public class HangfireWorkerStartupService(IOptions<WorkerOptions> workerOptions,
                 using var connection = JobStorage.Current.GetConnection();
                 var recurringJobs = connection.GetRecurringJobs();
 
-                if (recurringJobs == null || recurringJobs.Count == 0)
+                if (recurringJobs.IsNullOrEmpty())
                 {
                     if (attempt < _maxRetries)
                     {

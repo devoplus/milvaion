@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Utils;
 using StackExchange.Redis;
 
@@ -64,7 +65,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                             members.Add(member);
                         }
 
-                        if (members.Count == 0)
+                        if (members.IsNullOrEmpty())
                         {
                             await _database.KeyDeleteAsync(workerRunningKey);
                             return 0L;
@@ -103,7 +104,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                         }
                     }
 
-                    if (toRemove.Count > 0)
+                    if (!toRemove.IsNullOrEmpty())
                     {
                         var removed = await _database.SetRemoveAsync(RunningJobsKey, [.. toRemove]);
                         _logger.Debug("Fallback removed {Count} running jobs for worker {WorkerId}", removed, workerId);
@@ -213,7 +214,7 @@ public class RedisSchedulerService : IRedisSchedulerService
             {
                 var jobIdsList = jobIds.ToList();
 
-                if (jobIdsList.Count == 0)
+                if (jobIdsList.IsNullOrEmpty())
                     return 0L;
 
                 try
@@ -300,7 +301,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                 var result = new Dictionary<Guid, DateTime?>();
                 var jobIdsList = jobIds.ToList();
 
-                if (jobIdsList.Count == 0)
+                if (jobIdsList.IsNullOrEmpty())
                     return result;
 
                 try
@@ -463,7 +464,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                 var result = new Dictionary<Guid, ScheduledJob>();
                 var jobIdsList = jobIds.ToList();
 
-                if (jobIdsList.Count == 0)
+                if (jobIdsList.IsNullOrEmpty())
                     return result;
 
                 try
@@ -541,7 +542,7 @@ public class RedisSchedulerService : IRedisSchedulerService
             {
                 var jobIdsList = jobIds.ToList();
 
-                if (jobIdsList.Count == 0)
+                if (jobIdsList.IsNullOrEmpty())
                     return 0L;
 
                 try
@@ -638,7 +639,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                 var result = new Dictionary<string, Guid>();
                 var externalIdsList = externalJobIds.Where(id => !string.IsNullOrEmpty(id)).ToList();
 
-                if (externalIdsList.Count == 0)
+                if (externalIdsList.IsNullOrEmpty())
                     return result;
 
                 try
@@ -705,7 +706,7 @@ public class RedisSchedulerService : IRedisSchedulerService
     public Task SetExternalJobIdMappingsBulkAsync(Dictionary<string, Guid> mappings, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync<bool>(
             operation: async () =>
             {
-                if (mappings == null || mappings.Count == 0)
+                if (mappings.IsNullOrEmpty())
                     return true;
 
                 try
@@ -897,7 +898,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                 var result = new HashSet<Guid>();
                 var jobIdsList = jobIds.ToList();
 
-                if (jobIdsList.Count == 0)
+                if (jobIdsList.IsNullOrEmpty())
                     return result;
 
                 try

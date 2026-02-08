@@ -1,3 +1,4 @@
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
 using Milvasoft.Milvaion.Sdk.Worker.Attributes;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
@@ -155,7 +156,7 @@ public static class JobDataTypeHelper
             {
                 var dynamicValues = GetDynamicEnumValues(dynamicEnumAttr.ConfigurationKey);
 
-                if (dynamicValues.Count > 0)
+                if (!dynamicValues.IsNullOrEmpty())
                 {
                     propSchema["enum"] = dynamicValues;
                 }

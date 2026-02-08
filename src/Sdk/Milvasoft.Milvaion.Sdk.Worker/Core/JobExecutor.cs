@@ -50,7 +50,7 @@ public class JobExecutor(ILoggerFactory loggerFactory)
         // Create job context with OutboxService for resilient logging
         var context = new JobContext(correlationId, scheduledJob, workerOptions.InstanceId, _logger, outboxService, executedJobConsumerConfig, cancellationToken);
 
-        _logger.Debug($"[DEBUG] JobExecutor creating context for job {scheduledJob.JobNameInWorker}");
+        _logger.Debug("[DEBUG] JobExecutor creating context for job {JobName}", scheduledJob.JobNameInWorker);
 
         // Create timeout cancellation token source if timeout is configured
         CancellationTokenSource timeoutCts = null;

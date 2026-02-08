@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
+using Milvaion.Infrastructure.Extensions;
 using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
@@ -37,6 +38,9 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
     private IChannel _channel;
     private const int _maxExceptionLength = 3000;
 
+    // Channel thread-safety: IChannel is NOT thread-safe, serialize ACK/NACK operations
+    private readonly SemaphoreSlim _channelLock = new(1, 1);
+
     /// <inheritdoc/>
     protected override string ServiceName => "FailedOccurrenceHandler";
 
@@ -54,7 +58,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
 
         try
         {
-            _channel = await _rabbitMQFactory.GetChannelAsync(stoppingToken);
+            _channel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
 
             // Configure QoS - process one message at a time
             await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
@@ -68,7 +72,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
                     await ProcessFailedOccurrenceAsync(ea, stoppingToken);
 
                     // Acknowledge successful processing
-                    await _channel.BasicAckAsync(ea.DeliveryTag, multiple: false, cancellationToken: stoppingToken);
+                    await _channel.SafeAckAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken);
 
                     TrackMemoryAfterIteration();
                 }
@@ -77,7 +81,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
                     _logger.Error(ex, "Error processing failed job from DLQ. DeliveryTag: {DeliveryTag}", ea.DeliveryTag);
 
                     // Reject and requeue (will retry DLQ processing)
-                    await _channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: true, cancellationToken: stoppingToken);
+                    await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, stoppingToken, requeue: true);
                 }
             };
 
@@ -292,12 +296,13 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
     {
         _logger.Information("FailedOccurrenceHandler stopping...");
 
-        if (_channel != null)
-        {
-            await _channel.CloseAsync(cancellationToken);
-            _channel?.Dispose();
-        }
+        // Dispose semaphore
+        _channelLock?.Dispose();
+
+        // Close channel using extension method
+        await _channel.SafeCloseAsync(_logger, cancellationToken);
 
         await base.StopAsync(cancellationToken);
+        _logger.Information("FailedOccurrenceHandler stopped");
     }
 }

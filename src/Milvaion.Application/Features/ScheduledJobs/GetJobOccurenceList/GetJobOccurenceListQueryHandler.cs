@@ -26,19 +26,24 @@ public class GetJobOccurrenceListQueryHandler(IMilvaionDbContextAccessor milvaio
         Expression<Func<JobOccurrence, bool>> predicate = null;
         int? manualCount = null;
 
-        if (string.IsNullOrWhiteSpace(request.SearchTerm))
-        {
-            var redisStats = await _redisStatsService.GetStatisticsAsync(cancellationToken);
-
-            manualCount = (int)redisStats.GetValueOrDefault("Total", 0);
-        }
-
+        var jobIdFilter = request.Filtering?.Criterias?.FirstOrDefault(i => i.FilterBy == nameof(JobOccurrence.JobId));
         var statusFilter = request.Filtering?.Criterias?.FirstOrDefault(i => i.FilterBy == nameof(JobOccurrence.Status));
 
-        if (statusFilter is not null)
+        // Only use Redis stats when there are no filters that would make it inaccurate (e.g., JobId filter)
+        var canUseRedisStats = jobIdFilter is null;
+
+        if (canUseRedisStats)
         {
-            var redisStats = await _redisStatsService.GetStatisticsAsync(cancellationToken);
-            manualCount = (int?)redisStats.GetValueOrDefault(Enum.GetName(GetValueWithCorrectType<JobOccurrenceStatus>(statusFilter.Value)), 0);
+            if (statusFilter is not null)
+            {
+                var redisStats = await _redisStatsService.GetStatisticsAsync(cancellationToken);
+                manualCount = (int?)redisStats.GetValueOrDefault(Enum.GetName(GetValueWithCorrectType<JobOccurrenceStatus>(statusFilter.Value)), 0);
+            }
+            else if (string.IsNullOrWhiteSpace(request.SearchTerm))
+            {
+                var redisStats = await _redisStatsService.GetStatisticsAsync(cancellationToken);
+                manualCount = (int)redisStats.GetValueOrDefault("Total", 0);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))

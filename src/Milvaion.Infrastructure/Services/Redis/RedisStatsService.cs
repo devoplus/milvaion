@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.DataAccess.EfCore.Bulk;
 using Milvasoft.Milvaion.Sdk.Utils;
 using StackExchange.Redis;
@@ -238,7 +239,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
 
         try
         {
-            _logger.Information("Starting stats counter sync from database (lock acquired)...");
+            _logger.Debug("Starting stats counter sync from database (lock acquired)...");
 
             var now = DateTime.UtcNow;
             var sevenDaysAgo = now.AddDays(-7);
@@ -316,7 +317,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
 
             await transaction.ExecuteAsync();
 
-            _logger.Information("Stats synced (last 7 days). Total: {Total}, Completed: {Completed}, Failed: {Failed}, Unknown: {Unknown}, AvgDuration: {AvgDuration}ms",
+            _logger.Debug("Stats synced (last 7 days). Total: {Total}, Completed: {Completed}, Failed: {Failed}, Unknown: {Unknown}, AvgDuration: {AvgDuration}ms",
                 result.TotalExecutions, completed, result.FailedJobs, result.UnknownJobs,
                 result.DurationCount > 0 ? result.TotalDuration / result.DurationCount : 0);
         }
@@ -361,7 +362,7 @@ public class RedisStatsService(IConnectionMultiplexer redis,
     public Task TrackExecutionsAsync(List<Guid> occurrenceIds, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
         operation: async () =>
         {
-            if (occurrenceIds.Count == 0)
+            if (occurrenceIds.IsNullOrEmpty())
                 return true;
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

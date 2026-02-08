@@ -137,7 +137,7 @@
             Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.#ctor(System.IServiceProvider,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ExternalJobTrackerService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ExternalJobTrackerOptions},Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes external job registration and occurrence messages from RabbitMQ.
             Handles job upsert from Quartz/Hangfire and creates/updates occurrences.
@@ -294,7 +294,7 @@
             Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
             </summary>
@@ -316,18 +316,6 @@
             Retries pending logs that were waiting for occurrence to be created.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.SafeAckAsync(System.UInt64,System.Threading.CancellationToken)">
-            <summary>
-            Safe ACK operation that checks channel state before acknowledgment.
-            Prevents "Already closed" exceptions during shutdown.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.SafeNackAsync(System.UInt64,System.Threading.CancellationToken)">
-            <summary>
-            Safe NACK operation that checks channel state before negative acknowledgment.
-            Prevents "Already closed" exceptions during shutdown.
-            </summary>
-        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.StopAsync(System.Threading.CancellationToken)">
             <summary>
             Stops the background service and cleans up resources.
@@ -340,7 +328,7 @@
             Consumes job status updates from RabbitMQ and updates JobOccurrence records.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IAlertNotifier,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.StatusTrackerOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobAutoDisableOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes job status updates from RabbitMQ and updates JobOccurrence records.
             </summary>
@@ -356,6 +344,52 @@
             Process batch of status updates - single DB transaction.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DequeueBatch">
+            <summary>
+            Dequeues all messages from the batch queue.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.RequeueMessages(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage})">
+            <summary>
+            Re-queues messages back to the batch queue for retry.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DeduplicateByCorrelationId(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage})">
+            <summary>
+            Deduplicates messages by CorrelationId (last update wins).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.FetchOccurrencesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
+            <summary>
+            Fetches occurrences from database by correlation IDs.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ApplyStatusUpdatesAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage},System.Threading.CancellationToken)">
+            <summary>
+            Applies status updates to occurrences in memory and collects side effects.
+            Returns circuit breaker updates and consumer counter updates for batch processing.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.PersistOccurrenceChangesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+            <summary>
+            Persists occurrence changes to database using bulk update.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.UpdateRedisStateAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+            <summary>
+            Updates Redis state for running/completed jobs.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.PublishSignalREventsAsync(Microsoft.Extensions.DependencyInjection.AsyncServiceScope,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
+            <summary>
+            Publishes SignalR events for updated occurrences.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.RecordBatchMetrics(System.Diagnostics.Stopwatch,System.Int32,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+            <summary>
+            Records batch processing metrics.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ProcessCircuitBreakerUpdatesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.Dictionary{System.Guid,System.ValueTuple{System.Boolean,System.String}},System.Threading.CancellationToken)">
             <summary>
             Processes circuit breaker updates for jobs that completed or failed.
@@ -366,18 +400,6 @@
             <summary>
             Sends alerts for auto-disabled jobs using fire-and-forget pattern.
             This method returns immediately and never blocks the main processing flow.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.SafeAckAsync(System.UInt64,System.Threading.CancellationToken)">
-            <summary>
-            Safe ACK operation that checks channel state before acknowledgment.
-            Prevents "Already closed" exceptions during shutdown.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.SafeNackAsync(System.UInt64,System.Threading.CancellationToken)">
-            <summary>
-            Safe NACK operation that checks channel state before negative acknowledgment.
-            Prevents "Already closed" exceptions during shutdown.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.StopAsync(System.Threading.CancellationToken)">
@@ -400,7 +422,7 @@
             Stores runtime state in Redis for high performance.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes worker registration and heartbeat messages from RabbitMQ.
             Stores runtime state in Redis for high performance.
@@ -420,22 +442,6 @@
             <summary>
             Process heartbeats in batch from the deduplication dictionary.
             Only the latest heartbeat per instance is processed, reducing Redis load significantly.
-            </summary>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeAckAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Boolean,System.Threading.CancellationToken)">
-            <summary>
-            Safe ACK operation that checks channel state before acknowledgment.
-            Prevents "Already closed" exceptions during shutdown.
-            </summary>
-            <param name="channel">The RabbitMQ channel.</param>
-            <param name="deliveryTag">The delivery tag to acknowledge.</param>
-            <param name="multiple">If true, ACKs all messages up to and including deliveryTag (bulk ACK).</param>
-            <param name="cancellationToken">Cancellation token.</param>
-        </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.SafeNackAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Threading.CancellationToken)">
-            <summary>
-            Safe NACK operation that checks channel state before negative acknowledgment.
-            Prevents "Already closed" exceptions during shutdown.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.StopAsync(System.Threading.CancellationToken)">
@@ -483,6 +489,55 @@
             <summary>
             Detects Running occurrences that lost heartbeat and marks them as Unknown.
             </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions">
+            <summary>
+            Extension methods for RabbitMQ IChannel operations.
+            Provides thread-safe ACK/NACK operations with proper error handling.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions.SafeAckAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Threading.SemaphoreSlim,Milvasoft.Core.Abstractions.IMilvaLogger,System.Threading.CancellationToken,System.Boolean)">
+            <summary>
+            Safe ACK operation that checks channel state before acknowledgment.
+            Uses provided lock for thread-safety as IChannel is NOT thread-safe.
+            Prevents "Already closed" exceptions during shutdown.
+            </summary>
+            <param name="channel">The RabbitMQ channel.</param>
+            <param name="deliveryTag">The delivery tag to acknowledge.</param>
+            <param name="channelLock">Semaphore for thread-safe channel access.</param>
+            <param name="logger">Logger for diagnostics.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <param name="multiple">If true, ACKs all messages up to and including deliveryTag.</param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions.SafeNackAsync(RabbitMQ.Client.IChannel,System.UInt64,System.Threading.SemaphoreSlim,Milvasoft.Core.Abstractions.IMilvaLogger,System.Threading.CancellationToken,System.Boolean,System.Boolean)">
+            <summary>
+            Safe NACK operation that checks channel state before negative acknowledgment.
+            Uses provided lock for thread-safety as IChannel is NOT thread-safe.
+            Prevents "Already closed" exceptions during shutdown.
+            </summary>
+            <param name="channel">The RabbitMQ channel.</param>
+            <param name="deliveryTag">The delivery tag to negative acknowledge.</param>
+            <param name="channelLock">Semaphore for thread-safe channel access.</param>
+            <param name="logger">Logger for diagnostics.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <param name="multiple">If true, NACKs all messages up to and including deliveryTag.</param>
+            <param name="requeue">If true, requeues the message(s).</param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions.SafeCloseAsync(RabbitMQ.Client.IChannel,Milvasoft.Core.Abstractions.IMilvaLogger,System.Threading.CancellationToken)">
+            <summary>
+            Safely closes and disposes the channel with proper error handling.
+            </summary>
+            <param name="channel">The RabbitMQ channel.</param>
+            <param name="logger">Logger for diagnostics.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Extensions.RabbitMQChannelExtensions.SafeCloseAsync(RabbitMQ.Client.IConnection,Milvasoft.Core.Abstractions.IMilvaLogger,System.Threading.CancellationToken)">
+            <summary>
+            Safely closes and disposes the connection with proper error handling.
+            </summary>
+            <param name="connection">The RabbitMQ connection.</param>
+            <param name="logger">Logger for diagnostics.</param>
+            <param name="cancellationToken">Cancellation token.</param>
         </member>
         <member name="T:Milvaion.Infrastructure.HealthChecks.DbContextHealthCheck">
             <summary>
@@ -1567,34 +1622,87 @@
             <returns></returns>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory">
-            <summary>
-            Manages RabbitMQ connection lifecycle for job dispatcher.
-            </summary>
+             <summary>
+             Manages RabbitMQ connection lifecycle.
+             Provides shared connection with per-caller channel creation.
+             </summary>
+             <remarks>
+             RabbitMQ Best Practice:
+             - 1 Connection per application (TCP socket, heavy)
+             - 1 Channel per operation (lightweight, NOT thread-safe)
+             - Caller is responsible for channel disposal
+            
+             Usage:
+             1. Call InitializeAsync() once at application startup
+             2. Use CreateChannelAsync() for each operation
+             3. Dispose channel after use (await using)
+             </remarks>
+             <remarks>
+             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory"/> class.
+             </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+             <summary>
+             Manages RabbitMQ connection lifecycle.
+             Provides shared connection with per-caller channel creation.
+             </summary>
+             <remarks>
+             RabbitMQ Best Practice:
+             - 1 Connection per application (TCP socket, heavy)
+             - 1 Channel per operation (lightweight, NOT thread-safe)
+             - Caller is responsible for channel disposal
+            
+             Usage:
+             1. Call InitializeAsync() once at application startup
+             2. Use CreateChannelAsync() for each operation
+             3. Dispose channel after use (await using)
+             </remarks>
+             <remarks>
+             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory"/> class.
+             </remarks>
         </member>
         <member name="P:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.Connection">
             <summary>
             Gets the active RabbitMQ connection.
+            Throws if InitializeAsync() has not been called.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.InitializeAsync(System.Threading.CancellationToken)">
             <summary>
-            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory"/> class.
+            Initializes connection, queues and exchanges.
+            Must be called once at application startup before using CreateChannelAsync().
+            Thread-safe and idempotent - safe to call multiple times from multiple threads.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.GetChannelAsync(System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.InitializeCoreAsync(System.Threading.CancellationToken)">
             <summary>
-            Gets or creates a channel for publishing messages.
+            Core initialization logic - creates connection and declares queues/exchanges.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.DeclareTopologyAsync(System.Threading.CancellationToken)">
+            <summary>
+            Declares all queues, exchanges and bindings.
+            Called on initial connection and after recovery.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.CreateChannelAsync(System.Threading.CancellationToken)">
+            <summary>
+            Creates a new channel. Caller is responsible for disposal.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.IsHealthy">
             <summary>
             Checks if RabbitMQ connection is healthy.
-            Creates connection if not already created.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.DisposeAsync">
+            <summary>
+            Disposes the RabbitMQ connection asynchronously.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory.Dispose">
             <summary>
-            Disposes the RabbitMQ connection and channel.
+            Disposes the RabbitMQ connection synchronously.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher">
@@ -1602,7 +1710,7 @@
             RabbitMQ publisher implementation for job dispatching.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+        <member name="M:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Logging.ILoggerFactory)">
             <summary>
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQPublisher"/> class.
             </summary>
@@ -1740,9 +1848,15 @@
             Checks if Redis is connected and responsive.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.Services.Redis.RedisConnectionService.DisposeAsync">
+            <summary>
+            Disposes the Redis connection asynchronously.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.Services.Redis.RedisConnectionService.Dispose">
             <summary>
-            Disposes the Redis connection.
+            Disposes the Redis connection synchronously.
+            Prefer DisposeAsync when possible.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.Redis.RedisLockService">
