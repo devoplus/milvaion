@@ -134,11 +134,13 @@ public class ScheduledJob : CreationAuditableEntity<Guid>
     /// <summary>
     /// Occurrences of this scheduled job.
     /// </summary>
+    [CascadeOnDelete]
     public virtual List<JobOccurrence> Occurrences { get; set; }
 
     /// <summary>
     /// Failed occurrences of this scheduled job.
     /// </summary>
+    [CascadeOnDelete]
     public virtual List<FailedOccurrence> FailedOccurrences { get; set; }
 
     public string FixJobData() => JobData = FixJobData(JobData);

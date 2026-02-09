@@ -119,4 +119,18 @@ public class RedisCircuitBreakerOpenExceptionTests
         exception.InnerException.Should().BeOfType<InvalidOperationException>();
         exception.InnerException.InnerException.Should().BeOfType<ArgumentException>();
     }
+
+    [Fact]
+    public void Constructor_WithMessageAndInner_ShouldSetBoth()
+    {
+        // Arrange
+        var inner = new InvalidOperationException("Inner error");
+
+        // Act
+        var exception = new RedisCircuitBreakerOpenException("Circuit is open", inner);
+
+        // Assert
+        exception.Message.Should().Be("Circuit is open");
+        exception.InnerException.Should().Be(inner);
+    }
 }

@@ -280,4 +280,125 @@ public class RemoveTypeTagEnricherTests
         // Assert
         action.Should().NotThrow();
     }
+
+    [Fact]
+    public void RemoveTypeTags_WithScalarValue_ShouldReturnSameValue()
+    {
+        // Arrange
+        var scalarValue = new ScalarValue("test");
+
+        // Act
+        var result = RemoveTypeTagEnricher.RemoveTypeTags(scalarValue);
+
+        // Assert
+        result.Should().Be(scalarValue);
+    }
+
+    [Fact]
+    public void RemoveTypeTags_WithSequenceValue_ShouldProcessElements()
+    {
+        // Arrange
+        var elements = new LogEventPropertyValue[]
+        {
+            new ScalarValue("item1"),
+            new ScalarValue("item2")
+        };
+        var sequenceValue = new SequenceValue(elements);
+
+        // Act
+        var result = RemoveTypeTagEnricher.RemoveTypeTags(sequenceValue);
+
+        // Assert
+        result.Should().BeOfType<SequenceValue>();
+        var seq = (SequenceValue)result;
+        seq.Elements.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void RemoveTypeTags_WithStructureValue_ShouldProcessProperties()
+    {
+        // Arrange
+        var properties = new[]
+        {
+            new LogEventProperty("Name", new ScalarValue("TestValue")),
+            new LogEventProperty("Count", new ScalarValue(42))
+        };
+        var structureValue = new StructureValue(properties);
+
+        // Act
+        var result = RemoveTypeTagEnricher.RemoveTypeTags(structureValue);
+
+        // Assert
+        result.Should().BeOfType<StructureValue>();
+        var structure = (StructureValue)result;
+        structure.Properties.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void RemoveTypeTags_WithNestedStructure_ShouldProcessRecursively()
+    {
+        // Arrange
+        var innerProperties = new[]
+        {
+            new LogEventProperty("InnerProp", new ScalarValue("InnerValue"))
+        };
+        var innerStructure = new StructureValue(innerProperties);
+
+        var outerProperties = new[]
+        {
+            new LogEventProperty("OuterProp", innerStructure)
+        };
+        var outerStructure = new StructureValue(outerProperties);
+
+        // Act
+        var result = RemoveTypeTagEnricher.RemoveTypeTags(outerStructure);
+
+        // Assert
+        result.Should().BeOfType<StructureValue>();
+        var structure = (StructureValue)result;
+        structure.Properties.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void RemoveTypeTags_WithNullScalar_ShouldNotThrow()
+    {
+        // Arrange
+        var nullValue = new ScalarValue(null);
+
+        // Act
+        var act = () => RemoveTypeTagEnricher.RemoveTypeTags(nullValue);
+
+        // Assert
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void RemoveTypeTags_WithEmptySequence_ShouldReturnEmptySequence()
+    {
+        // Arrange
+        var emptySequence = new SequenceValue(Array.Empty<LogEventPropertyValue>());
+
+        // Act
+        var result = RemoveTypeTagEnricher.RemoveTypeTags(emptySequence);
+
+        // Assert
+        result.Should().BeOfType<SequenceValue>();
+        var seq = (SequenceValue)result;
+        seq.Elements.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RemoveTypeTags_WithEmptyStructure_ShouldReturnEmptyStructure()
+    {
+        // Arrange
+        var emptyStructure = new StructureValue(Array.Empty<LogEventProperty>());
+
+        // Act
+        var result = RemoveTypeTagEnricher.RemoveTypeTags(emptyStructure);
+
+        // Assert
+        result.Should().BeOfType<StructureValue>();
+        var structure = (StructureValue)result;
+        structure.Properties.Should().BeEmpty();
+    }
 }

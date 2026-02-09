@@ -499,7 +499,7 @@ public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITes
         updatedOccurrence.Result.Should().Be(uniqueResult);
     }
 
-    private StatusTrackerService CreateStatusTrackerService() => new StatusTrackerService(
+    private StatusTrackerService CreateStatusTrackerService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),

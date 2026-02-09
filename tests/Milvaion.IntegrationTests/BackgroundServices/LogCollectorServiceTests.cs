@@ -468,7 +468,7 @@ public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITest
         log.Data.Should().ContainKey("recordsProcessed");
     }
 
-    private LogCollectorService CreateLogCollectorService() => new LogCollectorService(
+    private LogCollectorService CreateLogCollectorService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
             Options.Create(new LogCollectorOptions

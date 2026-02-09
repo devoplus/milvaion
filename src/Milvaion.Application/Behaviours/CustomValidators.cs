@@ -37,7 +37,7 @@ public class DefaultDataLongValidator<T>(long rangeMin = 0, long rangeMax = Glob
 }
 
 /// <summary>
-/// Feature query validations. 
+/// Feature query validations.
 /// </summary>
 public sealed class NameDescriptionTranslationDtoValidator : AbstractValidator<NameDescriptionTranslationDto>
 {
@@ -62,7 +62,7 @@ public sealed class NameDescriptionTranslationDtoValidator : AbstractValidator<N
 }
 
 /// <summary>
-/// Feature query validations. 
+/// Feature query validations.
 /// </summary>
 public sealed class UpdateNameDescriptionTranslationDtoValidator : AbstractValidator<UpdateProperty<List<NameDescriptionTranslationDto>>>
 {

@@ -75,7 +75,7 @@
         </member>
         <member name="T:Milvaion.Application.Behaviours.NameDescriptionTranslationDtoValidator">
             <summary>
-            Feature query validations. 
+            Feature query validations.
             </summary>
         </member>
         <member name="M:Milvaion.Application.Behaviours.NameDescriptionTranslationDtoValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
@@ -83,7 +83,7 @@
         </member>
         <member name="T:Milvaion.Application.Behaviours.UpdateNameDescriptionTranslationDtoValidator">
             <summary>
-            Feature query validations. 
+            Feature query validations.
             </summary>
         </member>
         <member name="M:Milvaion.Application.Behaviours.UpdateNameDescriptionTranslationDtoValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">

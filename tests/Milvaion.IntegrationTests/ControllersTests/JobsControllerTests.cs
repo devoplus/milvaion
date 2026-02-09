@@ -348,6 +348,97 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         result.IsSuccess.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task UpdateScheduledJobAsync_WithCronExpression_ShouldUpdateCronAndRecalculateExecuteAt()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("CronUpdateJob", "Job to update cron");
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new UpdateScheduledJobCommand
+        {
+            Id = job.Id,
+            CronExpression = new UpdateProperty<string>("* 0 * * * *") // Every hour
+        };
+
+        // Act
+        var httpResponse = await client.PutAsJsonAsync($"{_baseUrl}/job", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        _output.WriteLine(result.Messages.First().Message);
+        result.IsSuccess.Should().BeTrue();
+
+        // Verify in database
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var updatedJob = await dbContext.ScheduledJobs.FirstOrDefaultAsync(j => j.Id == job.Id);
+        updatedJob.Should().NotBeNull();
+        updatedJob.CronExpression.Should().Be("* 0 * * * *");
+        updatedJob.ExecuteAt.Should().BeAfter(DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task UpdateScheduledJobAsync_DeactivateJob_ShouldRemoveFromRedisSchedule()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("DeactivateJob", "Job to deactivate", true);
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new UpdateScheduledJobCommand
+        {
+            Id = job.Id,
+            IsActive = new UpdateProperty<bool>(false)
+        };
+
+        // Act
+        var httpResponse = await client.PutAsJsonAsync($"{_baseUrl}/job", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var updatedJob = await dbContext.ScheduledJobs.FirstOrDefaultAsync(j => j.Id == job.Id);
+        updatedJob.Should().NotBeNull();
+        updatedJob.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateScheduledJobAsync_UpdateDescription_ShouldOnlyUpdateDescription()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("DescUpdateJob", "Original description");
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new UpdateScheduledJobCommand
+        {
+            Id = job.Id,
+            Description = new UpdateProperty<string>("Updated description only")
+        };
+
+        // Act
+        var httpResponse = await client.PutAsJsonAsync($"{_baseUrl}/job", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var updatedJob = await dbContext.ScheduledJobs.FirstOrDefaultAsync(j => j.Id == job.Id);
+        updatedJob.Should().NotBeNull();
+        updatedJob.Description.Should().Be("Updated description only");
+        updatedJob.DisplayName.Should().Be("DescUpdateJob");
+    }
+
     #endregion
 
     #region DeleteScheduledJob
@@ -391,6 +482,79 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteScheduledJobAsync_WithRunningOccurrence_ShouldReturnError()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("RunningJobDelete", "Job with running occurrence");
+        await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Running);
+        var client = await _factory.CreateClient().LoginAsync();
+
+        // Act
+        var httpResponse = await client.DeleteAsync($"{_baseUrl}/job?JobId={job.Id}");
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeFalse();
+
+        // Verify job still exists
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var existingJob = await dbContext.ScheduledJobs.FirstOrDefaultAsync(j => j.Id == job.Id);
+        existingJob.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteScheduledJobAsync_WithQueuedOccurrence_ShouldReturnError()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("QueuedJobDelete", "Job with queued occurrence");
+        await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Queued);
+        var client = await _factory.CreateClient().LoginAsync();
+
+        // Act
+        var httpResponse = await client.DeleteAsync($"{_baseUrl}/job?JobId={job.Id}");
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeFalse();
+
+        // Verify job still exists
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var existingJob = await dbContext.ScheduledJobs.FirstOrDefaultAsync(j => j.Id == job.Id);
+        existingJob.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteScheduledJobAsync_WithCompletedOccurrences_ShouldDeleteSuccessfully()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("CompletedOccJob", "Job with only completed occurrences");
+        await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Completed);
+        await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Failed);
+        var client = await _factory.CreateClient().LoginAsync();
+
+        // Act
+        var httpResponse = await client.DeleteAsync($"{_baseUrl}/job?JobId={job.Id}");
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        _output.WriteLine(result.Messages.First().Message);
+        result.IsSuccess.Should().BeTrue();
+
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var deletedJob = await dbContext.ScheduledJobs.FirstOrDefaultAsync(j => j.Id == job.Id);
+        deletedJob.Should().BeNull();
     }
 
     #endregion
@@ -539,6 +703,77 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         result.IsSuccess.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task TriggerJobAsync_WithValidActiveJob_ShouldCreateOccurrenceAndTrigger()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("TriggerableJob", "Job to trigger manually");
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new TriggerScheduledJobCommand
+        {
+            JobId = job.Id,
+            Reason = "Manual trigger test"
+        };
+
+        // Act
+        var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/job/trigger", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        _output.WriteLine(result.Messages.First().Message);
+
+        // Verify occurrence was created in database
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var occurrences = await dbContext.JobOccurrences.Where(o => o.JobId == job.Id).ToListAsync();
+        occurrences.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task TriggerJobAsync_WithInactiveJob_ShouldReturnError()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("InactiveJob", "Inactive job", isActive: false);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new TriggerScheduledJobCommand { JobId = job.Id };
+
+        // Act
+        var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/job/trigger", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TriggerJobAsync_WithCustomJobData_ShouldPassJobDataToOccurrence()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("JobDataTriggerJob", "Job with custom data");
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new TriggerScheduledJobCommand
+        {
+            JobId = job.Id,
+            JobData = """{"key":"value"}""",
+            Reason = "Custom data trigger"
+        };
+
+        // Act
+        var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/job/trigger", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<Guid>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        _output.WriteLine(result.Messages.First().Message);
+    }
+
     #endregion
 
     #region CancelJobOccurrence
@@ -583,6 +818,78 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         var occurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Completed);
         var client = await _factory.CreateClient().LoginAsync();
         var request = new CancelJobOccurrenceCommand { OccurrenceId = occurrence.Id };
+
+        // Act
+        var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/occurrences/cancel", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<bool>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelJobOccurrenceAsync_WithRunningOccurrence_ShouldCancelSuccessfully()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("CancellableJob", "Job to cancel while running");
+        var occurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Running);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new CancelJobOccurrenceCommand
+        {
+            OccurrenceId = occurrence.CorrelationId,
+            Reason = "Integration test cancellation"
+        };
+
+        // Act
+        var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/occurrences/cancel", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<bool>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+
+        // Verify occurrence is cancelled in database
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var cancelledOccurrence = await dbContext.JobOccurrences.FirstOrDefaultAsync(o => o.Id == occurrence.Id);
+        cancelledOccurrence.Should().NotBeNull();
+        cancelledOccurrence.Status.Should().Be(JobOccurrenceStatus.Cancelled);
+        cancelledOccurrence.EndTime.Should().NotBeNull();
+        cancelledOccurrence.Exception.Should().Contain("Integration test cancellation");
+    }
+
+    [Fact]
+    public async Task CancelJobOccurrenceAsync_WithQueuedOccurrence_ShouldReturnError()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("QueuedCancelJob", "Job with queued occurrence");
+        var occurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Queued);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new CancelJobOccurrenceCommand { OccurrenceId = occurrence.CorrelationId };
+
+        // Act
+        var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/occurrences/cancel", request);
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<bool>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelJobOccurrenceAsync_WithFailedOccurrence_ShouldReturnError()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("FailedCancelJob", "Job with failed occurrence");
+        var occurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Failed);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new CancelJobOccurrenceCommand { OccurrenceId = occurrence.CorrelationId };
 
         // Act
         var httpResponse = await client.PostAsJsonAsync($"{_baseUrl}/occurrences/cancel", request);
@@ -661,6 +968,129 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteJobOccurrenceAsync_WithRunningOccurrence_ShouldNotDelete()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("JobWithRunningOcc", "Job with running occurrence");
+        var runningOccurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Running);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new DeleteJobOccurrenceCommand { OccurrenceIdList = [runningOccurrence.Id] };
+
+        // Act
+        var httpResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/occurrences/occurrence")
+        {
+            Content = JsonContent.Create(request)
+        });
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<List<Guid>>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeFalse();
+
+        // Verify occurrence still exists in database
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var existingOccurrence = await dbContext.JobOccurrences.FirstOrDefaultAsync(o => o.Id == runningOccurrence.Id);
+        existingOccurrence.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteJobOccurrenceAsync_WithQueuedOccurrence_ShouldNotDelete()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("JobWithQueuedOcc", "Job with queued occurrence");
+        var queuedOccurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Queued);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new DeleteJobOccurrenceCommand { OccurrenceIdList = [queuedOccurrence.Id] };
+
+        // Act
+        var httpResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/occurrences/occurrence")
+        {
+            Content = JsonContent.Create(request)
+        });
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<List<Guid>>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeFalse();
+
+        // Verify occurrence still exists
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        var existingOccurrence = await dbContext.JobOccurrences.FirstOrDefaultAsync(o => o.Id == queuedOccurrence.Id);
+        existingOccurrence.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteJobOccurrenceAsync_WithMixedStatuses_ShouldDeleteOnlyEligible()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("JobMixedOccurrences", "Job with mixed occurrences");
+        var completedOccurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Completed);
+        var failedOccurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Failed);
+        var runningOccurrence = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Running);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new DeleteJobOccurrenceCommand
+        {
+            OccurrenceIdList = [completedOccurrence.Id, failedOccurrence.Id, runningOccurrence.Id]
+        };
+
+        // Act
+        var httpResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/occurrences/occurrence")
+        {
+            Content = JsonContent.Create(request)
+        });
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<List<Guid>>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+        result.Data.Should().HaveCount(2);
+        result.Data.Should().Contain(completedOccurrence.Id);
+        result.Data.Should().Contain(failedOccurrence.Id);
+        result.Data.Should().NotContain(runningOccurrence.Id);
+
+        // Verify in database
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        (await dbContext.JobOccurrences.FirstOrDefaultAsync(o => o.Id == completedOccurrence.Id)).Should().BeNull();
+        (await dbContext.JobOccurrences.FirstOrDefaultAsync(o => o.Id == failedOccurrence.Id)).Should().BeNull();
+        (await dbContext.JobOccurrences.FirstOrDefaultAsync(o => o.Id == runningOccurrence.Id)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteJobOccurrenceAsync_BulkDelete_ShouldDeleteMultipleCompletedOccurrences()
+    {
+        // Arrange
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var job = await SeedSingleScheduledJobAsync("JobBulkDelete", "Job for bulk delete");
+        var occ1 = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Completed);
+        var occ2 = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Completed);
+        var occ3 = await SeedSingleJobOccurrenceAsync(job.Id, JobOccurrenceStatus.Failed);
+        var client = await _factory.CreateClient().LoginAsync();
+        var request = new DeleteJobOccurrenceCommand { OccurrenceIdList = [occ1.Id, occ2.Id, occ3.Id] };
+
+        // Act
+        var httpResponse = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/occurrences/occurrence")
+        {
+            Content = JsonContent.Create(request)
+        });
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<List<Guid>>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+        result.Data.Should().HaveCount(3);
+
+        var dbContext = _serviceProvider.GetRequiredService<MilvaionDbContext>();
+        (await dbContext.JobOccurrences.CountAsync(o => request.OccurrenceIdList.Contains(o.Id))).Should().Be(0);
     }
 
     #endregion
