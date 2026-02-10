@@ -499,6 +499,442 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         updatedOccurrence.Result.Should().Be(uniqueResult);
     }
 
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldHandleCancelledStatus()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync("CancelledJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueResult = $"Cancelled by user - {Guid.CreateVersion7():N}";
+
+        // Act
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Cancelled,
+            EndTime = DateTime.UtcNow,
+            Result = uniqueResult
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Status == JobOccurrenceStatus.Cancelled;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("occurrence should be marked as Cancelled");
+
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updatedOccurrence.Status.Should().Be(JobOccurrenceStatus.Cancelled);
+        updatedOccurrence.EndTime.Should().NotBeNull();
+        updatedOccurrence.Result.Should().Be(uniqueResult);
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldHandleTimedOutStatus()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync("TimedOutJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueException = $"Execution timeout exceeded - {Guid.CreateVersion7():N}";
+
+        // Act
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.TimedOut,
+            EndTime = DateTime.UtcNow,
+            Exception = uniqueException
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Status == JobOccurrenceStatus.TimedOut && occ?.Exception?.Contains(uniqueException) == true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("occurrence should be marked as TimedOut");
+
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updatedOccurrence.Status.Should().Be(JobOccurrenceStatus.TimedOut);
+        updatedOccurrence.Exception.Should().Contain(uniqueException);
+        updatedOccurrence.EndTime.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldTrackFullLifecycle_QueuedToRunningToCompleted()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync("LifecycleJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var uniqueWorkerId = $"lifecycle-worker-{Guid.CreateVersion7():N}";
+
+        // Act
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Step 1: Queued -> Running
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = uniqueWorkerId,
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        var runningFound = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Status == JobOccurrenceStatus.Running;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        runningFound.Should().BeTrue("should transition to Running");
+
+        // Step 2: Running -> Completed
+        var uniqueResult = $"Lifecycle complete - {Guid.CreateVersion7():N}";
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = uniqueWorkerId,
+            Status = JobOccurrenceStatus.Completed,
+            EndTime = DateTime.UtcNow,
+            DurationMs = 5000,
+            Result = uniqueResult
+        }, cts.Token);
+
+        var completedFound = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Status == JobOccurrenceStatus.Completed && occ?.Result == uniqueResult;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert full lifecycle
+        completedFound.Should().BeTrue("should transition to Completed");
+
+        var finalOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        finalOccurrence.Status.Should().Be(JobOccurrenceStatus.Completed);
+        finalOccurrence.WorkerId.Should().Be(uniqueWorkerId);
+        finalOccurrence.Result.Should().Be(uniqueResult);
+        finalOccurrence.DurationMs.Should().Be(5000);
+
+        // Verify status change log has both transitions
+        finalOccurrence.StatusChangeLogs.Should().NotBeNull();
+        finalOccurrence.StatusChangeLogs.Should().HaveCountGreaterOrEqualTo(2);
+        finalOccurrence.StatusChangeLogs.Should().Contain(s => s.From == JobOccurrenceStatus.Queued && s.To == JobOccurrenceStatus.Running);
+        finalOccurrence.StatusChangeLogs.Should().Contain(s => s.From == JobOccurrenceStatus.Running && s.To == JobOccurrenceStatus.Completed);
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldHandleMultipleOccurrencesForDifferentJobs()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job1 = await SeedScheduledJobAsync("MultiTrackJob1");
+        var job2 = await SeedScheduledJobAsync("MultiTrackJob2");
+        var job3 = await SeedScheduledJobAsync("MultiTrackJob3");
+
+        var occurrence1 = await SeedJobOccurrenceAsync(jobId: job1.Id, jobName: job1.JobNameInWorker, status: JobOccurrenceStatus.Queued);
+        var occurrence2 = await SeedJobOccurrenceAsync(jobId: job2.Id, jobName: job2.JobNameInWorker, status: JobOccurrenceStatus.Queued);
+        var occurrence3 = await SeedJobOccurrenceAsync(jobId: job3.Id, jobName: job3.JobNameInWorker, status: JobOccurrenceStatus.Queued);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Send different status updates for each occurrence
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence1.CorrelationId,
+            JobId = job1.Id,
+            WorkerId = "worker-1",
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence2.CorrelationId,
+            JobId = job2.Id,
+            WorkerId = "worker-2",
+            Status = JobOccurrenceStatus.Completed,
+            EndTime = DateTime.UtcNow,
+            DurationMs = 1000,
+            Result = "done"
+        }, cts.Token);
+
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence3.CorrelationId,
+            JobId = job3.Id,
+            WorkerId = "worker-3",
+            Status = JobOccurrenceStatus.Failed,
+            EndTime = DateTime.UtcNow,
+            Exception = "Test failure"
+        }, cts.Token);
+
+        // Wait for all updates
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ1 = await GetOccurrenceAsync(occurrence1.Id, cts.Token);
+                var occ2 = await GetOccurrenceAsync(occurrence2.Id, cts.Token);
+                var occ3 = await GetOccurrenceAsync(occurrence3.Id, cts.Token);
+                return occ1?.Status == JobOccurrenceStatus.Running
+                    && occ2?.Status == JobOccurrenceStatus.Completed
+                    && occ3?.Status == JobOccurrenceStatus.Failed;
+            },
+            timeout: TimeSpan.FromSeconds(20),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("all three occurrences should be updated with different statuses");
+
+        var finalOcc1 = await GetOccurrenceAsync(occurrence1.Id, cts.Token);
+        var finalOcc2 = await GetOccurrenceAsync(occurrence2.Id, cts.Token);
+        var finalOcc3 = await GetOccurrenceAsync(occurrence3.Id, cts.Token);
+
+        finalOcc1.Status.Should().Be(JobOccurrenceStatus.Running);
+        finalOcc1.WorkerId.Should().Be("worker-1");
+
+        finalOcc2.Status.Should().Be(JobOccurrenceStatus.Completed);
+        finalOcc2.WorkerId.Should().Be("worker-2");
+        finalOcc2.DurationMs.Should().Be(1000);
+
+        finalOcc3.Status.Should().Be(JobOccurrenceStatus.Failed);
+        finalOcc3.WorkerId.Should().Be("worker-3");
+        finalOcc3.Exception.Should().Contain("Test failure");
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldRecordCorrectTimestampsInStatusChangeLog()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync("TimestampLogJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var beforeUpdate = DateTime.UtcNow;
+
+        // Act
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.StatusChangeLogs?.Any(s => s.To == JobOccurrenceStatus.Running) == true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("status change log should be recorded with timestamp");
+
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        var statusLog = updatedOccurrence.StatusChangeLogs.First(s => s.To == JobOccurrenceStatus.Running);
+        statusLog.Timestamp.Should().BeAfter(beforeUpdate.AddSeconds(-5));
+        statusLog.Timestamp.Should().BeBefore(DateTime.UtcNow.AddSeconds(5));
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldHandleLongResultString()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync("LongResultJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniquePrefix = $"Result-{Guid.CreateVersion7():N}-";
+        var longResult = uniquePrefix + new string('R', 2000);
+
+        // Act
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Completed,
+            EndTime = DateTime.UtcNow,
+            Result = longResult
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Status == JobOccurrenceStatus.Completed && occ?.Result?.StartsWith(uniquePrefix) == true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("occurrence should handle long result string");
+
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updatedOccurrence.Status.Should().Be(JobOccurrenceStatus.Completed);
+        updatedOccurrence.Result.Should().StartWith(uniquePrefix);
+    }
+
     private StatusTrackerService CreateStatusTrackerService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),

@@ -150,6 +150,7 @@ public abstract class BackgroundServiceTestBase(CustomWebApplicationFactory fact
             Status = status,
             WorkerId = workerId,
             ZombieTimeoutMinutes = timeoutMinutes,
+            LastHeartbeat = createdAt ?? DateTime.UtcNow,
             CreatedAt = createdAt ?? DateTime.UtcNow,
             Logs =
             [

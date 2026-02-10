@@ -468,6 +468,168 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
         log.Data.Should().ContainKey("recordsProcessed");
     }
 
+    [Fact]
+    public async Task CollectLogs_ShouldPreserveLogTimestampOrder()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("TimestampOrderLogJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueCategory = $"OrderTest_{Guid.CreateVersion7():N}";
+        var baseTime = DateTime.UtcNow;
+
+        // Act - Start the collector first
+        var collector = CreateLogCollectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await collector.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        var logBatch = new WorkerLogBatchMessage
+        {
+            BatchTimestamp = DateTime.UtcNow,
+            Logs = []
+        };
+
+        // Send logs with ascending timestamps
+        for (int i = 0; i < 3; i++)
+        {
+            logBatch.Logs.Add(new WorkerLogMessage
+            {
+                CorrelationId = occurrence.CorrelationId,
+                WorkerId = "test-worker",
+                Log = new OccurrenceLog
+                {
+                    Timestamp = baseTime.AddSeconds(i),
+                    Level = "Information",
+                    Message = $"Ordered log {i}",
+                    Category = uniqueCategory
+                },
+                MessageTimestamp = DateTime.UtcNow
+            });
+        }
+
+        await PublishLogMessageAsync(logBatch, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Logs?.Count(l => l.Category == uniqueCategory) >= 3;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await collector.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("all ordered logs should be processed");
+
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        var orderedLogs = updatedOccurrence.Logs
+            .Where(l => l.Category == uniqueCategory)
+            .OrderBy(l => l.Timestamp)
+            .ToList();
+
+        orderedLogs.Should().HaveCount(3);
+        orderedLogs[0].Message.Should().Be("Ordered log 0");
+        orderedLogs[1].Message.Should().Be("Ordered log 1");
+        orderedLogs[2].Message.Should().Be("Ordered log 2");
+        orderedLogs[0].Timestamp.Should().BeBefore(orderedLogs[1].Timestamp);
+        orderedLogs[1].Timestamp.Should().BeBefore(orderedLogs[2].Timestamp);
+    }
+
+    [Fact]
+    public async Task CollectLogs_ShouldHandleLogWithLongMessage()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("LongMessageLogJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniquePrefix = $"LongMsg_{Guid.CreateVersion7():N}_";
+        var longMessage = uniquePrefix + new string('X', 2000);
+
+        // Act
+        var collector = CreateLogCollectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await collector.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
+        {
+            BatchTimestamp = DateTime.UtcNow,
+            Logs =
+            [
+                new()
+                {
+                    CorrelationId = occurrence.CorrelationId,
+                    WorkerId = "test-worker",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Error",
+                        Message = longMessage,
+                        Category = "LongMsgTest"
+                    },
+                    MessageTimestamp = DateTime.UtcNow
+                }
+            ]
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Logs?.Any(l => l.Message?.StartsWith(uniquePrefix) == true) == true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await collector.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("long message log should be processed");
+
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        var log = updatedOccurrence.Logs.First(l => l.Message?.StartsWith(uniquePrefix) == true);
+        log.Level.Should().Be("Error");
+    }
+
     private LogCollectorService CreateLogCollectorService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),

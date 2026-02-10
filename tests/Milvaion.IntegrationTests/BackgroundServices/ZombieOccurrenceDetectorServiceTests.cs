@@ -334,6 +334,255 @@ public class ZombieOccurrenceDetectorServiceTests(ServicesWebApplicationFactory 
         result.DurationMs!.Value.Should().BeInRange((long)(expectedDurationMs - 60000), (long)(expectedDurationMs + 60000));
     }
 
+    [Fact]
+    public async Task DetectAndCleanupZombieOccurrences_ShouldNotAffectCompletedOccurrences()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync($"CompletedSafeJob_{Guid.CreateVersion7():N}");
+
+        // Create a Completed occurrence that is old - should NOT be touched
+        var completedOccurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Completed,
+            createdAt: DateTime.UtcNow.AddMinutes(-60)
+        );
+
+        // Create a Failed occurrence that is old - should NOT be touched
+        var failedOccurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Failed,
+            createdAt: DateTime.UtcNow.AddMinutes(-60)
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var service = CreateZombieDetectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await service.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        await service.StopAsync(cts.Token);
+
+        // Assert - Completed and Failed statuses should remain unchanged
+        var completedResult = await GetOccurrenceAsync(completedOccurrence.Id);
+        var failedResult = await GetOccurrenceAsync(failedOccurrence.Id);
+
+        completedResult.Status.Should().Be(JobOccurrenceStatus.Completed);
+        failedResult.Status.Should().Be(JobOccurrenceStatus.Failed);
+    }
+
+    [Fact]
+    public async Task DetectAndCleanupZombieOccurrences_ShouldHandleMultipleZombiesInSingleCycle()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job1 = await SeedScheduledJobAsync($"MultiZombie1_{Guid.CreateVersion7():N}");
+        var job2 = await SeedScheduledJobAsync($"MultiZombie2_{Guid.CreateVersion7():N}");
+        var job3 = await SeedScheduledJobAsync($"MultiZombie3_{Guid.CreateVersion7():N}");
+
+        var zombie1 = await SeedJobOccurrenceAsync(
+            jobId: job1.Id,
+            jobName: job1.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued,
+            createdAt: DateTime.UtcNow.AddMinutes(-20)
+        );
+
+        var zombie2 = await SeedJobOccurrenceAsync(
+            jobId: job2.Id,
+            jobName: job2.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued,
+            createdAt: DateTime.UtcNow.AddMinutes(-25)
+        );
+
+        var zombie3 = await SeedJobOccurrenceAsync(
+            jobId: job3.Id,
+            jobName: job3.JobNameInWorker,
+            status: JobOccurrenceStatus.Running,
+            createdAt: DateTime.UtcNow.AddMinutes(-30)
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var service = CreateZombieDetectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await service.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Wait for all zombies to be detected
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var z1 = await GetOccurrenceAsync(zombie1.Id);
+                var z2 = await GetOccurrenceAsync(zombie2.Id);
+                var z3 = await GetOccurrenceAsync(zombie3.Id);
+                return z1?.Status == JobOccurrenceStatus.Unknown
+                    && z2?.Status == JobOccurrenceStatus.Unknown
+                    && z3?.Status == JobOccurrenceStatus.Unknown;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await service.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("all zombie occurrences should be detected in a single cycle");
+
+        var result1 = await GetOccurrenceAsync(zombie1.Id);
+        var result2 = await GetOccurrenceAsync(zombie2.Id);
+        var result3 = await GetOccurrenceAsync(zombie3.Id);
+
+        result1.Status.Should().Be(JobOccurrenceStatus.Unknown);
+        result1.Exception.Should().Contain("Zombie occurrence detected");
+
+        result2.Status.Should().Be(JobOccurrenceStatus.Unknown);
+        result2.Exception.Should().Contain("Zombie occurrence detected");
+
+        result3.Status.Should().Be(JobOccurrenceStatus.Unknown);
+    }
+
+    [Fact]
+    public async Task DetectAndCleanupZombieOccurrences_ShouldHandleMixedHealthyAndZombieOccurrences()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync($"MixedJob_{Guid.CreateVersion7():N}");
+
+        // Healthy (recent) occurrences
+        var healthyQueued = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued,
+            createdAt: DateTime.UtcNow.AddMinutes(-1)
+        );
+
+        var healthyRunning = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running,
+            createdAt: DateTime.UtcNow.AddMinutes(-1)
+        );
+
+        // Zombie (old) occurrences
+        var zombieQueued = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued,
+            createdAt: DateTime.UtcNow.AddMinutes(-20)
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var service = CreateZombieDetectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await service.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Wait for zombie detection
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var zombie = await GetOccurrenceAsync(zombieQueued.Id);
+                return zombie?.Status == JobOccurrenceStatus.Unknown;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await service.StopAsync(cts.Token);
+
+        // Assert - Only zombie should be marked, healthy ones untouched
+        found.Should().BeTrue("zombie occurrence should be detected");
+
+        var healthyQueuedResult = await GetOccurrenceAsync(healthyQueued.Id);
+        var healthyRunningResult = await GetOccurrenceAsync(healthyRunning.Id);
+        var zombieResult = await GetOccurrenceAsync(zombieQueued.Id);
+
+        healthyQueuedResult.Status.Should().Be(JobOccurrenceStatus.Queued);
+        healthyRunningResult.Status.Should().Be(JobOccurrenceStatus.Running);
+        zombieResult.Status.Should().Be(JobOccurrenceStatus.Unknown);
+    }
+
+    [Fact]
+    public async Task DetectAndCleanupZombieOccurrences_ShouldIncludeStuckDurationInException()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job = await SeedScheduledJobAsync($"DurationInfoJob_{Guid.CreateVersion7():N}");
+        var createdAt = DateTime.UtcNow.AddMinutes(-25);
+
+        var zombieOccurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued,
+            createdAt: createdAt
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var service = CreateZombieDetectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await service.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(zombieOccurrence.Id);
+                return occ?.Status == JobOccurrenceStatus.Unknown;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await service.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("zombie should be detected");
+
+        var result = await GetOccurrenceAsync(zombieOccurrence.Id);
+        result.Exception.Should().Contain("Zombie occurrence detected");
+        result.Exception.Should().Contain("stuck in Queued status");
+        result.Exception.Should().Contain("timeout: 10 minutes");
+    }
+
     private ZombieOccurrenceDetectorService CreateZombieDetectorService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),

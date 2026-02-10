@@ -50,14 +50,14 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 // 1. Worker Metadata
                 var workerData = new HashEntry[]
                 {
-                    new("displayName", registration.DisplayName),
-                    new("routingPatterns", JsonSerializer.Serialize(registration.RoutingPatterns)),
-                    new("jobDataDefinitions", JsonSerializer.Serialize(registration.JobDataDefinitions)),
-                    new("jobNames", JsonSerializer.Serialize(registration.JobTypes)),
+                    new("displayName", registration.DisplayName ?? string.Empty),
+                    new("routingPatterns", registration.RoutingPatterns != null ? JsonSerializer.Serialize(registration.RoutingPatterns) : "{}"),
+                    new("jobDataDefinitions", registration.JobDataDefinitions != null ? JsonSerializer.Serialize(registration.JobDataDefinitions) : "{}"),
+                    new("jobNames", registration.JobTypes != null ? JsonSerializer.Serialize(registration.JobTypes) : "[]"),
                     new("maxParallelJobs", registration.MaxParallelJobs),
-                    new("version", registration.Version),
-                    new("metadata", registration.Metadata),
-                    new("registeredAt", registeredAt),
+                    new("version", registration.Version ?? string.Empty),
+                    new("metadata", !string.IsNullOrEmpty(registration.Metadata) ? registration.Metadata : "{}"),
+                    new("registeredAt", registeredAt ?? string.Empty),
                 };
 
                 var batchTasks = new List<Task>
@@ -69,12 +69,12 @@ public class RedisWorkerService(IConnectionMultiplexer redis,
                 // 2. Instance Data
                 var instanceData = new HashEntry[]
                 {
-                    new("hostName", registration.HostName),
+                    new("hostName", registration.HostName ?? string.Empty),
                     new("currentJobs", 0),
                     new("status", WorkerStatus.Active.ToString()),
                     new("lastHeartbeat", DateTime.UtcNow.ToString("O")),
-                    new("registeredAt", instanceRegisteredAt), // Preserve original instance registration time
-                    new("ipAddress", registration.IpAddress)
+                    new("registeredAt", instanceRegisteredAt ?? string.Empty), // Preserve original instance registration time
+                    new("ipAddress", registration.IpAddress ?? string.Empty)
                 };
 
                 batchTasks.Add(batch.HashSetAsync(instanceKey, instanceData));

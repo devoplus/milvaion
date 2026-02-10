@@ -243,6 +243,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
 
         // 8. Record metrics and update Redis counters
         RecordDispatchMetrics(sw, occurrences.Count);
+
         await UpdateRedisCountersAfterDispatchAsync(occurrences.Count, cancellationToken);
 
         // 9. Dispatch to RabbitMQ

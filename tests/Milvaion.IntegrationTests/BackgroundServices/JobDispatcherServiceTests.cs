@@ -12,6 +12,7 @@ using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
+using System.Text.Json;
 using Xunit.Abstractions;
 
 namespace Milvaion.IntegrationTests.BackgroundServices;
@@ -491,6 +492,501 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
 
         createdOccurrence.Should().NotBeNull();
         createdOccurrence!.JobVersion.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldSkipJobWithSkipPolicy_WhenAlreadyRunning()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var uniqueJobName = $"SkipPolicyJob_{Guid.CreateVersion7():N}";
+        var job = await SeedScheduledJobAsync(
+            uniqueJobName,
+            cronExpression: "0 0 * * * *",
+            executeAt: DateTime.UtcNow.AddMinutes(-1)
+        );
+
+        // Seed an existing Running occurrence for this job
+        await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        // Mark this job as running in Redis
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+        await redisScheduler.MarkJobAsRunningAsync(job.Id, Guid.CreateVersion7());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(5000, cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert - Should not create a new occurrence because of Skip policy + already running
+        var dbContext = GetDbContext();
+        var occurrences = await dbContext.JobOccurrences
+            .AsNoTracking()
+            .Where(o => o.JobId == job.Id && o.Status == JobOccurrenceStatus.Queued)
+            .ToListAsync(cts.Token);
+
+        occurrences.Should().BeEmpty("Skip policy should prevent new occurrence when job is already running");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldCreateOccurrence_WithQueuePolicy()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var uniqueJobName = $"QueuePolicyJob_{Guid.CreateVersion7():N}";
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = uniqueJobName,
+            JobNameInWorker = uniqueJobName,
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Queue,
+            RoutingPattern = "worker.*",
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var ctx = GetDbContext();
+                return await ctx.JobOccurrences
+                    .AsNoTracking()
+                    .AnyAsync(o => o.JobId == job.Id, cts.Token);
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("Queue policy should create occurrence");
+
+        var dbContextAssert = GetDbContext();
+        var createdOccurrence = await dbContextAssert.JobOccurrences
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o => o.JobId == job.Id, cts.Token);
+
+        createdOccurrence.Should().NotBeNull();
+        createdOccurrence!.Status.Should().Be(JobOccurrenceStatus.Queued);
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldNotDispatch_WhenDispatcherIsPaused()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var uniqueJobName = $"PausedDispatcherJob_{Guid.CreateVersion7():N}";
+        var job = await SeedScheduledJobAsync(
+            uniqueJobName,
+            executeAt: DateTime.UtcNow.AddMinutes(-1)
+        );
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        var controlService = _serviceProvider.GetRequiredService<IDispatcherControlService>();
+        controlService.Stop("Integration test pause", "TestUser");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(5000, cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert - No occurrence should be created while paused
+        var dbContext = GetDbContext();
+        var occurrences = await dbContext.JobOccurrences
+            .AsNoTracking()
+            .Where(o => o.JobId == job.Id)
+            .ToListAsync(cts.Token);
+
+        occurrences.Should().BeEmpty("no jobs should be dispatched while dispatcher is paused");
+
+        // Resume for cleanup
+        controlService.Resume("TestUser");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldResumeDispatching_AfterEmergencyStopIsLifted()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var uniqueJobName = $"ResumeJob_{Guid.CreateVersion7():N}";
+        var job = await SeedScheduledJobAsync(
+            uniqueJobName,
+            executeAt: DateTime.UtcNow.AddMinutes(-1)
+        );
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        var controlService = _serviceProvider.GetRequiredService<IDispatcherControlService>();
+        controlService.Stop("Temporary pause", "TestUser");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act - Start dispatcher while paused
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Wait a bit then resume
+        await Task.Delay(3000, cts.Token);
+        controlService.Resume("TestUser");
+
+        // Wait for job to be dispatched after resume
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var ctx = GetDbContext();
+                return await ctx.JobOccurrences
+                    .AsNoTracking()
+                    .AnyAsync(o => o.JobId == job.Id, cts.Token);
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("jobs should be dispatched after emergency stop is lifted");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldCorrectlyReschedule_WithCronExpressionWithSeconds()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var uniqueJobName = $"CronSecondsJob_{Guid.CreateVersion7():N}";
+        var job = await SeedScheduledJobAsync(
+            uniqueJobName,
+            cronExpression: "*/30 * * * * *", // Every 30 seconds (6-part cron with seconds)
+            executeAt: DateTime.UtcNow.AddMinutes(-1)
+        );
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var nextTime = await redisScheduler.GetScheduledTimeAsync(job.Id, cts.Token);
+                return nextTime != null && nextTime > DateTime.UtcNow;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert - Should be rescheduled within 30 seconds from now
+        found.Should().BeTrue("cron job with seconds should be rescheduled");
+
+        var nextScheduledTime = await redisScheduler.GetScheduledTimeAsync(job.Id, cts.Token);
+        nextScheduledTime.Should().NotBeNull();
+        nextScheduledTime.Should().BeAfter(DateTime.UtcNow);
+        nextScheduledTime.Should().BeBefore(DateTime.UtcNow.AddMinutes(1));
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldSetExecutionTimeoutFromJob()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var dbContext = GetDbContext();
+        var uniqueJobName = $"TimeoutTestJob_{Guid.CreateVersion7():N}";
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = uniqueJobName,
+            JobNameInWorker = uniqueJobName,
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            ExecutionTimeoutSeconds = 120,
+            RoutingPattern = "worker.*",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var ctx = GetDbContext();
+                var occ = await ctx.JobOccurrences
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.JobId == job.Id, cts.Token);
+                return occ?.ExecutionTimeoutSeconds == 120;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("occurrence should have execution timeout from job definition");
+
+        var dbContextAssert = GetDbContext();
+        var occurrence = await dbContextAssert.JobOccurrences
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o => o.JobId == job.Id, cts.Token);
+
+        occurrence.Should().NotBeNull();
+        occurrence!.ExecutionTimeoutSeconds.Should().Be(120);
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldPreserveJobData()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var dbContext = GetDbContext();
+        var uniqueJobName = $"JobDataTestJob_{Guid.CreateVersion7():N}";
+        var jobData = """{"param1":"value1","param2":42,"nested":{"key":"deep"}}""";
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = uniqueJobName,
+            JobNameInWorker = uniqueJobName,
+            JobData = jobData,
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            RoutingPattern = "worker.*",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var ctx = GetDbContext();
+                return await ctx.JobOccurrences
+                    .AsNoTracking()
+                    .AnyAsync(o => o.JobId == job.Id, cts.Token);
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert - Verify the job in DB still has its data intact
+        found.Should().BeTrue("occurrence should be created");
+
+        var dbContextAssert = GetDbContext();
+        var savedJob = await dbContextAssert.ScheduledJobs.AsNoTracking().FirstOrDefaultAsync(j => j.Id == job.Id, cts.Token);
+
+        savedJob.Should().NotBeNull();
+
+        // Compare as JSON documents since PostgreSQL jsonb normalizes key order
+        var expectedJson = JsonDocument.Parse(jobData);
+        var actualJson = JsonDocument.Parse(savedJob!.JobData);
+        JsonElement.DeepEquals(expectedJson.RootElement, actualJson.RootElement).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldSetZombieTimeoutOnOccurrence()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var dbContext = GetDbContext();
+        var uniqueJobName = $"ZombieTimeoutJob_{Guid.CreateVersion7():N}";
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = uniqueJobName,
+            JobNameInWorker = uniqueJobName,
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            ZombieTimeoutMinutes = 45,
+            RoutingPattern = "worker.*",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var ctx = GetDbContext();
+                var occ = await ctx.JobOccurrences
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.JobId == job.Id, cts.Token);
+                return occ?.ZombieTimeoutMinutes == 45;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("occurrence should inherit zombie timeout from job");
+
+        var dbContextAssert = GetDbContext();
+        var occurrence = await dbContextAssert.JobOccurrences
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o => o.JobId == job.Id, cts.Token);
+
+        occurrence.Should().NotBeNull();
+        occurrence!.ZombieTimeoutMinutes.Should().Be(45);
     }
 
     private JobDispatcherService CreateJobDispatcherService() => new(
