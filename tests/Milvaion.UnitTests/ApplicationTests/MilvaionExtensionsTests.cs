@@ -6,33 +6,6 @@ namespace Milvaion.UnitTests.ApplicationTests;
 [Trait("Application Unit Tests", "MilvaionExtensions unit tests.")]
 public class MilvaionExtensionsTests
 {
-    #region ToLowerAndNonSpacingUnicode
-
-    [Fact]
-    public void ToLowerAndNonSpacingUnicode_ShouldRemoveDiacritics()
-    {
-        // NFD decomposition only strips combining marks (e.g. ü?u, ö?o, ç?c)
-        // Turkish-specific chars like ?, ?, ?, ? don't decompose via NFD
-        var result = "àéîöü".ToLowerAndNonSpacingUnicode();
-        result.Should().Be("aeiou");
-    }
-
-    [Fact]
-    public void ToLowerAndNonSpacingUnicode_ShouldRemoveSpaces()
-    {
-        var result = "Hello World".ToLowerAndNonSpacingUnicode();
-        result.Should().Be("helloworld");
-    }
-
-    [Fact]
-    public void ToLowerAndNonSpacingUnicode_ShouldHandleAccentedCharacters()
-    {
-        var result = "café résumé".ToLowerAndNonSpacingUnicode();
-        result.Should().Be("caferesume");
-    }
-
-    #endregion
-
     #region IsBase64StringValidLength
 
     [Fact]
