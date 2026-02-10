@@ -43,4 +43,8 @@
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Milvaion.UnitTests" />
+	</ItemGroup>
+
 </Project>

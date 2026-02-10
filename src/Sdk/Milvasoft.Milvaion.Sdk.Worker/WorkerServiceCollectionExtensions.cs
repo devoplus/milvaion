@@ -518,7 +518,7 @@ public static class WorkerServiceCollectionExtensions
     /// - TestJob → email-worker-01.test.*
     /// - NonParallelJob → email-worker-01.nonparallel.*
     /// </summary>
-    private static string GenerateRoutingPattern(string jobTypeName, string workerId)
+    internal static string GenerateRoutingPattern(string jobTypeName, string workerId)
     {
         // Remove "Job" suffix if present
         if (jobTypeName.EndsWith("Job", StringComparison.OrdinalIgnoreCase))
