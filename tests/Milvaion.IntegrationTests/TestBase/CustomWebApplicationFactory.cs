@@ -1,5 +1,7 @@
 ﻿using DotNet.Testcontainers.Containers;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Milvaion.Api.AppStartup;
 using Npgsql;
 using Respawn;
@@ -13,6 +15,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
 {
     private Respawner _respawner;
     private NpgsqlConnection _connection;
+
+    /// <summary>
+    /// Database name for this factory instance. Override in subclasses to create isolated databases per collection.
+    /// </summary>
+    protected virtual string DatabaseName => "testDb";
 
     private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("postgres:latest")
         .WithDatabase("testDb")
@@ -47,6 +54,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
         $$;
     ";
 
+    // Lock ensures parallel collection fixtures don't race on env vars during host build.
+    // Each factory sets env vars and triggers host build atomically.
+    private static readonly SemaphoreSlim _hostBuildLock = new(1, 1);
+
     public async Task InitializeAsync()
     {
         // Start all containers in parallel
@@ -63,9 +74,53 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
 
         await Task.WhenAll(startTasks);
 
-        // Setup PostgreSQL connection
-        _connection = new NpgsqlConnection($"{_dbContainer.GetConnectionString()};Timeout=30;");
+        // Create isolated database if this collection uses a different DB name
+        if (DatabaseName != "testDb")
+        {
+            await using var adminConn = new NpgsqlConnection($"{_dbContainer.GetConnectionString()};Timeout=30;");
+            await adminConn.OpenAsync();
+            await using var cmd = adminConn.CreateCommand();
+            cmd.CommandText = $"SELECT 1 FROM pg_database WHERE datname = '{DatabaseName}'";
+            var exists = await cmd.ExecuteScalarAsync();
+            if (exists == null)
+            {
+                cmd.CommandText = $"CREATE DATABASE \"{DatabaseName}\"";
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        // Setup PostgreSQL connection to the target database
+        _connection = new NpgsqlConnection($"{GetConnectionString()};Timeout=30;");
         await _connection.OpenAsync();
+
+        // Set env vars and trigger host build under lock.
+        // Env vars are needed because Program.cs reads configuration eagerly
+        // (e.g. builder.Configuration.GetSection(...).Get<MilvaionConfig>() and
+        // NpgsqlDataSourceBuilder) BEFORE ConfigureWebHost.ConfigureAppConfiguration runs.
+        await _hostBuildLock.WaitAsync();
+        try
+        {
+            Environment.SetEnvironmentVariable("IsTestEnv", "true");
+            Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnectionString", $"{GetConnectionString()};Pooling=false;");
+            Environment.SetEnvironmentVariable("MilvaionConfig__Redis__ConnectionString", GetRedisConnectionString());
+            Environment.SetEnvironmentVariable("MilvaionConfig__RabbitMQ__Host", GetRabbitMqHost());
+            Environment.SetEnvironmentVariable("MilvaionConfig__RabbitMQ__Port", GetRabbitMqPort().ToString());
+            Environment.SetEnvironmentVariable("MilvaionConfig__RabbitMQ__Username", "guest");
+            Environment.SetEnvironmentVariable("MilvaionConfig__RabbitMQ__Password", "guest");
+            Environment.SetEnvironmentVariable("MilvaionConfig__StatusTracker__Enabled", "false");
+            Environment.SetEnvironmentVariable("MilvaionConfig__WorkerAutoDiscovery__Enabled", "false");
+            Environment.SetEnvironmentVariable("MilvaionConfig__ZombieOccurrenceDetector__Enabled", "false");
+            Environment.SetEnvironmentVariable("MilvaionConfig__FailedOccurrenceHandler__Enabled", "false");
+            Environment.SetEnvironmentVariable("MilvaionConfig__LogCollector__Enabled", "false");
+            Environment.SetEnvironmentVariable("MilvaionConfig__Logging__Seq__Enabled", "false");
+
+            // Trigger host build — this reads env vars during Program.cs execution
+            _ = Services;
+        }
+        finally
+        {
+            _hostBuildLock.Release();
+        }
     }
 
     public async Task CreateRespawner() => _respawner ??= await Respawner.CreateAsync(_connection, new RespawnerOptions
@@ -111,9 +166,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     async Task IAsyncLifetime.DisposeAsync() => await DisposeAsync();
 
     /// <summary>
-    /// Gets PostgreSQL connection string.
+    /// Gets PostgreSQL connection string for the target database.
     /// </summary>
-    public string GetConnectionString() => _dbContainer.GetConnectionString();
+    public string GetConnectionString()
+    {
+        var baseConnStr = _dbContainer.GetConnectionString();
+        if (DatabaseName == "testDb")
+            return baseConnStr;
+
+        // Replace the default database name with the collection-specific one
+        var builder = new NpgsqlConnectionStringBuilder(baseConnStr)
+        {
+            Database = DatabaseName
+        };
+        return builder.ConnectionString;
+    }
 
     /// <summary>
     /// Gets Redis connection string.
@@ -134,6 +201,29 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     /// Gets RabbitMQ connection string in format host:port.
     /// </summary>
     public string GetRabbitMqConnectionString() => $"{GetRabbitMqHost()}:{GetRabbitMqPort()}";
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["ConnectionStrings:DefaultConnectionString"] = $"{GetConnectionString()};Pooling=false;",
+                ["MilvaionConfig:Redis:ConnectionString"] = GetRedisConnectionString(),
+                ["MilvaionConfig:RabbitMQ:Host"] = GetRabbitMqHost(),
+                ["MilvaionConfig:RabbitMQ:Port"] = GetRabbitMqPort().ToString(),
+                ["MilvaionConfig:RabbitMQ:Username"] = "guest",
+                ["MilvaionConfig:RabbitMQ:Password"] = "guest",
+                ["MilvaionConfig:StatusTracker:Enabled"] = "false",
+                ["MilvaionConfig:WorkerAutoDiscovery:Enabled"] = "false",
+                ["MilvaionConfig:ZombieOccurrenceDetector:Enabled"] = "false",
+                ["MilvaionConfig:FailedOccurrenceHandler:Enabled"] = "false",
+                ["MilvaionConfig:LogCollector:Enabled"] = "false",
+                ["MilvaionConfig:Alerting"] = "{}",
+                ["MilvaionConfig:Logging:Seq:Enabled"] = "false",
+            });
+        });
+    }
 
     public virtual HttpClient CreateClientWithHeaders(params KeyValuePair<string, string>[] headers)
     {

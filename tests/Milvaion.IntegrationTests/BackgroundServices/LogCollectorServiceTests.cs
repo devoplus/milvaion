@@ -23,8 +23,8 @@ namespace Milvaion.IntegrationTests.BackgroundServices;
 /// Integration tests for LogCollectorService.
 /// Tests log message consumption from RabbitMQ and batch processing.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class LogCollectorServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
 {
     [Fact]
     public async Task CollectLogs_ShouldAppendLogsToOccurrence()

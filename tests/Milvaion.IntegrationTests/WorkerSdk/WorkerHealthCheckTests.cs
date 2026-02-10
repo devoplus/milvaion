@@ -12,8 +12,8 @@ namespace Milvaion.IntegrationTests.WorkerSdk;
 /// <summary>
 /// Integration tests for worker health checks against real Redis and RabbitMQ.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class WorkerHealthCheckTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
+[Collection(nameof(WorkerSdkTestCollection))]
+public class WorkerHealthCheckTests(WorkerSdkContainerFixture fixture, ITestOutputHelper output) : WorkerSdkTestBase(fixture, output)
 {
     #region RedisHealthCheck
 
@@ -21,9 +21,8 @@ public class WorkerHealthCheckTests(CustomWebApplicationFactory factory, ITestOu
     public async Task RedisHealthCheck_ShouldReturnHealthy_WhenRedisIsConnected()
     {
         // Arrange
-        await InitializeAsync();
 
-        var redis = _serviceProvider.GetRequiredService<IConnectionMultiplexer>();
+        var redis = await ConnectionMultiplexer.ConnectAsync(GetRedisConnectionString());
         var healthCheck = new RedisHealthCheck(redis);
 
         // Act
@@ -43,7 +42,6 @@ public class WorkerHealthCheckTests(CustomWebApplicationFactory factory, ITestOu
     public async Task RedisHealthCheck_ShouldReturnUnhealthy_WhenRedisIsNull()
     {
         // Arrange
-        await InitializeAsync();
 
         var healthCheck = new RedisHealthCheck(null);
 
@@ -67,7 +65,6 @@ public class WorkerHealthCheckTests(CustomWebApplicationFactory factory, ITestOu
     public async Task RabbitMQHealthCheck_ShouldReturnHealthy_WhenRabbitMQIsConnected()
     {
         // Arrange
-        await InitializeAsync();
 
         var connectionMonitor = new StubConnectionMonitor(isHealthy: true);
         var healthCheck = new RabbitMQHealthCheck(connectionMonitor);
@@ -88,7 +85,6 @@ public class WorkerHealthCheckTests(CustomWebApplicationFactory factory, ITestOu
     public async Task RabbitMQHealthCheck_ShouldReturnUnhealthy_WhenRabbitMQIsDisconnected()
     {
         // Arrange
-        await InitializeAsync();
 
         var connectionMonitor = new StubConnectionMonitor(isHealthy: false);
         var healthCheck = new RabbitMQHealthCheck(connectionMonitor);

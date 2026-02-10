@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Milvaion.IntegrationTests.TestBase;
@@ -19,8 +18,8 @@ namespace Milvaion.IntegrationTests.WorkerSdk;
 /// Integration tests for LogPublisher.
 /// Tests log message publishing to RabbitMQ.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
+[Collection(nameof(WorkerSdkTestCollection))]
+public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHelper output) : WorkerSdkTestBase(fixture, output)
 {
     private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -28,7 +27,6 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
     public async Task PublishLogAsync_ShouldPublishInformationLog()
     {
         // Arrange
-        await InitializeAsync();
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -88,7 +86,6 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
     public async Task PublishLogAsync_ShouldPublishErrorLog()
     {
         // Arrange
-        await InitializeAsync();
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -149,7 +146,6 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
     public async Task PublishLogAsync_ShouldPublishWarningLog()
     {
         // Arrange
-        await InitializeAsync();
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -204,7 +200,6 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
     public async Task PublishLogAsync_ShouldPublishDebugLog()
     {
         // Arrange
-        await InitializeAsync();
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -258,7 +253,6 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
     public async Task PublishLogAsync_ShouldIncludeLogData()
     {
         // Arrange
-        await InitializeAsync();
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -323,7 +317,6 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
     public async Task PublishLogAsync_ShouldIncludeMessageTimestamp()
     {
         // Arrange
-        await InitializeAsync();
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -379,7 +372,6 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
     public async Task PublishLogAsync_ShouldPublishMultipleLogsSequentially()
     {
         // Arrange
-        await InitializeAsync();
         await PurgeLogsQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -440,8 +432,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
         {
             var factory = new ConnectionFactory
             {
-                HostName = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
+                HostName = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
                 UserName = "guest",
                 Password = "guest"
             };
@@ -471,23 +463,23 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
             WorkerId = "test-worker",
             RabbitMQ = new RabbitMQSettings
             {
-                Host = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
+                Host = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
                 Username = "guest",
                 Password = "guest",
                 VirtualHost = "/"
             }
         };
 
-        return new LogPublisher(options, _serviceProvider.GetRequiredService<ILoggerFactory>());
+        return new LogPublisher(options, GetLoggerFactory());
     }
 
     private async Task<(IChannel, IConnection)> SetupLogConsumerAsync(Action<WorkerLogBatchMessage> onMessage, Guid correlationId, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory
         {
-            HostName = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
             UserName = "guest",
             Password = "guest"
         };
@@ -556,8 +548,8 @@ public class LogPublisherTests(CustomWebApplicationFactory factory, ITestOutputH
     {
         var factory = new ConnectionFactory
         {
-            HostName = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
             UserName = "guest",
             Password = "guest"
         };

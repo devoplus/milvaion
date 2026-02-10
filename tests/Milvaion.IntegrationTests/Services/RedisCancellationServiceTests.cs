@@ -8,8 +8,8 @@ namespace Milvaion.IntegrationTests.Services;
 /// Integration tests for RedisCancellationService.
 /// Tests Redis Pub/Sub based job cancellation against real Redis.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class RedisCancellationServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class RedisCancellationServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
 {
     [Fact]
     public async Task PublishCancellationAsync_ShouldPublishWithoutError()

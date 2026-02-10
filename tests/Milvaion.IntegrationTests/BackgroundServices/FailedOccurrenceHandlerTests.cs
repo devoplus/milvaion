@@ -24,8 +24,8 @@ namespace Milvaion.IntegrationTests.BackgroundServices;
 /// Integration tests for FailedOccurrenceHandler.
 /// Tests Dead Letter Queue message processing and failed occurrence storage.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class FailedOccurrenceHandlerTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class FailedOccurrenceHandlerTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
 {
 
     [Fact]

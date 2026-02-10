@@ -24,44 +24,27 @@ public abstract class IntegrationTestBase(CustomWebApplicationFactory factory, I
 
     public virtual async Task InitializeAsync(Action<IServiceCollection> configureServices = null, Action<IApplicationBuilder> configureApp = null)
     {
-        Environment.SetEnvironmentVariable("IsTestEnv", "true");
-
         var connectionString = $"{_factory.GetConnectionString()};Pooling=false;";
 
-        // Set PostgreSQL connection string
-        Environment.SetEnvironmentVariable("ConnectionStrings:DefaultConnectionString", connectionString);
-
-        // Set Redis connection string
-        Environment.SetEnvironmentVariable("MilvaionConfig:Redis:ConnectionString", _factory.GetRedisConnectionString());
-
-        // Set RabbitMQ connection settings
-        Environment.SetEnvironmentVariable("MilvaionConfig:RabbitMQ:Host", _factory.GetRabbitMqHost());
-        Environment.SetEnvironmentVariable("MilvaionConfig:RabbitMQ:Port", _factory.GetRabbitMqPort().ToString());
-        Environment.SetEnvironmentVariable("MilvaionConfig:RabbitMQ:Username", "guest");
-        Environment.SetEnvironmentVariable("MilvaionConfig:RabbitMQ:Password", "guest");
-
-        // Disable background services that might interfere with tests
-        Environment.SetEnvironmentVariable("MilvaionConfig:StatusTracker:Enabled", "false");
-        Environment.SetEnvironmentVariable("MilvaionConfig:WorkerAutoDiscovery:Enabled", "false");
-        Environment.SetEnvironmentVariable("MilvaionConfig:ZombieOccurrenceDetector:Enabled", "false");
-        Environment.SetEnvironmentVariable("MilvaionConfig:FailedOccurrenceHandler:Enabled", "false");
-        Environment.SetEnvironmentVariable("MilvaionConfig:LogCollector:Enabled", "false");
-        Environment.SetEnvironmentVariable("MilvaionConfig:Alerting", "{}");
-
-        var waf = _factory.WithWebHostBuilder(builder =>
+        // Host is already built in the fixture's InitializeAsync (with correct env vars).
+        // ConfigureWebHost adds in-memory config as an additional override for late-bound reads.
+        if (configureServices != null || configureApp != null)
         {
-            builder.ConfigureTestServices(services =>
+            var waf = _factory.WithWebHostBuilder(builder =>
             {
-                configureServices?.Invoke(services);
+                if (configureServices != null)
+                    builder.ConfigureTestServices(services => configureServices(services));
+
+                if (configureApp != null)
+                    builder.Configure(app => configureApp(app));
             });
 
-            builder.Configure(app =>
-            {
-                configureApp?.Invoke(app);
-            });
-        });
-
-        _serviceProvider = waf.Services.CreateScope().ServiceProvider;
+            _serviceProvider = waf.Services.CreateScope().ServiceProvider;
+        }
+        else
+        {
+            _serviceProvider = _factory.Services.CreateScope().ServiceProvider;
+        }
 
         try
         {

@@ -15,8 +15,8 @@ namespace Milvaion.IntegrationTests.WorkerSdk;
 /// Integration tests for CancellationListenerService.
 /// Tests job cancellation via Redis Pub/Sub.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class CancellationListenerServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
+[Collection(nameof(WorkerSdkTestCollection))]
+public class CancellationListenerServiceTests(WorkerSdkContainerFixture fixture, ITestOutputHelper output) : WorkerSdkTestBase(fixture, output)
 {
     private const string _cancellationChannel = "job:cancellation";
 
@@ -24,7 +24,6 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
     public async Task RegisterJob_ShouldTrackCancellationTokenSource()
     {
         // Arrange
-        await InitializeAsync();
 
         var correlationId = Guid.CreateVersion7();
         using var cts = new CancellationTokenSource();
@@ -45,7 +44,6 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
     public async Task UnregisterJob_ShouldRemoveTracking()
     {
         // Arrange
-        await InitializeAsync();
 
         var correlationId = Guid.CreateVersion7();
         using var cts = new CancellationTokenSource();
@@ -64,7 +62,6 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
     public async Task GetCancellationToken_WithUnregisteredJob_ShouldReturnNone()
     {
         // Arrange
-        await InitializeAsync();
 
         var correlationId = Guid.CreateVersion7();
 
@@ -79,7 +76,6 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
     public async Task CancellationListener_ShouldCancelJobOnPubSubMessage()
     {
         // Arrange
-        await InitializeAsync();
 
         var correlationId = Guid.CreateVersion7();
         var jobId = Guid.CreateVersion7();
@@ -127,7 +123,6 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
     public async Task CancellationListener_ShouldIgnoreUnregisteredJobs()
     {
         // Arrange
-        await InitializeAsync();
 
         var correlationId = Guid.CreateVersion7();
         var jobId = Guid.CreateVersion7();
@@ -165,7 +160,6 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
     public async Task CancellationListener_ShouldHandleMultipleCancellations()
     {
         // Arrange
-        await InitializeAsync();
 
         var jobs = new List<(Guid correlationId, CancellationTokenSource cts)>();
         for (int i = 0; i < 3; i++)
@@ -220,14 +214,14 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
 
     private CancellationListenerService CreateCancellationListenerService()
     {
-        var redis = ConnectionMultiplexer.Connect(_factory.GetRedisConnectionString());
+        var redis = ConnectionMultiplexer.Connect(GetRedisConnectionString());
 
         var options = Options.Create(new WorkerOptions
         {
             WorkerId = $"test-worker-{Guid.CreateVersion7():N}",
             Redis = new RedisSettings
             {
-                ConnectionString = _factory.GetRedisConnectionString(),
+                ConnectionString = GetRedisConnectionString(),
                 CancellationChannel = _cancellationChannel
             }
         });
@@ -235,13 +229,13 @@ public class CancellationListenerServiceTests(CustomWebApplicationFactory factor
         return new CancellationListenerService(
             redis,
             options,
-            _serviceProvider.GetRequiredService<ILoggerFactory>()
+            GetLoggerFactory()
         );
     }
 
     private async Task PublishCancellationRequestAsync(Guid correlationId, Guid jobId, string reason)
     {
-        var redis = await ConnectionMultiplexer.ConnectAsync(_factory.GetRedisConnectionString());
+        var redis = await ConnectionMultiplexer.ConnectAsync(GetRedisConnectionString());
         var subscriber = redis.GetSubscriber();
 
         var request = new

@@ -18,8 +18,8 @@ namespace Milvaion.IntegrationTests.Services;
 /// Integration tests for AlertNotifier.
 /// Tests alert routing, channel dispatching, and configuration-based behavior.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class AlertNotifierTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class AlertNotifierTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
 {
     [Fact]
     public async Task SendAsync_ShouldReturnSkipped_WhenAlertTypeIsDisabled()

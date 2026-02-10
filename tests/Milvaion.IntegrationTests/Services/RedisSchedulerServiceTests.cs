@@ -8,8 +8,8 @@ namespace Milvaion.IntegrationTests.Services;
 /// Integration tests for RedisSchedulerService.
 /// Tests ZSET-based job scheduling operations against real Redis.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class RedisSchedulerServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class RedisSchedulerServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
 {
     [Fact]
     public async Task AddToScheduledSetAsync_ShouldAddJobToZSet()

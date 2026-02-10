@@ -49,6 +49,8 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\..\src\Milvaion.Api\Milvaion.Api.csproj" />
 	  <ProjectReference Include="..\..\src\Sdk\Milvasoft.Milvaion.Sdk.Worker\Milvasoft.Milvaion.Sdk.Worker.csproj" />
+	  <ProjectReference Include="..\..\src\Sdk\Milvasoft.Milvaion.Sdk.Worker.Quartz\Milvasoft.Milvaion.Sdk.Worker.Quartz.csproj" />
+	  <ProjectReference Include="..\..\src\Sdk\Milvasoft.Milvaion.Sdk.Worker.Hangfire\Milvasoft.Milvaion.Sdk.Worker.Hangfire.csproj" />
 	</ItemGroup>
 
 

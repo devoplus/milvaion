@@ -13,14 +13,13 @@ namespace Milvaion.IntegrationTests.WorkerSdk;
 /// Integration tests for FileHealthCheckBackgroundService.
 /// Tests file-based health check output against file system.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class FileHealthCheckBackgroundServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
+[Collection(nameof(WorkerSdkTestCollection))]
+public class FileHealthCheckBackgroundServiceTests(WorkerSdkContainerFixture fixture, ITestOutputHelper output) : WorkerSdkTestBase(fixture, output)
 {
     [Fact]
     public async Task FileHealthCheck_ShouldCreateLiveFile_WhenHealthy()
     {
         // Arrange
-        await InitializeAsync();
 
         var tempDir = Path.Combine(Path.GetTempPath(), $"healthcheck_{Guid.CreateVersion7():N}");
         Directory.CreateDirectory(tempDir);
@@ -80,7 +79,6 @@ public class FileHealthCheckBackgroundServiceTests(CustomWebApplicationFactory f
     public async Task FileHealthCheck_ShouldRemoveReadyFile_WhenUnhealthy()
     {
         // Arrange
-        await InitializeAsync();
 
         var tempDir = Path.Combine(Path.GetTempPath(), $"healthcheck_{Guid.CreateVersion7():N}");
         Directory.CreateDirectory(tempDir);
@@ -140,7 +138,6 @@ public class FileHealthCheckBackgroundServiceTests(CustomWebApplicationFactory f
     public async Task FileHealthCheck_ShouldCleanupFiles_OnStop()
     {
         // Arrange
-        await InitializeAsync();
 
         var tempDir = Path.Combine(Path.GetTempPath(), $"healthcheck_{Guid.CreateVersion7():N}");
         Directory.CreateDirectory(tempDir);

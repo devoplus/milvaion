@@ -20,8 +20,8 @@ namespace Milvaion.IntegrationTests.WorkerSdk;
 /// Integration tests for JobConsumer.
 /// Tests RabbitMQ message consumption, job execution, retry logic, and DLQ routing.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
+[Collection(nameof(WorkerSdkTestCollection))]
+public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelper output) : WorkerSdkTestBase(fixture, output)
 {
     private const string _testRoutingPattern = "test-consumer.*";
     private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -32,13 +32,12 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task JobConsumer_ShouldResolveCorrectJobType_WhenMultipleJobsRegistered()
     {
         // Arrange
-        await InitializeAsync();
 
         var services = new ServiceCollection();
         services.AddTransient<IJobBase, SuccessAsyncJob>();
         services.AddTransient<IJobBase, AnotherAsyncJob>();
         services.AddScoped<IMilvaLogger>(sp => sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>());
-        services.AddSingleton<ILoggerFactory>(_serviceProvider.GetRequiredService<ILoggerFactory>());
+        services.AddSingleton<ILoggerFactory>(GetLoggerFactory());
         services.AddScoped<JobExecutor>();
         services.AddSingleton<WorkerJobTracker>();
 
@@ -60,9 +59,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task JobExecutor_ShouldReturnCompleted_WhenAsyncJobSucceeds()
     {
         // Arrange
-        await InitializeAsync();
 
-        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = GetLoggerFactory();
         var executor = new JobExecutor(loggerFactory);
         var job = new SuccessAsyncJob();
         var correlationId = Guid.CreateVersion7();
@@ -85,9 +83,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task JobExecutor_ShouldReturnFailed_WhenJobThrowsException()
     {
         // Arrange
-        await InitializeAsync();
 
-        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = GetLoggerFactory();
         var executor = new JobExecutor(loggerFactory);
         var job = new FailingAsyncJob();
         var correlationId = Guid.CreateVersion7();
@@ -109,9 +106,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task JobExecutor_ShouldReturnTimedOut_WhenJobExceedsTimeout()
     {
         // Arrange
-        await InitializeAsync();
 
-        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = GetLoggerFactory();
         var executor = new JobExecutor(loggerFactory);
         var job = new SlowAsyncJob();
         var correlationId = Guid.CreateVersion7();
@@ -132,9 +128,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task JobExecutor_ShouldReturnPermanentFailure_WhenPermanentJobExceptionThrown()
     {
         // Arrange
-        await InitializeAsync();
 
-        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = GetLoggerFactory();
         var executor = new JobExecutor(loggerFactory);
         var job = new PermanentFailureJob();
         var correlationId = Guid.CreateVersion7();
@@ -156,9 +151,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task JobExecutor_ShouldReturnCancelled_WhenCancellationRequested()
     {
         // Arrange
-        await InitializeAsync();
 
-        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = GetLoggerFactory();
         var executor = new JobExecutor(loggerFactory);
         var job = new CancellationAwareJob();
         var correlationId = Guid.CreateVersion7();
@@ -181,9 +175,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task JobExecutor_ShouldReturnResult_WhenAsyncJobWithResultSucceeds()
     {
         // Arrange
-        await InitializeAsync();
 
-        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = GetLoggerFactory();
         var executor = new JobExecutor(loggerFactory);
         var job = new AsyncJobWithResultImpl();
         var correlationId = Guid.CreateVersion7();
@@ -208,12 +201,11 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task RabbitMQ_ShouldPublishAndConsumeMessage()
     {
         // Arrange
-        await InitializeAsync();
 
         var rabbitFactory = new ConnectionFactory
         {
-            HostName = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
             UserName = "guest",
             Password = "guest"
         };
@@ -270,12 +262,11 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task RabbitMQ_DLQ_ShouldReceiveNackedMessages()
     {
         // Arrange
-        await InitializeAsync();
 
         var rabbitFactory = new ConnectionFactory
         {
-            HostName = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
             UserName = "guest",
             Password = "guest"
         };
@@ -328,9 +319,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task WorkerJobTracker_ShouldTrackConcurrentJobs()
     {
         // Arrange
-        await InitializeAsync();
 
-        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = GetLoggerFactory();
         var tracker = new WorkerJobTracker(loggerFactory);
         var workerId = "integration-test-worker";
 
@@ -353,9 +343,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
     public async Task WorkerJobTracker_ShouldTrackMultipleWorkers()
     {
         // Arrange
-        await InitializeAsync();
 
-        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+        var loggerFactory = GetLoggerFactory();
         var tracker = new WorkerJobTracker(loggerFactory);
 
         // Act
@@ -393,8 +382,8 @@ public class JobConsumerTests(CustomWebApplicationFactory factory, ITestOutputHe
             Heartbeat = new HeartbeatSettings { JobHeartbeatIntervalSeconds = 0 },
             RabbitMQ = new RabbitMQSettings
             {
-                Host = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
+                Host = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
                 Username = "guest",
                 Password = "guest",
                 VirtualHost = "/",

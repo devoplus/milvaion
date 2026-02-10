@@ -101,8 +101,18 @@ public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOpt
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to get detailed stats for {QueueName}", queueName);
-            throw;
+            _logger.Warning(ex, "Failed to get detailed stats for {QueueName}", queueName);
+
+            return new QueueStats
+            {
+                QueueName = queueName,
+                MessageCount = 0,
+                ConsumerCount = 0,
+                MessagesReady = 0,
+                MessagesUnacknowledged = 0,
+                HealthStatus = QueueHealthStatus.Unavailable,
+                Timestamp = DateTime.UtcNow
+            };
         }
     }
 

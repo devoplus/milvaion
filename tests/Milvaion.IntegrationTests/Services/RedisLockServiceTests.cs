@@ -8,8 +8,8 @@ namespace Milvaion.IntegrationTests.Services;
 /// Integration tests for RedisLockService.
 /// Tests distributed lock acquire, release, extend, and query operations against real Redis.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class RedisLockServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class RedisLockServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
 {
     [Fact]
     public async Task TryAcquireLockAsync_ShouldAcquireLock_WhenNotAlreadyLocked()

@@ -1,9 +1,7 @@
 using FluentAssertions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Milvaion.IntegrationTests.TestBase;
-using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Core;
@@ -21,8 +19,8 @@ namespace Milvaion.IntegrationTests.WorkerSdk;
 /// Integration tests for WorkerListenerPublisher.
 /// Tests worker registration and heartbeat publishing to RabbitMQ.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
+[Collection(nameof(WorkerSdkTestCollection))]
+public class WorkerListenerPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHelper output) : WorkerSdkTestBase(fixture, output)
 {
     private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -30,17 +28,15 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     public async Task WorkerRegistration_ShouldPublishRegistrationOnStartup()
     {
         // Arrange
-        await InitializeAsync();
-
         var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         WorkerDiscoveryRequest receivedRegistration = null;
         (IChannel channel, IConnection connection) = await SetupRegistrationConsumerAsync(msg =>
-       {
-           if (msg?.WorkerId == uniqueWorkerId)
-               receivedRegistration = msg;
-       }, cts.Token);
+        {
+            if (msg?.WorkerId == uniqueWorkerId)
+                receivedRegistration = msg;
+        }, cts.Token);
 
         // Act - Start service first
         var options = CreateWorkerOptions(uniqueWorkerId);
@@ -80,7 +76,6 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     public async Task WorkerRegistration_ShouldIncludeAllJobTypes()
     {
         // Arrange
-        await InitializeAsync();
 
         var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -138,7 +133,6 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     public async Task WorkerRegistration_ShouldIncludeRoutingPatterns()
     {
         // Arrange
-        await InitializeAsync();
 
         var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -193,7 +187,6 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     public async Task WorkerHeartbeat_ShouldPublishPeriodically()
     {
         // Arrange
-        await InitializeAsync();
 
         var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -244,7 +237,6 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     public async Task WorkerHeartbeat_ShouldIncludeCurrentJobCount()
     {
         // Arrange
-        await InitializeAsync();
 
         var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -296,7 +288,6 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     public async Task WorkerRegistration_ShouldIncludeInstanceId()
     {
         // Arrange
-        await InitializeAsync();
 
         var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -345,7 +336,6 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     public async Task WorkerRegistration_ShouldIncludeMetadata()
     {
         // Arrange
-        await InitializeAsync();
 
         var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -407,7 +397,7 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
 
         return new WorkerListenerPublisher(
             Options.Create(options),
-            _serviceProvider.GetRequiredService<IMilvaLogger>(),
+            GetLoggerFactory().CreateMilvaLogger<WorkerListenerPublisher>(),
             mockServiceProvider,
             jobConfigs
         );
@@ -421,8 +411,8 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
             MaxParallelJobs = 4,
             RabbitMQ = new RabbitMQSettings
             {
-                Host = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
+                Host = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
                 Username = "guest",
                 Password = "guest",
                 VirtualHost = "/"
@@ -441,8 +431,8 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     {
         var factory = new ConnectionFactory
         {
-            HostName = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
             UserName = "guest",
             Password = "guest"
         };
@@ -509,8 +499,8 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
     {
         var factory = new ConnectionFactory
         {
-            HostName = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
             UserName = "guest",
             Password = "guest"
         };
@@ -604,8 +594,8 @@ public class WorkerListenerPublisherTests(CustomWebApplicationFactory factory, I
         {
             var factory = new ConnectionFactory
             {
-                HostName = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
+                HostName = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
                 UserName = "guest",
                 Password = "guest"
             };

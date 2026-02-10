@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Milvaion.IntegrationTests.TestBase;
@@ -20,8 +19,8 @@ namespace Milvaion.IntegrationTests.WorkerSdk;
 /// Integration tests for StatusUpdatePublisher.
 /// Tests status update message publishing to RabbitMQ.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
+[Collection(nameof(WorkerSdkTestCollection))]
+public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHelper output) : WorkerSdkTestBase(fixture, output)
 {
     private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -29,7 +28,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
     public async Task PublishStatusAsync_ShouldPublishRunningStatus()
     {
         // Arrange
-        await InitializeAsync();
+
         await PurgeStatusUpdatesQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -82,7 +81,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
     public async Task PublishStatusAsync_ShouldPublishCompletedStatusWithResult()
     {
         // Arrange
-        await InitializeAsync();
+
         await PurgeStatusUpdatesQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -140,7 +139,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
     public async Task PublishStatusAsync_ShouldPublishFailedStatusWithException()
     {
         // Arrange
-        await InitializeAsync();
+
         await PurgeStatusUpdatesQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -191,7 +190,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
     public async Task PublishStatusAsync_ShouldPublishCancelledStatus()
     {
         // Arrange
-        await InitializeAsync();
+
         await PurgeStatusUpdatesQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -241,7 +240,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
     public async Task PublishStatusAsync_ShouldPublishTimedOutStatus()
     {
         // Arrange
-        await InitializeAsync();
+
         await PurgeStatusUpdatesQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -291,7 +290,7 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
     public async Task PublishStatusAsync_ShouldIncludeMessageTimestamp()
     {
         // Arrange
-        await InitializeAsync();
+
         await PurgeStatusUpdatesQueueAsync();
 
         var correlationId = Guid.CreateVersion7();
@@ -341,8 +340,8 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
         {
             var factory = new ConnectionFactory
             {
-                HostName = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
+                HostName = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
                 UserName = "guest",
                 Password = "guest"
             };
@@ -372,23 +371,23 @@ public class StatusUpdatePublisherTests(CustomWebApplicationFactory factory, ITe
             WorkerId = "test-worker",
             RabbitMQ = new RabbitMQSettings
             {
-                Host = _factory.GetRabbitMqHost(),
-                Port = _factory.GetRabbitMqPort(),
+                Host = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
                 Username = "guest",
                 Password = "guest",
                 VirtualHost = "/"
             }
         };
 
-        return new StatusUpdatePublisher(options, _serviceProvider.GetRequiredService<ILoggerFactory>());
+        return new StatusUpdatePublisher(options, GetLoggerFactory());
     }
 
     private async Task<(IChannel, IConnection)> SetupStatusUpdateConsumerAsync(Action<JobStatusUpdateMessage> onMessage, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory
         {
-            HostName = _factory.GetRabbitMqHost(),
-            Port = _factory.GetRabbitMqPort(),
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
             UserName = "guest",
             Password = "guest"
         };

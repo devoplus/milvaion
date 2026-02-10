@@ -9,8 +9,8 @@ namespace Milvaion.IntegrationTests.Services;
 /// Integration tests for RedisWorkerService.
 /// Tests worker registration, heartbeat, and retrieval operations against real Redis.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class RedisWorkerServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class RedisWorkerServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
 {
     [Fact]
     public async Task RegisterWorkerAsync_ShouldRegisterNewWorker()

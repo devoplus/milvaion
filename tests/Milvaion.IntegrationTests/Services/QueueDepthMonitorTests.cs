@@ -14,8 +14,8 @@ namespace Milvaion.IntegrationTests.Services;
 /// Integration tests for QueueDepthMonitor.
 /// Tests queue depth monitoring and health status determination against real RabbitMQ.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class QueueDepthMonitorTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class QueueDepthMonitorTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
 {
     [Fact]
     public async Task GetQueueDepthAsync_ShouldReturnQueueInfo_WhenQueueExists()

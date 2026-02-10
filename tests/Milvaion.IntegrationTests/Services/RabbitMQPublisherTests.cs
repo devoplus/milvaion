@@ -15,8 +15,8 @@ namespace Milvaion.IntegrationTests.Services;
 /// Integration tests for RabbitMQPublisher.
 /// Tests job publishing to RabbitMQ exchange against real RabbitMQ.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class RabbitMQPublisherTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class RabbitMQPublisherTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
 {
     [Fact]
     public async Task PublishJobAsync_ShouldPublishJobToExchange()

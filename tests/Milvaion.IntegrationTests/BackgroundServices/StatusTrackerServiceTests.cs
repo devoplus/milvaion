@@ -26,8 +26,8 @@ namespace Milvaion.IntegrationTests.BackgroundServices;
 /// Integration tests for StatusTrackerService.
 /// Tests status update consumption and occurrence state management.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class StatusTrackerServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
 {
 
     [Fact]

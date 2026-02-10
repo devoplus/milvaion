@@ -17,8 +17,8 @@ namespace Milvaion.IntegrationTests.BackgroundServices;
 /// Integration tests for ZombieOccurrenceDetectorService.
 /// Tests zombie detection for stuck Queued occurrences and job-specific timeouts.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class ZombieOccurrenceDetectorServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class ZombieOccurrenceDetectorServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
 {
     [Fact]
     public async Task DetectAndCleanupZombieOccurrences_ShouldMarkStuckOccurrencesAsUnkown()

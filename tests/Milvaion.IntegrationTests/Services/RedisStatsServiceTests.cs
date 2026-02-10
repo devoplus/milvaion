@@ -9,8 +9,8 @@ namespace Milvaion.IntegrationTests.Services;
 /// Integration tests for RedisStatsService.
 /// Tests atomic counter operations and statistics retrieval against real Redis.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class RedisStatsServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class RedisStatsServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : RedisServiceTestBase(factory, output)
 {
     [Fact]
     public async Task IncrementTotalOccurrencesAsync_ShouldIncrementCounter()

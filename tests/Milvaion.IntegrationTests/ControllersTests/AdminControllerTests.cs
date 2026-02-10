@@ -4,6 +4,7 @@ using Milvaion.Application.Dtos.ConfigurationDtos;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Components.Rest.MilvaResponse;
+using Milvasoft.Milvaion.Sdk.Utils;
 using System.Net;
 using System.Net.Http.Json;
 using Xunit.Abstractions;
@@ -15,6 +16,55 @@ namespace Milvaion.IntegrationTests.ControllersTests;
 public class AdminControllerTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
 {
     private const string _baseUrl = $"{GlobalConstant.RoutePrefix}/v1.0/admin";
+
+    private static readonly string[] _queueNames =
+    [
+        WorkerConstant.Queues.Jobs,
+        WorkerConstant.Queues.WorkerLogs,
+        WorkerConstant.Queues.WorkerHeartbeat,
+        WorkerConstant.Queues.WorkerRegistration,
+        WorkerConstant.Queues.StatusUpdates,
+        WorkerConstant.Queues.FailedOccurrences,
+        WorkerConstant.Queues.ExternalJobRegistration,
+        WorkerConstant.Queues.ExternalJobOccurrence
+    ];
+
+    #region Queue Info
+
+    [Fact]
+    public async Task GetQueueInfoAsync_WithoutAuthorization_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var queueName = _queueNames[0];
+
+        // Act
+        var httpResponse = await _factory.CreateClient().GetAsync($"{_baseUrl}/queue/{queueName}");
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetQueueInfoAsync_WithAuthorization_ShouldReturnQueueInfo()
+    {
+        // Arrange
+        var queueName = _queueNames[0];
+        await SeedRootUserAndSuperAdminRoleAsync();
+        var client = await _factory.CreateClient().LoginAsync();
+
+        // Act
+        var httpResponse = await client.GetAsync($"{_baseUrl}/queue/{queueName}");
+        var result = await httpResponse.Content.ReadFromJsonAsync<Response<QueueDepthInfo>>();
+
+        // Assert
+        httpResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data.QueueName.Should().Be(queueName);
+    }
+
+    #endregion
 
     #region System Health
 

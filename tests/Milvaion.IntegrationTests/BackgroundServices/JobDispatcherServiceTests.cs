@@ -20,8 +20,8 @@ namespace Milvaion.IntegrationTests.BackgroundServices;
 /// Integration tests for JobDispatcherService.
 /// Tests job dispatching, recurring job rescheduling, and concurrent execution policies.
 /// </summary>
-[Collection(nameof(MilvaionTestCollection))]
-public class JobDispatcherServiceTests(CustomWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
+[Collection(nameof(ServicesTestCollection))]
+public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, ITestOutputHelper output) : BackgroundServiceTestBase(factory, output)
 {
     [Fact]
     public async Task DispatchDueJobs_ShouldCreateOccurrenceAndPublishToRabbitMQ()
