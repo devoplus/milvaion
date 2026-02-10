@@ -195,10 +195,7 @@ public class MilvaionSdkExtensionsTests
     }
 
     [Fact]
-    public void IntervalToCron_ShouldReturnEveryMinute_WhenExactly60Seconds()
-    {
-        MilvaionSdkExtensions.IntervalToCron(60).Should().Be("0 * * * * *");
-    }
+    public void IntervalToCron_ShouldReturnEveryMinute_WhenExactly60Seconds() => MilvaionSdkExtensions.IntervalToCron(60).Should().Be("0 * * * * *");
 
     [Fact]
     public void IntervalToCron_ShouldReturnMinutesFormat_WhenExactMinutes()
@@ -208,10 +205,7 @@ public class MilvaionSdkExtensionsTests
     }
 
     [Fact]
-    public void IntervalToCron_ShouldReturnEveryHour_WhenExactly3600Seconds()
-    {
-        MilvaionSdkExtensions.IntervalToCron(3600).Should().Be("0 0 * * * *");
-    }
+    public void IntervalToCron_ShouldReturnEveryHour_WhenExactly3600Seconds() => MilvaionSdkExtensions.IntervalToCron(3600).Should().Be("0 0 * * * *");
 
     [Fact]
     public void IntervalToCron_ShouldReturnHoursFormat_WhenExactHours()
@@ -221,16 +215,10 @@ public class MilvaionSdkExtensionsTests
     }
 
     [Fact]
-    public void IntervalToCron_ShouldReturnDailyFormat_WhenExactly86400Seconds()
-    {
-        MilvaionSdkExtensions.IntervalToCron(86400).Should().Be("0 0 0 * * *");
-    }
+    public void IntervalToCron_ShouldReturnDailyFormat_WhenExactly86400Seconds() => MilvaionSdkExtensions.IntervalToCron(86400).Should().Be("0 0 0 * * *");
 
     [Fact]
-    public void IntervalToCron_ShouldReturnMultipleDaysFormat()
-    {
-        MilvaionSdkExtensions.IntervalToCron(172800).Should().Be("0 0 0 */2 * *");
-    }
+    public void IntervalToCron_ShouldReturnMultipleDaysFormat() => MilvaionSdkExtensions.IntervalToCron(172800).Should().Be("0 0 0 */2 * *");
 
     [Fact]
     public void IntervalToCron_ShouldApproximateComplexIntervals()
@@ -245,16 +233,10 @@ public class MilvaionSdkExtensionsTests
     #region GetEffectiveCron
 
     [Fact]
-    public void GetEffectiveCron_ShouldReturnCronExpression_WhenProvided()
-    {
-        MilvaionSdkExtensions.GetEffectiveCron("0 0 * * * *", 300).Should().Be("0 0 * * * *");
-    }
+    public void GetEffectiveCron_ShouldReturnCronExpression_WhenProvided() => MilvaionSdkExtensions.GetEffectiveCron("0 0 * * * *", 300).Should().Be("0 0 * * * *");
 
     [Fact]
-    public void GetEffectiveCron_ShouldConvertInterval_WhenNoCronExpression()
-    {
-        MilvaionSdkExtensions.GetEffectiveCron(null, 300).Should().Be("0 */5 * * * *");
-    }
+    public void GetEffectiveCron_ShouldConvertInterval_WhenNoCronExpression() => MilvaionSdkExtensions.GetEffectiveCron(null, 300).Should().Be("0 */5 * * * *");
 
     [Fact]
     public void GetEffectiveCron_ShouldReturnNull_WhenNoCronAndNoInterval()
@@ -265,22 +247,13 @@ public class MilvaionSdkExtensionsTests
     }
 
     [Fact]
-    public void GetEffectiveCron_ShouldPreferCronExpression_OverInterval()
-    {
-        MilvaionSdkExtensions.GetEffectiveCron("*/5 * * * * *", 3600).Should().Be("*/5 * * * * *");
-    }
+    public void GetEffectiveCron_ShouldPreferCronExpression_OverInterval() => MilvaionSdkExtensions.GetEffectiveCron("*/5 * * * * *", 3600).Should().Be("*/5 * * * * *");
 
     [Fact]
-    public void GetEffectiveCron_ShouldTreatWhitespaceOnlyCron_AsNull()
-    {
-        MilvaionSdkExtensions.GetEffectiveCron("   ", 300).Should().Be("0 */5 * * * *");
-    }
+    public void GetEffectiveCron_ShouldTreatWhitespaceOnlyCron_AsNull() => MilvaionSdkExtensions.GetEffectiveCron("   ", 300).Should().Be("0 */5 * * * *");
 
     [Fact]
-    public void GetEffectiveCron_ShouldReturnNull_WhenNegativeInterval()
-    {
-        MilvaionSdkExtensions.GetEffectiveCron(null, -1).Should().BeNull();
-    }
+    public void GetEffectiveCron_ShouldReturnNull_WhenNegativeInterval() => MilvaionSdkExtensions.GetEffectiveCron(null, -1).Should().BeNull();
 
     [Fact]
     public void IntervalToCron_ShouldReturnNull_WhenIntervalIs1Second()

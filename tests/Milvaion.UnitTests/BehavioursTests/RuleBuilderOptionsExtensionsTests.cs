@@ -8,7 +8,6 @@ using Moq;
 
 namespace Milvaion.UnitTests.BehavioursTests;
 
-#pragma warning disable IDE0022 // Use expression body for method
 [Trait("Behaviours Unit Tests", "RuleBuilderOptionsExtensions unit tests.")]
 public class RuleBuilderOptionsExtensionsTests
 {

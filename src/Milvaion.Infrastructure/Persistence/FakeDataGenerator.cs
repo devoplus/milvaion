@@ -8,7 +8,6 @@ namespace Milvaion.Infrastructure.Persistence;
 /// <summary>
 /// Data faker.
 /// </summary>
-#pragma warning disable S1699 // Constructors should only call non-overridable methods
 public class UserFaker : Faker<User>
 {
     /// <summary>
@@ -81,4 +80,3 @@ public class RoleFaker : Faker<Role>
             ;
     }
 }
-#pragma warning restore S1699 // Constructors should only call non-overridable methods

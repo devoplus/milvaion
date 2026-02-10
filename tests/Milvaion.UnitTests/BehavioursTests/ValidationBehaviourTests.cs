@@ -2,17 +2,14 @@ using FluentAssertions;
 using FluentValidation;
 using FluentValidation.Results;
 using MediatR;
-using Microsoft.Extensions.DependencyInjection;
 using Milvaion.Application.Behaviours;
 using Milvasoft.Components.Rest.MilvaResponse;
-using Milvasoft.Core.Abstractions.Localization;
 using Milvasoft.Interception.Interceptors.Response;
 using Moq;
 using System.Net;
 
 namespace Milvaion.UnitTests.BehavioursTests;
 
-#pragma warning disable IDE0022 // Use expression body for method
 [Trait("Behaviours Unit Tests", "ValidationBehaviour unit tests.")]
 public class ValidationBehaviourTests
 {

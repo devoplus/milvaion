@@ -231,12 +231,10 @@ public class RedisCircuitBreakerTests
         await cts.CancelAsync();
 
         // Act & Assert - Regular exception should propagate, not be handled as Redis failure
-#pragma warning disable AsyncFixer06 // Task<T> to Task conversion silently discards result
         Func<Task> action = () => _circuitBreaker.ExecuteAsync<string>(
             () => throw new OperationCanceledException(),
             operationName: "TestOp",
             cancellationToken: cts.Token);
-#pragma warning restore AsyncFixer06 // Task<T> to Task conversion silently discards result
 
         await action.Should().ThrowAsync<OperationCanceledException>();
     }

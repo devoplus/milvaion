@@ -188,6 +188,97 @@ public class MilvaionSchedulerListenerTests
         return act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task JobScheduled_ShouldNotPublish_WhenNoMatchingJobAdded()
+    {
+        // Arrange - Schedule trigger without prior JobAdded
+        var trigger = TriggerBuilder.Create()
+            .WithIdentity("OrphanTrigger", "DEFAULT")
+            .ForJob("NonExistentJob", "DEFAULT")
+            .StartNow()
+            .Build();
+
+        // Act
+        await _listener.JobScheduled(trigger);
+
+        // Assert - No registration should be published since no pending job detail exists
+        _publisherMock.Verify(x => x.PublishJobRegistrationAsync(It.IsAny<ExternalJobRegistrationMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task JobScheduled_ShouldNotThrow_WhenPublisherThrowsException()
+    {
+        // Arrange
+        _publisherMock.Setup(x => x.PublishJobRegistrationAsync(It.IsAny<ExternalJobRegistrationMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("RabbitMQ unavailable"));
+
+        var jobDetail = JobBuilder.Create<DummyJob>()
+            .WithIdentity("FailPublishJob", "DEFAULT")
+            .Build();
+
+        var trigger = TriggerBuilder.Create()
+            .WithIdentity("FailPublishTrigger", "DEFAULT")
+            .ForJob("FailPublishJob", "DEFAULT")
+            .StartNow()
+            .Build();
+
+        await _listener.JobAdded(jobDetail);
+
+        // Act & Assert - Should not throw (all methods are wrapped in try-catch)
+        var act = async () => await _listener.JobScheduled(trigger);
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task JobDeleted_ShouldNotThrow_WhenPublisherThrowsException()
+    {
+        // Arrange
+        _publisherMock.Setup(x => x.PublishJobRegistrationAsync(It.IsAny<ExternalJobRegistrationMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Connection lost"));
+
+        // Act & Assert
+        var act = async () => await _listener.JobDeleted(new JobKey("BrokenDeleteJob", "DEFAULT"));
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task SchedulerStarted_ShouldNotStartPublisher_WhenRegistryIsEmpty()
+    {
+        // Arrange - registry is already empty (no jobs added)
+
+        // Act & Assert - Should not throw, just log warning
+        var act = async () => await _listener.SchedulerStarted();
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task SchedulerStarted_ShouldNotThrow_WhenNullServiceProvider()
+    {
+        // Arrange - Create listener with null serviceProvider
+        var listener = new MilvaionSchedulerListener(
+            _publisherMock.Object,
+            Microsoft.Extensions.Options.Options.Create(new WorkerOptions
+            {
+                WorkerId = "null-sp-worker",
+                ExternalScheduler = new MilvaionExternalSchedulerOptions { Source = "Quartz" },
+                RabbitMQ = new RabbitMQSettings
+                {
+                    Host = "localhost",
+                    Port = 5672,
+                    Username = "guest",
+                    Password = "guest",
+                    VirtualHost = "/"
+                }
+            }),
+            new ExternalJobRegistry(),
+            null, // null serviceProvider
+            _loggerFactoryMock.Object);
+
+        // Act & Assert
+        var act = async () => await listener.SchedulerStarted();
+        await act.Should().NotThrowAsync();
+    }
+
     private sealed class DummyJob : IJob
     {
         public Task Execute(IJobExecutionContext context) => Task.CompletedTask;

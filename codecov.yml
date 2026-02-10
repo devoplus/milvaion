@@ -1,0 +1,32 @@
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: 80%
+
+ignore:
+  # EF Core Migrations (auto-generated)
+  - "src/Milvaion.Api/Migrations/**"
+
+  # Program.cs / startup files
+  - "src/Milvaion.Api/AppStartup/**"
+  - "src/Workers/**/Program.cs"
+
+  # GlobalUsings (no logic)
+  - "**/GlobalUsings.cs"
+
+  # Worker templates (not production code)
+  - "src/Workers/Milvasoft.Templates.Milvaion/**"
+
+  # UI (frontend, not covered by .NET tests)
+  - "src/MilvaionUI/**"
+
+  # Test projects themselves
+  - "tests/**"

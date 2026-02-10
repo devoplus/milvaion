@@ -9,7 +9,6 @@ using Moq;
 
 namespace Milvaion.UnitTests.BehavioursTests;
 
-#pragma warning disable IDE0022 // Use expression body for method
 [Trait("Behaviours Unit Tests", "CustomValidators unit tests.")]
 public class CustomValidatorsTests
 {

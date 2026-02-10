@@ -247,10 +247,11 @@ public class MilvaionJobFilterTests
     {
         var job = CreateHangfireJob();
         var backgroundJob = new BackgroundJob("test-job-id", job, DateTime.UtcNow);
+        var storage = new Mock<JobStorage>();
         var connection = new Mock<IStorageConnection>();
         var cancellationToken = new Mock<IJobCancellationToken>();
 
-        var performContext = new PerformContext(connection.Object, backgroundJob, cancellationToken.Object);
+        var performContext = new PerformContext(storage.Object, connection.Object, backgroundJob, cancellationToken.Object);
         return new PerformingContext(performContext);
     }
 
@@ -258,10 +259,11 @@ public class MilvaionJobFilterTests
     {
         var job = CreateHangfireJob();
         var backgroundJob = new BackgroundJob("test-job-id", job, DateTime.UtcNow);
+        var storage = new Mock<JobStorage>();
         var connection = new Mock<IStorageConnection>();
         var cancellationToken = new Mock<IJobCancellationToken>();
 
-        var performContext = new PerformContext(connection.Object, backgroundJob, cancellationToken.Object);
+        var performContext = new PerformContext(storage.Object, connection.Object, backgroundJob, cancellationToken.Object);
         return new PerformedContext(performContext, null, false, exception);
     }
 

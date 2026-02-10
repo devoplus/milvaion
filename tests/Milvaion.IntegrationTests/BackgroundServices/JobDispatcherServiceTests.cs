@@ -1456,8 +1456,11 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
                 foreach (var id in staleIds)
                 {
                     var time = await redisScheduler.GetScheduledTimeAsync(id, cts.Token);
-                    if (time != null) return false;
+
+                    if (time != null)
+                        return false;
                 }
+
                 return true;
             },
             timeout: TimeSpan.FromSeconds(15),

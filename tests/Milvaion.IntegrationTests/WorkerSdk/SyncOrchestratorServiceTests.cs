@@ -1,11 +1,6 @@
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Milvaion.IntegrationTests.TestBase;
-using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
-using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Persistence;
@@ -220,7 +215,7 @@ public class SyncOrchestratorServiceTests(WorkerSdkContainerFixture fixture, ITe
             try
             {
                 connectionMonitor.Dispose();
-                localStore.Dispose();
+                LocalStore.Dispose();
             }
             catch
             {

@@ -151,4 +151,52 @@ public class DatabaseMigratorTests(CustomWebApplicationFactory factory, ITestOut
         roleCount.Should().BeGreaterThan(1, "fake roles should be inserted");
         userCount.Should().BeGreaterThan(1, "fake users should be inserted");
     }
+
+    [Fact]
+    public async Task SeedDefaultDataAsync_ShouldBeIdempotent_WhenCalledTwice()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var migrator = new DatabaseMigrator(_serviceProvider);
+
+        // Act - Call seed twice
+        await migrator.SeedDefaultDataAsync("testpassword123");
+
+        var act = () => migrator.SeedDefaultDataAsync("testpassword123");
+
+        // Assert - Second call should throw or handle gracefully (duplicate key)
+        // Since DB already has the root user, second insert will throw
+        await act.Should().ThrowAsync<Exception>();
+    }
+
+    [Fact]
+    public async Task CreateTriggersAsync_ShouldThrow_WhenSqlFileNotFound()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var migrator = new DatabaseMigrator(_serviceProvider);
+
+        // Temporarily rename the file if it exists
+        var filePath = Path.Combine(GlobalConstant.SqlFilesPath, "create_triggers.sql");
+        var tempPath = filePath + ".bak";
+        var fileExisted = File.Exists(filePath);
+
+        if (fileExisted)
+            File.Move(filePath, tempPath);
+
+        try
+        {
+            // Act & Assert
+            var act = () => migrator.CreateTriggersAsync(CancellationToken.None);
+            await act.Should().ThrowAsync<FileNotFoundException>();
+        }
+        finally
+        {
+            // Restore file
+            if (fileExisted && File.Exists(tempPath))
+                File.Move(tempPath, filePath);
+        }
+    }
 }

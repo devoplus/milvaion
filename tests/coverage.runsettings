@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Exclude>
+            <!-- EF Core Migrations (auto-generated) -->
+            [*]Milvaion.Api.Migrations.*,
+            <!-- GlobalUsings (no logic) -->
+            [*]*.GlobalUsings*,
+            <!-- Worker templates -->
+            [Milvasoft.Templates.Milvaion*]*
+          </Exclude>
+          <ExcludeByFile>
+            <!-- EF Core Migrations -->
+            **/Migrations/*.cs,
+            <!-- Program / startup files -->
+            **/AppStartup/Program.cs,
+            **/Workers/**/Program.cs,
+            <!-- GlobalUsings -->
+            **/GlobalUsings.cs
+          </ExcludeByFile>
+          <ExcludeByAttribute>
+            GeneratedCodeAttribute,
+            ExcludeFromCodeCoverageAttribute,
+            CompilerGeneratedAttribute
+          </ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

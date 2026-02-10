@@ -428,7 +428,10 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
         // Start consumer
         _ = Task.Run(async () =>
         {
-            try { await consumer.StartAsync(cts.Token); }
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
             catch (OperationCanceledException) { }
         }, cts.Token);
 
@@ -470,7 +473,10 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
         _ = Task.Run(async () =>
         {
-            try { await consumer.StartAsync(cts.Token); }
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
             catch (OperationCanceledException) { }
         }, cts.Token);
 
@@ -526,7 +532,10 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
         _ = Task.Run(async () =>
         {
-            try { await consumer.StartAsync(cts.Token); }
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
             catch (OperationCanceledException) { }
         }, cts.Token);
 
@@ -625,7 +634,10 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
         _ = Task.Run(async () =>
         {
-            try { await consumer.StartAsync(cts.Token); }
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
             catch (OperationCanceledException) { }
         }, cts.Token);
 
@@ -672,7 +684,10 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
         _ = Task.Run(async () =>
         {
-            try { await consumer.StartAsync(cts.Token); }
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
             catch (OperationCanceledException) { }
         }, cts.Token);
 
@@ -734,7 +749,10 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
         _ = Task.Run(async () =>
         {
-            try { await consumer.StartAsync(cts.Token); }
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
             catch (OperationCanceledException) { }
         }, cts.Token);
 
@@ -785,7 +803,10 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
         var consumerTask = Task.Run(async () =>
         {
-            try { await consumer.StartAsync(cts.Token); }
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
             catch (OperationCanceledException) { }
         }, cts.Token);
 
@@ -810,6 +831,260 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
         // Assert - Job should have completed before shutdown finished
         jobCompleted.Should().BeTrue("graceful shutdown should wait for running jobs to complete");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldRetryFailedJob_WhenRetryCountBelowMax()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var executionCount = 0;
+        var executionFlag = new TaskCompletionSource<bool>();
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase>(__ => new CallbackAsyncJob(() =>
+            {
+                var count = Interlocked.Increment(ref executionCount);
+
+                // First attempt fails, second succeeds
+                if (count == 1)
+                    throw new InvalidOperationException("Transient failure");
+
+                executionFlag.TrySetResult(true);
+            }));
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var jobConsumerOptions = new JobConsumerOptions
+        {
+            [nameof(CallbackAsyncJob)] = new JobConsumerConfig
+            {
+                ExecutionTimeoutSeconds = 30,
+                MaxRetries = 3,
+                BaseRetryDelaySeconds = 1 // Short delay for test speed
+            }
+        };
+
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(jobConsumerOptions),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act - Publish a job that will fail on first attempt
+        var correlationId = Guid.CreateVersion7();
+        var job = CreateScheduledJob(nameof(CallbackAsyncJob));
+        await PublishJobToExchangeAsync(job, correlationId, "test-consumer.callbackjob", cts.Token);
+
+        // Assert - Wait for retry to succeed
+        var completed = await Task.WhenAny(executionFlag.Task, Task.Delay(TimeSpan.FromSeconds(20), cts.Token));
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        executionFlag.Task.IsCompletedSuccessfully.Should().BeTrue("job should succeed on retry");
+        executionCount.Should().Be(2, "job should be executed twice (1 failure + 1 success)");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldMoveToDLQ_WhenMaxRetriesExceeded()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var executionCount = 0;
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase>(__ => new CallbackAsyncJob(() =>
+            {
+                Interlocked.Increment(ref executionCount);
+                throw new InvalidOperationException("Always fails");
+            }));
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var jobConsumerOptions = new JobConsumerOptions
+        {
+            [nameof(CallbackAsyncJob)] = new JobConsumerConfig
+            {
+                ExecutionTimeoutSeconds = 30,
+                MaxRetries = 1,
+                BaseRetryDelaySeconds = 1
+            }
+        };
+
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(jobConsumerOptions),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act
+        var correlationId = Guid.CreateVersion7();
+        var job = CreateScheduledJob(nameof(CallbackAsyncJob));
+        await PublishJobToExchangeAsync(job, correlationId, "test-consumer.callbackjob", cts.Token);
+
+        // Wait for retries + DLQ routing
+        await Task.Delay(8000, cts.Token);
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert - Should have attempted initial + retry, then DLQ
+        executionCount.Should().BeGreaterOrEqualTo(2, "should execute initial attempt + at least 1 retry");
+
+        var rabbitFactory = new ConnectionFactory
+        {
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cts.Token);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cts.Token);
+
+        var dlqResult = await channel.BasicGetAsync(WorkerConstant.Queues.FailedOccurrences, autoAck: true, cts.Token);
+        dlqResult.Should().NotBeNull("job should end up in DLQ after max retries exceeded");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldSkipRetryAndDLQ_WhenPermanentFailure()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var executionCount = 0;
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase>(__ => new CallbackAsyncJob(() =>
+            {
+                Interlocked.Increment(ref executionCount);
+                throw new Milvasoft.Milvaion.Sdk.Worker.Exceptions.PermanentJobException("Invalid data - no retry");
+            }));
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var jobConsumerOptions = new JobConsumerOptions
+        {
+            [nameof(CallbackAsyncJob)] = new JobConsumerConfig
+            {
+                ExecutionTimeoutSeconds = 30,
+                MaxRetries = 5,
+                BaseRetryDelaySeconds = 1
+            }
+        };
+
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(jobConsumerOptions),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await consumer.StartAsync(cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act
+        var correlationId = Guid.CreateVersion7();
+        var job = CreateScheduledJob(nameof(CallbackAsyncJob));
+        await PublishJobToExchangeAsync(job, correlationId, "test-consumer.callbackjob", cts.Token);
+
+        // Wait for processing
+        await Task.Delay(3000, cts.Token);
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert - Should execute only once (no retry for permanent failure)
+        executionCount.Should().Be(1, "permanent failure should not be retried");
+
+        var rabbitFactory = new ConnectionFactory
+        {
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cts.Token);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cts.Token);
+
+        var dlqResult = await channel.BasicGetAsync(WorkerConstant.Queues.FailedOccurrences, autoAck: true, cts.Token);
+        dlqResult.Should().NotBeNull("permanent failure should be routed directly to DLQ");
+    }
+
+    [Fact]
+    public async Task JobConsumer_StopAsync_ShouldNotThrow_WhenNotStarted()
+    {
+        // Arrange
+        var services = BuildJobConsumerServiceProvider(_ => { });
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        // Act & Assert - StopAsync without StartAsync should not throw
+        var act = () => consumer.StopAsync(CancellationToken.None);
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task WorkerJobTracker_ShouldNotGoNegative_WhenDecrementedBelowZero()
+    {
+        // Arrange
+        var loggerFactory = GetLoggerFactory();
+        var tracker = new WorkerJobTracker(loggerFactory);
+        var workerId = "test-worker-negative";
+
+        // Act - Decrement without any increment
+        tracker.DecrementJobCount(workerId);
+
+        // Assert
+        tracker.GetJobCount(workerId).Should().BeGreaterOrEqualTo(0);
     }
 
     private ServiceCollection BuildJobConsumerServiceProvider(Action<ServiceCollection> configureJobs)
@@ -949,12 +1224,14 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
     private sealed class CallbackAsyncJob(Func<Task> onExecute) : IAsyncJob
     {
-        public CallbackAsyncJob(Action onExecute) : this(() => { onExecute(); return Task.CompletedTask; }) { }
-
-        public async Task ExecuteAsync(IJobContext context)
+        public CallbackAsyncJob(Action onExecute) : this(() =>
         {
-            await onExecute();
-        }
+            onExecute();
+            return Task.CompletedTask;
+        })
+        { }
+
+        public async Task ExecuteAsync(IJobContext context) => await onExecute();
     }
 
     private sealed class CorrelationCaptureJob(Action<Guid> onCapture) : IAsyncJob

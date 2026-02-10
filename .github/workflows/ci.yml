@@ -81,7 +81,7 @@ jobs:
         run: dotnet restore tests/Milvaion.UnitTests/Milvaion.UnitTests.csproj
 
       - name: Run Unit Tests
-        run: dotnet test tests/Milvaion.UnitTests/Milvaion.UnitTests.csproj --no-restore --configuration Release --logger "trx;LogFileName=unit-test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
+        run: dotnet test tests/Milvaion.UnitTests/Milvaion.UnitTests.csproj --no-restore --configuration Release --logger "trx;LogFileName=unit-test-results.trx" --collect:"XPlat Code Coverage" --settings tests/coverage.runsettings --results-directory ./TestResults
 
       - name: Upload Unit Test Results
         uses: actions/upload-artifact@v4
@@ -165,7 +165,7 @@ jobs:
         run: dotnet restore tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj
 
       - name: Run Integration Tests
-        run: dotnet test tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj --no-restore --configuration Release --logger "trx;LogFileName=integration-test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
+        run: dotnet test tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj --no-restore --configuration Release --logger "trx;LogFileName=integration-test-results.trx" --collect:"XPlat Code Coverage" --settings tests/coverage.runsettings --results-directory ./TestResults
         env:
           ConnectionStrings__DefaultConnectionString: "Host=localhost;Port=5432;Database=MilvaionTestDb;Username=postgres;Password=testpassword123"
           Redis__ConnectionString: "localhost:6379"
