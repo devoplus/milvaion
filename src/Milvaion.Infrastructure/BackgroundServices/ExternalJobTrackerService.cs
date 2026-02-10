@@ -598,6 +598,10 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
     {
         _logger.Information("ExternalJobTracker stopping...");
 
+        // Cancel the stoppingToken and wait for ExecuteAsync to complete first,
+        // so batch tasks and consumers are no longer running before cleanup.
+        await base.StopAsync(cancellationToken);
+
         // Process remaining batches
         try
         {
@@ -619,7 +623,6 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
         await _registrationChannel.SafeCloseAsync(_logger, cancellationToken);
         await _occurrenceChannel.SafeCloseAsync(_logger, cancellationToken);
 
-        await base.StopAsync(cancellationToken);
         _logger.Information("ExternalJobTracker stopped");
     }
 }

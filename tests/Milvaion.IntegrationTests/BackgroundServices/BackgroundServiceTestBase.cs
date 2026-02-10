@@ -59,7 +59,9 @@ public abstract class BackgroundServiceTestBase(CustomWebApplicationFactory fact
                 WorkerConstant.Queues.StatusUpdates,
                 WorkerConstant.Queues.FailedOccurrences,
                 WorkerConstant.Queues.WorkerRegistration,
-                WorkerConstant.Queues.WorkerHeartbeat
+                WorkerConstant.Queues.WorkerHeartbeat,
+                WorkerConstant.Queues.ExternalJobRegistration,
+                WorkerConstant.Queues.ExternalJobOccurrence
             };
 
             foreach (var queueName in queuesToPurge)

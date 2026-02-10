@@ -380,6 +380,65 @@ public class WorkerListenerPublisherTests(WorkerSdkContainerFixture fixture, ITe
         receivedRegistration.Metadata.Should().Contain("ProcessorCount");
     }
 
+    [Fact]
+    public async Task StopAsync_ShouldNotThrow_WhenCalledWithoutStart()
+    {
+        // Arrange
+        var options = CreateWorkerOptions();
+        var service = CreateWorkerListenerPublisher(options: options);
+
+        // Act & Assert
+        var act = () => service.StopAsync(CancellationToken.None);
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task WorkerRegistration_ShouldStillPublish_WithEmptyJobConfigs()
+    {
+        // Arrange
+        var uniqueWorkerId = $"test-worker-{Guid.CreateVersion7():N}";
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        WorkerDiscoveryRequest receivedRegistration = null;
+        (IChannel channel, IConnection connection) = await SetupRegistrationConsumerAsync(msg =>
+        {
+            if (msg?.WorkerId == uniqueWorkerId)
+                receivedRegistration = msg;
+        }, cts.Token);
+
+        var emptyConfigs = new Dictionary<string, JobConsumerConfig>();
+
+        // Act
+        var options = CreateWorkerOptions(uniqueWorkerId);
+        var service = CreateWorkerListenerPublisher(emptyConfigs, options);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await service.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            () => Task.FromResult(receivedRegistration != null),
+            timeout: TimeSpan.FromSeconds(5),
+            pollInterval: TimeSpan.FromMilliseconds(300),
+            cancellationToken: cts.Token);
+
+        await service.StopAsync(cts.Token);
+
+        await PurgeQueuesAsync();
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
+        // Assert - Should still register with empty job types
+        found.Should().BeTrue("registration should still be published");
+        receivedRegistration.Should().NotBeNull();
+        receivedRegistration!.JobTypes.Should().BeEmpty();
+    }
+
     private WorkerListenerPublisher CreateWorkerListenerPublisher(Dictionary<string, JobConsumerConfig> jobConfigs = null, WorkerOptions options = null)
     {
         options ??= CreateWorkerOptions();

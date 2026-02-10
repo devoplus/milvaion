@@ -37,6 +37,25 @@ public class HangfireMilvaionExtensionsTests
         result.Should().StartWith("SampleHangfireJob");
     }
 
+    [Fact]
+    public void GetExternalJobId_ShouldThrow_WhenTypeIsNull()
+    {
+        // Act & Assert
+        Type nullType = null;
+        var act = () => nullType.GetExternalJobId("Execute");
+        act.Should().Throw<NullReferenceException>();
+    }
+
+    [Fact]
+    public void GetExternalJobId_ShouldHandleNullMethodName()
+    {
+        // Act
+        var result = typeof(SampleHangfireJob).GetExternalJobId(null);
+
+        // Assert
+        result.Should().Be("SampleHangfireJob.");
+    }
+
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "<Pending>")]
     private sealed class SampleHangfireJob
     {

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
+using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
@@ -334,6 +335,88 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         receivedMessage.MessageTimestamp.Should().BeBefore(DateTime.UtcNow.AddSeconds(1));
     }
 
+    [Fact]
+    public async Task PublishShutdownHeartbeatAsync_ShouldPublishHeartbeatWithStoppingFlag()
+    {
+        // Arrange
+        await PurgeHeartbeatQueueAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        WorkerHeartbeatMessage receivedMessage = null;
+        (IChannel channel, IConnection connection) = await SetupHeartbeatConsumerAsync(msg =>
+        {
+            if (msg?.IsStopping == true)
+                receivedMessage = msg;
+        }, cts.Token);
+
+        await using var publisher = CreateStatusUpdatePublisher();
+
+        // Act
+        await publisher.PublishShutdownHeartbeatAsync(cts.Token);
+
+        // Wait for message
+        var found = await WaitForConditionAsync(
+            () => Task.FromResult(receivedMessage != null),
+            timeout: TimeSpan.FromSeconds(5),
+            pollInterval: TimeSpan.FromMilliseconds(300),
+            cancellationToken: cts.Token);
+
+        await channel.CloseAsync();
+        await connection.CloseAsync();
+
+        // Assert
+        found.Should().BeTrue("shutdown heartbeat message should be received");
+        receivedMessage.Should().NotBeNull();
+        receivedMessage!.IsStopping.Should().BeTrue();
+        receivedMessage.CurrentJobs.Should().Be(0);
+        receivedMessage.WorkerId.Should().Be("test-worker");
+    }
+
+    [Fact]
+    public async Task DisposeAsync_ShouldNotThrow_WhenNoConnectionEstablished()
+    {
+        // Arrange - Create publisher but don't publish anything
+        await using var publisher = CreateStatusUpdatePublisher();
+
+        // Act & Assert - Should not throw
+        var act = async () => await publisher.DisposeAsync();
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_ShouldNotThrow_WhenCalledAfterPublish()
+    {
+        // Arrange
+        await using var publisher = CreateStatusUpdatePublisher();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        await publisher.PublishStatusAsync(
+            correlationId: Guid.CreateVersion7(),
+            jobId: Guid.CreateVersion7(),
+            workerId: "test-worker",
+            instanceId: "test-worker-instance",
+            status: JobOccurrenceStatus.Running,
+            cancellationToken: cts.Token);
+
+        // Act & Assert
+        var act = async () => await publisher.DisposeAsync();
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task PublishShutdownHeartbeatAsync_ShouldNotThrow_WhenCancelled()
+    {
+        // Arrange
+        await using var publisher = CreateStatusUpdatePublisher();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert - Shutdown heartbeat should handle cancellation gracefully
+        var act = async () => await publisher.PublishShutdownHeartbeatAsync(cts.Token);
+        await act.Should().NotThrowAsync();
+    }
+
     private async Task PurgeStatusUpdatesQueueAsync()
     {
         try
@@ -445,6 +528,85 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
                 }
             });
         });
+
+        return (channel, connection);
+    }
+
+    private async Task PurgeHeartbeatQueueAsync()
+    {
+        try
+        {
+            var factory = new ConnectionFactory
+            {
+                HostName = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
+                UserName = "guest",
+                Password = "guest"
+            };
+
+            await using var connection = await factory.CreateConnectionAsync();
+            await using var channel = await connection.CreateChannelAsync();
+
+            await channel.QueueDeclareAsync(
+                queue: WorkerConstant.Queues.WorkerHeartbeat,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null);
+
+            await channel.QueuePurgeAsync(WorkerConstant.Queues.WorkerHeartbeat);
+        }
+        catch
+        {
+            // Ignore purge errors
+        }
+    }
+
+    private async Task<(IChannel, IConnection)> SetupHeartbeatConsumerAsync(Action<WorkerHeartbeatMessage> onMessage, CancellationToken cancellationToken)
+    {
+        var factory = new ConnectionFactory
+        {
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        var connection = await factory.CreateConnectionAsync(cancellationToken);
+        var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        await channel.QueueDeclareAsync(
+            queue: WorkerConstant.Queues.WorkerHeartbeat,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: cancellationToken);
+
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.ReceivedAsync += async (model, ea) =>
+        {
+            try
+            {
+                var body = ea.Body.ToArray();
+                var json = Encoding.UTF8.GetString(body);
+                var message = JsonSerializer.Deserialize<WorkerHeartbeatMessage>(json, _jsonOptions);
+
+                onMessage(message);
+
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
+            }
+            catch
+            {
+                // Ignore errors during message processing
+            }
+        };
+
+        await channel.BasicConsumeAsync(
+            queue: WorkerConstant.Queues.WorkerHeartbeat,
+            autoAck: false,
+            consumer: consumer,
+            cancellationToken: cancellationToken);
 
         return (channel, connection);
     }

@@ -1008,4 +1008,500 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
+
+    private JobDispatcherService CreateDisabledJobDispatcherService() => new(
+            _serviceProvider,
+            _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
+            _serviceProvider.GetRequiredService<IRedisLockService>(),
+            _serviceProvider.GetRequiredService<IRedisWorkerService>(),
+            _serviceProvider.GetRequiredService<IRedisStatsService>(),
+            _serviceProvider.GetRequiredService<IRabbitMQPublisher>(),
+            Options.Create(new JobDispatcherOptions
+            {
+                Enabled = false,
+                PollingIntervalSeconds = 1,
+                BatchSize = 100,
+                LockTtlSeconds = 30,
+                EnableStartupRecovery = false
+            }),
+            _serviceProvider.GetRequiredService<IDispatcherControlService>(),
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
+        );
+
+    private async Task SeedWorkerInRedisAsync(string workerId, int maxParallelJobs = 5, string jobType = "TestJob", int? consumerMaxParallel = null)
+    {
+        var workerService = _serviceProvider.GetRequiredService<IRedisWorkerService>();
+
+        var metadata = consumerMaxParallel.HasValue
+            ? System.Text.Json.JsonSerializer.Serialize(new
+            {
+                JobConfigs = new[]
+                {
+                    new { JobType = jobType, ConsumerId = $"{jobType}-consumer", MaxParallelJobs = consumerMaxParallel.Value, ExecutionTimeoutSeconds = 60 }
+                }
+            })
+            : "{}";
+
+        var registration = new Milvasoft.Milvaion.Sdk.Models.WorkerDiscoveryRequest
+        {
+            WorkerId = workerId,
+            InstanceId = $"{workerId}-test-instance",
+            DisplayName = $"Test Worker {workerId}",
+            HostName = "test-host",
+            IpAddress = "127.0.0.1",
+            JobTypes = [jobType],
+            RoutingPatterns = new Dictionary<string, string> { [jobType] = $"worker.{workerId}" },
+            MaxParallelJobs = maxParallelJobs,
+            Version = "1.0.0",
+            Metadata = metadata
+        };
+
+        await workerService.RegisterWorkerAsync(registration);
+    }
+
+    #region Negative / Edge-case Scenarios
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldRemoveFromRedis_WhenJobDeletedFromDatabase()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        var orphanJobId = Guid.CreateVersion7();
+
+        // Add job to Redis but NOT to DB (simulates deleted job)
+        await redisScheduler.AddToScheduledSetAsync(orphanJobId, DateTime.UtcNow.AddMinutes(-1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Wait for orphan job to be removed from Redis
+        var removed = await WaitForConditionAsync(
+            async () =>
+            {
+                var scheduledTime = await redisScheduler.GetScheduledTimeAsync(orphanJobId, cts.Token);
+                return scheduledTime == null;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        removed.Should().BeTrue("job not found in DB should be removed from Redis scheduled set");
+
+        var dbContext = GetDbContext();
+        var occurrences = await dbContext.JobOccurrences
+            .AsNoTracking()
+            .Where(o => o.JobId == orphanJobId)
+            .ToListAsync(cts.Token);
+
+        occurrences.Should().BeEmpty("no occurrence should be created for deleted job");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldSkipJob_WhenWorkerAtCapacity()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        // Register a worker with max 1 parallel job
+        await SeedWorkerInRedisAsync("cap-worker", maxParallelJobs: 1);
+
+        var workerService = _serviceProvider.GetRequiredService<IRedisWorkerService>();
+
+        // Simulate the worker already running 1 job via heartbeat
+        await workerService.UpdateHeartbeatAsync("cap-worker", "cap-worker-test-instance", currentJobs: 1);
+
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = "CapacityTestJob",
+            JobNameInWorker = "TestJob",
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            WorkerId = "cap-worker",
+            RoutingPattern = "worker.cap-worker",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Queue,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(5000, cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert - No occurrence should be created since worker is at capacity
+        var dbContextAssert = GetDbContext();
+        var occurrences = await dbContextAssert.JobOccurrences
+            .AsNoTracking()
+            .Where(o => o.JobId == job.Id)
+            .ToListAsync(cts.Token);
+
+        occurrences.Should().BeEmpty("job should be skipped when worker is at capacity");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldSkipJob_WhenConsumerAtCapacity()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        // Register a worker with consumer-level capacity of 1 for TestJob
+        await SeedWorkerInRedisAsync("cons-worker", maxParallelJobs: 10, jobType: "TestJob", consumerMaxParallel: 1);
+
+        var workerService = _serviceProvider.GetRequiredService<IRedisWorkerService>();
+
+        // Simulate the consumer already running 1 job
+        await workerService.IncrementConsumerJobCountAsync("cons-worker", "TestJob");
+
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = "ConsumerCapacityTestJob",
+            JobNameInWorker = "TestJob",
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            WorkerId = "cons-worker",
+            RoutingPattern = "worker.cons-worker",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Queue,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(5000, cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        var dbContextAssert = GetDbContext();
+        var occurrences = await dbContextAssert.JobOccurrences
+            .AsNoTracking()
+            .Where(o => o.JobId == job.Id)
+            .ToListAsync(cts.Token);
+
+        occurrences.Should().BeEmpty("job should be skipped when consumer is at capacity");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldSkipJob_WhenAssignedToNonExistentWorker()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = "GhostWorkerJob",
+            JobNameInWorker = "TestJob",
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            WorkerId = "non-existent-worker",
+            RoutingPattern = "worker.non-existent-worker",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(5000, cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        var dbContextAssert = GetDbContext();
+        var occurrences = await dbContextAssert.JobOccurrences
+            .AsNoTracking()
+            .Where(o => o.JobId == job.Id)
+            .ToListAsync(cts.Token);
+
+        occurrences.Should().BeEmpty("job should be skipped when assigned to non-existent worker");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldRemoveFromRedis_WhenCronExpressionIsInvalid()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = "InvalidCronJob",
+            JobNameInWorker = "TestJob",
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            CronExpression = "INVALID CRON",
+            RoutingPattern = "worker.*",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Wait for job to be removed from Redis (invalid cron should cause removal)
+        var removed = await WaitForConditionAsync(
+            async () =>
+            {
+                var scheduledTime = await redisScheduler.GetScheduledTimeAsync(job.Id, cts.Token);
+                return scheduledTime == null;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        removed.Should().BeTrue("job with invalid cron expression should be removed from Redis");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldNotDispatch_ExternalJobs()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = "External Quartz Job",
+            JobNameInWorker = "QuartzJob",
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            IsExternal = true,
+            ExternalJobId = "DEFAULT.QuartzJob",
+            RoutingPattern = "worker.*",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(5000, cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        var dbContextAssert = GetDbContext();
+        var occurrences = await dbContextAssert.JobOccurrences
+            .AsNoTracking()
+            .Where(o => o.JobId == job.Id)
+            .ToListAsync(cts.Token);
+
+        occurrences.Should().BeEmpty("external jobs should never be dispatched by JobDispatcher");
+    }
+
+    [Fact]
+    public async Task DispatchDueJobs_ShouldCleanUpStaleRedisEntries_WhenJobsNotInDatabase()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+
+        // Create multiple orphan entries in Redis (not in DB)
+        var staleIds = new List<Guid>();
+        for (int i = 0; i < 3; i++)
+        {
+            var staleId = Guid.CreateVersion7();
+            staleIds.Add(staleId);
+            await redisScheduler.AddToScheduledSetAsync(staleId, DateTime.UtcNow.AddMinutes(-1));
+        }
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var dispatcher = CreateJobDispatcherService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await dispatcher.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Wait for all stale entries to be cleaned up
+        var allCleaned = await WaitForConditionAsync(
+            async () =>
+            {
+                foreach (var id in staleIds)
+                {
+                    var time = await redisScheduler.GetScheduledTimeAsync(id, cts.Token);
+                    if (time != null) return false;
+                }
+                return true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await dispatcher.StopAsync(cts.Token);
+
+        // Assert
+        allCleaned.Should().BeTrue("all stale Redis entries should be cleaned up");
+    }
+
+    [Fact]
+    public async Task StartAsync_ShouldNotStart_WhenDisabledInOptions()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var uniqueJobName = $"DisabledDispatcherJob_{Guid.CreateVersion7():N}";
+        var job = await SeedScheduledJobAsync(uniqueJobName, executeAt: DateTime.UtcNow.AddMinutes(-1));
+
+        // Intentionally do NOT add job to Redis scheduled set.
+        // This test verifies the disabled dispatcher never starts its polling loop,
+        // so it should never reach Redis at all. Adding to Redis would risk
+        // cross-test interference from other dispatchers still running.
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act - Create with Enabled = false
+        var dispatcher = CreateDisabledJobDispatcherService();
+        await dispatcher.StartAsync(cts.Token);
+
+        // Wait some time - dispatcher should not process
+        await Task.Delay(3000, cts.Token);
+
+        // Assert - No occurrences should be created
+        var dbContext = GetDbContext();
+        var occurrences = await dbContext.JobOccurrences
+            .AsNoTracking()
+            .Where(o => o.JobId == job.Id)
+            .ToListAsync(cts.Token);
+
+        occurrences.Should().BeEmpty("disabled dispatcher should not process any jobs");
+    }
+
+    #endregion
 }

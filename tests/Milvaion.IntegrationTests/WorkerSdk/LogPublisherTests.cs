@@ -1,6 +1,4 @@
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
@@ -454,6 +452,53 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
         {
             // Ignore purge errors
         }
+    }
+
+    [Fact]
+    public async Task FlushAsync_ShouldNotThrow_WhenBufferIsEmpty()
+    {
+        // Arrange
+        await using var publisher = CreateLogPublisher();
+
+        // Act & Assert - Flushing empty buffer should be no-op
+        var act = async () => await publisher.FlushAsync();
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_ShouldNotThrow_WhenNoConnectionEstablished()
+    {
+        // Arrange - Create publisher but don't publish anything
+        var publisher = CreateLogPublisher();
+
+        // Act & Assert
+        var act = async () => await publisher.DisposeAsync();
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_ShouldFlushRemainingLogs()
+    {
+        // Arrange
+        var correlationId = Guid.CreateVersion7();
+        var workerId = $"test-worker-{Guid.CreateVersion7():N}";
+
+        var publisher = CreateLogPublisher();
+
+        // Buffer a log without flushing
+        await publisher.PublishLogAsync(
+            correlationId: correlationId,
+            workerId: workerId,
+            log: new OccurrenceLog
+            {
+                Timestamp = DateTime.UtcNow,
+                Level = "Information",
+                Message = "Log before dispose"
+            });
+
+        // Act & Assert - Dispose should flush and not throw
+        var act = async () => await publisher.DisposeAsync();
+        await act.Should().NotThrowAsync();
     }
 
     private LogPublisher CreateLogPublisher()

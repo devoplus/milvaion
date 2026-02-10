@@ -195,4 +195,60 @@ public class RedisStatsServiceTests(ServicesWebApplicationFactory factory, ITest
         var stats = await statsService.GetStatisticsAsync();
         stats["Completed"].Should().Be(25);
     }
+
+    [Fact]
+    public async Task DecrementStatusCounterAsync_WithCount_ShouldDecrementByAmount()
+    {
+        // Arrange
+        await InitializeAsync();
+        await FlushRedisAsync();
+
+        var statsService = GetRedisStatsService();
+
+        await statsService.IncrementStatusCounterAsync(JobOccurrenceStatus.Running, 10);
+
+        // Act
+        await statsService.DecrementStatusCounterAsync(JobOccurrenceStatus.Running, 3);
+
+        // Assert
+        var stats = await statsService.GetStatisticsAsync();
+        stats["Running"].Should().Be(7);
+    }
+
+    [Fact]
+    public async Task GetAverageDurationAsync_ShouldReturnNull_WhenNoDurationData()
+    {
+        // Arrange
+        await InitializeAsync();
+        await FlushRedisAsync();
+
+        var statsService = GetRedisStatsService();
+
+        // Act
+        var average = await statsService.GetAverageDurationAsync();
+
+        // Assert
+        average.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetAverageDurationAsync_ShouldReturnAverage_WhenDurationDataExists()
+    {
+        // Arrange
+        await InitializeAsync();
+        await FlushRedisAsync();
+
+        var statsService = GetRedisStatsService();
+
+        // Seed duration data
+        await statsService.TrackDurationAsync(1000);
+        await statsService.TrackDurationAsync(3000);
+
+        // Act
+        var average = await statsService.GetAverageDurationAsync();
+
+        // Assert
+        average.Should().NotBeNull();
+        average.Should().Be(2000);
+    }
 }

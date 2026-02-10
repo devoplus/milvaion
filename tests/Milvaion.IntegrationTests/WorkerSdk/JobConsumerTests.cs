@@ -9,6 +9,7 @@ using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
 using Milvasoft.Milvaion.Sdk.Worker.Core;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
+using Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
 using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
@@ -201,6 +202,7 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
     public async Task RabbitMQ_ShouldPublishAndConsumeMessage()
     {
         // Arrange
+        await PurgeTestQueuesAsync();
 
         var rabbitFactory = new ConnectionFactory
         {
@@ -262,6 +264,7 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
     public async Task RabbitMQ_DLQ_ShouldReceiveNackedMessages()
     {
         // Arrange
+        await PurgeTestQueuesAsync();
 
         var rabbitFactory = new ConnectionFactory
         {
@@ -398,6 +401,507 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
 
     #endregion
 
+    #region Full JobConsumer Integration Tests
+
+    [Fact]
+    public async Task JobConsumer_ShouldConsumeAndExecuteJob_EndToEnd()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var executionFlag = new TaskCompletionSource<bool>();
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase>(__ => new CallbackAsyncJob(() => executionFlag.TrySetResult(true)));
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        // Start consumer
+        _ = Task.Run(async () =>
+        {
+            try { await consumer.StartAsync(cts.Token); }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act - Publish a job message to the topic exchange
+        var correlationId = Guid.CreateVersion7();
+        var job = CreateScheduledJob(nameof(CallbackAsyncJob));
+        await PublishJobToExchangeAsync(job, correlationId, "test-consumer.callbackjob", cts.Token);
+
+        // Assert - Wait for the job to be executed
+        var completed = await Task.WhenAny(executionFlag.Task, Task.Delay(TimeSpan.FromSeconds(15), cts.Token));
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        executionFlag.Task.IsCompletedSuccessfully.Should().BeTrue("job should be consumed and executed by JobConsumer");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldAckMessage_WhenJobSucceeds()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase, SuccessAsyncJob>();
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        _ = Task.Run(async () =>
+        {
+            try { await consumer.StartAsync(cts.Token); }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act
+        var correlationId = Guid.CreateVersion7();
+        var job = CreateScheduledJob(nameof(SuccessAsyncJob));
+        await PublishJobToExchangeAsync(job, correlationId, "test-consumer.successjob", cts.Token);
+
+        // Wait for processing
+        await Task.Delay(3000, cts.Token);
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert - Queue should be empty (message was ACK'd)
+        var rabbitFactory = new ConnectionFactory
+        {
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cts.Token);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cts.Token);
+
+        var queueName = $"{WorkerConstant.Queues.Jobs}.test-consumer.wildcard";
+        var remaining = await channel.BasicGetAsync(queueName, autoAck: false, cts.Token);
+        remaining.Should().BeNull("queue should be empty after successful job ACK");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldNackBadMessage_AndRouteToDLQ()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase, SuccessAsyncJob>();
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        _ = Task.Run(async () =>
+        {
+            try { await consumer.StartAsync(cts.Token); }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act - Publish an invalid (non-JSON) message to the queue
+        var rabbitFactory = new ConnectionFactory
+        {
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cts.Token);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cts.Token);
+
+        var queueName = $"{WorkerConstant.Queues.Jobs}.test-consumer.wildcard";
+        var body = Encoding.UTF8.GetBytes("NOT-VALID-JSON!!!");
+        var properties = new BasicProperties { Persistent = true };
+
+        await channel.BasicPublishAsync(
+            exchange: "",
+            routingKey: queueName,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cts.Token);
+
+        // Wait for consumer to process and NACK the bad message
+        await Task.Delay(3000, cts.Token);
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert - Message should land in DLQ
+        var dlqResult = await channel.BasicGetAsync(WorkerConstant.Queues.FailedOccurrences, autoAck: true, cts.Token);
+        dlqResult.Should().NotBeNull("invalid message should be routed to DLQ");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldHandleConcurrentJobs()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var completedCount = 0;
+        var concurrentPeak = 0;
+        var currentConcurrent = 0;
+        var lockObj = new object();
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase>(__ => new CallbackAsyncJob(async () =>
+            {
+                var current = Interlocked.Increment(ref currentConcurrent);
+
+                lock (lockObj)
+                {
+                    if (current > concurrentPeak)
+                        concurrentPeak = current;
+                }
+
+                await Task.Delay(500); // Simulate some work
+
+                Interlocked.Decrement(ref currentConcurrent);
+                Interlocked.Increment(ref completedCount);
+            }));
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        workerOptions = new WorkerOptions
+        {
+            WorkerId = "test-worker",
+            MaxParallelJobs = 3,
+            Heartbeat = new HeartbeatSettings { JobHeartbeatIntervalSeconds = 0 },
+            RabbitMQ = new RabbitMQSettings
+            {
+                Host = GetRabbitMqHost(),
+                Port = GetRabbitMqPort(),
+                Username = "guest",
+                Password = "guest",
+                VirtualHost = "/",
+                RoutingKeyPattern = _testRoutingPattern
+            }
+        };
+        workerOptions.RegenerateInstanceId();
+
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        _ = Task.Run(async () =>
+        {
+            try { await consumer.StartAsync(cts.Token); }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act - Publish 5 jobs rapidly
+        for (int i = 0; i < 5; i++)
+        {
+            var correlationId = Guid.CreateVersion7();
+            var job = CreateScheduledJob(nameof(CallbackAsyncJob));
+            await PublishJobToExchangeAsync(job, correlationId, "test-consumer.callbackjob", cts.Token);
+        }
+
+        // Wait for all jobs to complete
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (completedCount < 5 && DateTime.UtcNow < deadline)
+            await Task.Delay(200, cts.Token);
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert
+        completedCount.Should().Be(5, "all 5 jobs should be completed");
+        concurrentPeak.Should().BeGreaterThan(1, "jobs should run concurrently");
+        concurrentPeak.Should().BeLessOrEqualTo(3, "concurrency should respect MaxParallelJobs=3");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldNackFailedJob_WhenNoJobTypeRegistered()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var services = BuildJobConsumerServiceProvider(_ => { });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        _ = Task.Run(async () =>
+        {
+            try { await consumer.StartAsync(cts.Token); }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act - Publish a job that has no registered handler
+        var correlationId = Guid.CreateVersion7();
+        var job = CreateScheduledJob("UnregisteredJob");
+        await PublishJobToExchangeAsync(job, correlationId, "test-consumer.unregistered", cts.Token);
+
+        // Wait for processing
+        await Task.Delay(3000, cts.Token);
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert - Message should be NACK'd and end up in DLQ
+        var rabbitFactory = new ConnectionFactory
+        {
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cts.Token);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cts.Token);
+
+        var dlqResult = await channel.BasicGetAsync(WorkerConstant.Queues.FailedOccurrences, autoAck: true, cts.Token);
+        dlqResult.Should().NotBeNull("unresolvable job should be routed to DLQ");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldParseCorrelationId_FromHeaders()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        Guid? capturedCorrelationId = null;
+        var executionFlag = new TaskCompletionSource<bool>();
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase>(__ => new CorrelationCaptureJob(cid =>
+            {
+                capturedCorrelationId = cid;
+                executionFlag.TrySetResult(true);
+            }));
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        _ = Task.Run(async () =>
+        {
+            try { await consumer.StartAsync(cts.Token); }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act
+        var expectedCorrelationId = Guid.CreateVersion7();
+        var job = CreateScheduledJob(nameof(CorrelationCaptureJob));
+        await PublishJobToExchangeAsync(job, expectedCorrelationId, "test-consumer.correlationjob", cts.Token);
+
+        await Task.WhenAny(executionFlag.Task, Task.Delay(TimeSpan.FromSeconds(15), cts.Token));
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert
+        executionFlag.Task.IsCompletedSuccessfully.Should().BeTrue();
+        capturedCorrelationId.Should().Be(expectedCorrelationId, "CorrelationId should be parsed from headers");
+    }
+
+    [Fact]
+    public async Task JobConsumer_ShouldGracefullyShutdown_WaitingForRunningJobs()
+    {
+        // Arrange
+        await PurgeTestQueuesAsync();
+
+        var jobStarted = new TaskCompletionSource<bool>();
+        var jobCompleted = false;
+
+        var services = BuildJobConsumerServiceProvider(sp =>
+        {
+            sp.AddTransient<IJobBase>(__ => new CallbackAsyncJob(async () =>
+            {
+                jobStarted.TrySetResult(true);
+                await Task.Delay(2000); // Simulate work
+                jobCompleted = true;
+            }));
+        });
+
+        var sp = services.BuildServiceProvider();
+        var workerOptions = CreateWorkerOptions();
+        var consumer = new JobConsumer(
+            sp,
+            Microsoft.Extensions.Options.Options.Create(workerOptions),
+            Microsoft.Extensions.Options.Options.Create(new JobConsumerOptions()),
+            sp.GetRequiredService<IMilvaLogger>());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var consumerTask = Task.Run(async () =>
+        {
+            try { await consumer.StartAsync(cts.Token); }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(2000, cts.Token);
+
+        // Act - Publish a job then immediately request shutdown
+        var correlationId = Guid.CreateVersion7();
+        var job = CreateScheduledJob(nameof(CallbackAsyncJob));
+        await PublishJobToExchangeAsync(job, correlationId, "test-consumer.callbackjob", cts.Token);
+
+        // Wait for job to start
+        await Task.WhenAny(jobStarted.Task, Task.Delay(TimeSpan.FromSeconds(10), cts.Token));
+        jobStarted.Task.IsCompletedSuccessfully.Should().BeTrue("job should start before shutdown");
+
+        // Request graceful shutdown while job is still running
+        await cts.CancelAsync();
+
+        // Wait for consumer to finish (should wait for running job)
+        await Task.WhenAny(consumerTask, Task.Delay(TimeSpan.FromSeconds(15)));
+
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert - Job should have completed before shutdown finished
+        jobCompleted.Should().BeTrue("graceful shutdown should wait for running jobs to complete");
+    }
+
+    private ServiceCollection BuildJobConsumerServiceProvider(Action<ServiceCollection> configureJobs)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ILoggerFactory>(GetLoggerFactory());
+        services.AddScoped<IMilvaLogger>(sp => sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>());
+        services.AddScoped<JobExecutor>();
+        services.AddSingleton<WorkerJobTracker>();
+
+        configureJobs(services);
+
+        return services;
+    }
+
+    private async Task PurgeTestQueuesAsync(CancellationToken cancellationToken = default)
+    {
+        var rabbitFactory = new ConnectionFactory
+        {
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cancellationToken);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        // Delete queues entirely so they can be recreated with correct arguments.
+        // RabbitMQ does not allow re-declaring a queue with different arguments (e.g. DLX settings),
+        // so purging alone is not sufficient.
+        var queuesToDelete = new[]
+        {
+            $"{WorkerConstant.Queues.Jobs}.test-consumer.wildcard",
+            WorkerConstant.Queues.FailedOccurrences,
+            "test-dlq-source-queue"
+        };
+
+        foreach (var queue in queuesToDelete)
+        {
+            try
+            {
+                await channel.QueueDeleteAsync(queue, ifUnused: false, ifEmpty: false, cancellationToken: cancellationToken);
+            }
+            catch
+            {
+                // Queue might not exist yet
+            }
+        }
+    }
+
+    private async Task PublishJobToExchangeAsync(ScheduledJob job, Guid correlationId, string routingKey, CancellationToken cancellationToken)
+    {
+        var rabbitFactory = new ConnectionFactory
+        {
+            HostName = GetRabbitMqHost(),
+            Port = GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await rabbitFactory.CreateConnectionAsync(cancellationToken);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        await channel.ExchangeDeclareAsync(
+            exchange: WorkerConstant.ExchangeName,
+            type: "topic",
+            durable: true,
+            cancellationToken: cancellationToken);
+
+        var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(job));
+        var properties = new BasicProperties
+        {
+            Persistent = true,
+            CorrelationId = correlationId.ToString(),
+            Headers = new Dictionary<string, object>
+            {
+                { "CorrelationId", Encoding.UTF8.GetBytes(correlationId.ToString()) }
+            }
+        };
+
+        await channel.BasicPublishAsync(
+            exchange: WorkerConstant.ExchangeName,
+            routingKey: routingKey,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cancellationToken);
+    }
+
+    #endregion
+
     #region Test Job Implementations
 
     private sealed class SuccessAsyncJob : IAsyncJob
@@ -441,6 +945,25 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
     private sealed class AsyncJobWithResultImpl : IAsyncJobWithResult
     {
         public Task<string> ExecuteAsync(IJobContext context) => Task.FromResult("Custom result from job");
+    }
+
+    private sealed class CallbackAsyncJob(Func<Task> onExecute) : IAsyncJob
+    {
+        public CallbackAsyncJob(Action onExecute) : this(() => { onExecute(); return Task.CompletedTask; }) { }
+
+        public async Task ExecuteAsync(IJobContext context)
+        {
+            await onExecute();
+        }
+    }
+
+    private sealed class CorrelationCaptureJob(Action<Guid> onCapture) : IAsyncJob
+    {
+        public Task ExecuteAsync(IJobContext context)
+        {
+            onCapture(context.CorrelationId);
+            return Task.CompletedTask;
+        }
     }
 
     #endregion

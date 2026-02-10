@@ -957,6 +957,50 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
 
+    private StatusTrackerService CreateDisabledStatusTrackerService() => new(
+            _serviceProvider,
+            _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
+            _serviceProvider.GetRequiredService<IRedisStatsService>(),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
+            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            Options.Create(new StatusTrackerOptions
+            {
+                Enabled = false,
+                BatchSize = 10,
+                BatchIntervalMs = 300
+            }),
+            Options.Create(new JobAutoDisableOptions
+            {
+                Enabled = true,
+                ConsecutiveFailureThreshold = 5,
+                FailureWindowMinutes = 60
+            }),
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
+        );
+
+    private StatusTrackerService CreateStatusTrackerServiceWithAutoDisable(int threshold = 3) => new(
+            _serviceProvider,
+            _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
+            _serviceProvider.GetRequiredService<IRedisStatsService>(),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
+            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            Options.Create(new StatusTrackerOptions
+            {
+                Enabled = true,
+                BatchSize = 10,
+                BatchIntervalMs = 300
+            }),
+            Options.Create(new JobAutoDisableOptions
+            {
+                Enabled = true,
+                ConsecutiveFailureThreshold = threshold,
+                FailureWindowMinutes = 60
+            }),
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
+        );
+
     private async Task PublishStatusUpdateAsync(JobStatusUpdateMessage message, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory
@@ -994,4 +1038,432 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
             body: body,
             cancellationToken: cancellationToken);
     }
+
+    private async Task PublishRawStatusUpdateAsync(byte[] body, CancellationToken cancellationToken)
+    {
+        var factory = new ConnectionFactory
+        {
+            HostName = _factory.GetRabbitMqHost(),
+            Port = _factory.GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await factory.CreateConnectionAsync(cancellationToken);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        await channel.QueueDeclareAsync(
+            queue: WorkerConstant.Queues.StatusUpdates,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: cancellationToken);
+
+        var properties = new BasicProperties
+        {
+            Persistent = true
+        };
+
+        await channel.BasicPublishAsync(
+            exchange: "",
+            routingKey: WorkerConstant.Queues.StatusUpdates,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cancellationToken);
+    }
+
+    #region Negative / Edge-case Scenarios
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldNotProcess_WhenDisabledInOptions()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("DisabledTrackerJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        // Publish status update before starting disabled tracker
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        // Act - Start disabled tracker
+        var tracker = CreateDisabledStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert - Status should remain Queued
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updatedOccurrence.Status.Should().Be(JobOccurrenceStatus.Queued,
+            "disabled tracker should not process any status updates");
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldHandleInvalidMessage_WithoutCrashing()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("InvalidStatusMsgJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueWorkerId = $"recovery-worker-{Guid.CreateVersion7():N}";
+
+        // Act - Start tracker
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Publish invalid message
+        await PublishRawStatusUpdateAsync("not valid json at all!!!"u8.ToArray(), cts.Token);
+
+        // Publish valid message after invalid one
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = uniqueWorkerId,
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        // Wait for valid message to be processed
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Status == JobOccurrenceStatus.Running && occ?.WorkerId == uniqueWorkerId;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("tracker should recover from invalid message and process subsequent valid messages");
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldIgnoreInvalidTransition_FromFinalToNonFinalStatus()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("InvalidTransitionJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Completed // Already in final state
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act - Start tracker
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Try to transition from Completed -> Running (invalid: final -> non-final)
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        // Wait a bit for processing
+        await Task.Delay(3000, cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert - Status should remain Completed (invalid transition blocked)
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updatedOccurrence.Status.Should().Be(JobOccurrenceStatus.Completed,
+            "final-to-non-final status transition should be blocked");
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldNotCrash_WhenOccurrenceDoesNotExist()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("GhostOccurrenceJob");
+        var realOccurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Queued
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueWorkerId = $"ghost-worker-{Guid.CreateVersion7():N}";
+
+        // Act - Start tracker
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Publish status update for non-existent correlation ID
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = Guid.CreateVersion7(), // Non-existent
+            JobId = job.Id,
+            WorkerId = "ghost-worker",
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        // Publish a valid update to prove tracker didn't crash
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = realOccurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = uniqueWorkerId,
+            Status = JobOccurrenceStatus.Running,
+            StartTime = DateTime.UtcNow
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(realOccurrence.Id, cts.Token);
+                return occ?.Status == JobOccurrenceStatus.Running && occ?.WorkerId == uniqueWorkerId;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("tracker should handle non-existent occurrence and continue processing");
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldAutoDisableJob_AfterConsecutiveFailures()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var dbContext = GetDbContext();
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            DisplayName = "AutoDisableTestJob",
+            JobNameInWorker = "AutoDisableTestJob",
+            JobData = "{}",
+            ExecuteAt = DateTime.UtcNow.AddMinutes(-1),
+            IsActive = true,
+            RoutingPattern = "worker.*",
+            ConcurrentExecutionPolicy = ConcurrentExecutionPolicy.Skip,
+            CreationDate = DateTime.UtcNow,
+            CreatorUserName = "TestUser",
+            AutoDisableSettings = new JobAutoDisableSettings
+            {
+                Enabled = true,
+                Threshold = null // Use global threshold
+            }
+        };
+
+        await dbContext.ScheduledJobs.AddAsync(job);
+        await dbContext.SaveChangesAsync();
+
+        var redisScheduler = _serviceProvider.GetRequiredService<IRedisSchedulerService>();
+        await redisScheduler.AddToScheduledSetAsync(job.Id, job.ExecuteAt);
+        await redisScheduler.CacheJobDetailsAsync(job, TimeSpan.FromHours(1));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act - Start tracker with threshold of 3
+        var tracker = CreateStatusTrackerServiceWithAutoDisable(threshold: 3);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Send 3 consecutive failures (each from a different occurrence)
+        for (int i = 0; i < 3; i++)
+        {
+            var occ = await SeedJobOccurrenceAsync(
+                jobId: job.Id,
+                jobName: job.JobNameInWorker,
+                status: JobOccurrenceStatus.Running
+            );
+
+            await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+            {
+                CorrelationId = occ.CorrelationId,
+                JobId = job.Id,
+                WorkerId = "fail-worker",
+                Status = JobOccurrenceStatus.Failed,
+                EndTime = DateTime.UtcNow,
+                Exception = $"Test failure #{i + 1}"
+            }, cts.Token);
+
+            // Wait for each failure to be processed before sending the next
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var updated = await GetOccurrenceAsync(occ.Id, cts.Token);
+                    return updated?.Status == JobOccurrenceStatus.Failed;
+                },
+                timeout: TimeSpan.FromSeconds(10),
+                pollInterval: TimeSpan.FromMilliseconds(300),
+                cancellationToken: cts.Token);
+        }
+
+        // Wait for auto-disable to take effect
+        var autoDisabled = await WaitForConditionAsync(
+            async () =>
+            {
+                var ctx = GetDbContext();
+                var updatedJob = await ctx.ScheduledJobs.AsNoTracking().FirstOrDefaultAsync(j => j.Id == job.Id, cts.Token);
+                return updatedJob?.IsActive == false;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        autoDisabled.Should().BeTrue("job should be auto-disabled after reaching failure threshold");
+
+        var finalDbContext = GetDbContext();
+        var disabledJob = await finalDbContext.ScheduledJobs.AsNoTracking().FirstOrDefaultAsync(j => j.Id == job.Id, cts.Token);
+        disabledJob.Should().NotBeNull();
+        disabledJob!.IsActive.Should().BeFalse();
+        disabledJob.AutoDisableSettings.DisabledAt.Should().NotBeNull();
+        disabledJob.AutoDisableSettings.DisableReason.Should().NotBeNullOrEmpty();
+        disabledJob.AutoDisableSettings.ConsecutiveFailureCount.Should().BeGreaterThanOrEqualTo(3);
+
+        // Job should also be removed from Redis scheduler
+        var scheduledTime = await redisScheduler.GetScheduledTimeAsync(job.Id, cts.Token);
+        scheduledTime.Should().BeNull("auto-disabled job should be removed from Redis scheduler");
+    }
+
+    [Fact]
+    public async Task ProcessStatusUpdate_ShouldIgnoreTransition_FromFailedToQueued()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("FailedToQueuedJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Failed // Already failed
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        // Act
+        var tracker = CreateStatusTrackerService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await tracker.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(1000, cts.Token);
+
+        // Try Failed -> Queued (invalid)
+        await PublishStatusUpdateAsync(new JobStatusUpdateMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            JobId = job.Id,
+            WorkerId = "test-worker",
+            Status = JobOccurrenceStatus.Queued
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        await tracker.StopAsync(cts.Token);
+
+        // Assert
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updatedOccurrence.Status.Should().Be(JobOccurrenceStatus.Failed,
+            "Failed -> Queued transition should be blocked");
+    }
+
+    #endregion
 }

@@ -96,6 +96,46 @@ public class ExternalJobRegistryTests
         config.MaxParallelJobs.Should().Be(1);
     }
 
+    [Fact]
+    public void RegisterJob_ShouldThrow_WhenExternalJobIdIsNull()
+    {
+        // Arrange
+        var registry = new ExternalJobRegistry();
+
+        // Act & Assert
+        var act = () => registry.RegisterJob(null, typeof(FakeExternalJob));
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void RegisterJob_ShouldBeThreadSafe()
+    {
+        // Arrange
+        var registry = new ExternalJobRegistry();
+
+        // Act - Register concurrently
+        Parallel.For(0, 100, i =>
+        {
+            registry.RegisterJob($"job-{i}", typeof(FakeExternalJob));
+        });
+
+        // Assert
+        registry.Count.Should().Be(100);
+    }
+
+    [Fact]
+    public void GetJobConfigs_ShouldReturnEmpty_WhenNothingRegistered()
+    {
+        // Arrange
+        var registry = new ExternalJobRegistry();
+
+        // Act
+        var configs = registry.GetJobConfigs();
+
+        // Assert
+        configs.Should().BeEmpty();
+    }
+
     private sealed class FakeExternalJob : IAsyncJob
     {
         public Task ExecuteAsync(IJobContext context) => Task.CompletedTask;

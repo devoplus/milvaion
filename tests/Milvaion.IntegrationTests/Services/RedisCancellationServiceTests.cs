@@ -77,4 +77,53 @@ public class RedisCancellationServiceTests(ServicesWebApplicationFactory factory
             subscriberCount.Should().BeGreaterThanOrEqualTo(0);
         }
     }
+
+    [Fact]
+    public async Task UnsubscribeFromCancellationsAsync_ShouldUnsubscribeWithoutError()
+    {
+        // Arrange
+        await InitializeAsync();
+        await FlushRedisAsync();
+
+        var cancellationService = GetRedisCancellationService();
+
+        // Subscribe first
+        await cancellationService.SubscribeToCancellationsAsync(_ => { });
+        await Task.Delay(300);
+
+        // Act & Assert - Should not throw
+        var act = () => cancellationService.UnsubscribeFromCancellationsAsync();
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task UnsubscribeFromCancellationsAsync_ShouldStopReceivingSignals()
+    {
+        // Arrange
+        await InitializeAsync();
+        await FlushRedisAsync();
+
+        var cancellationService = GetRedisCancellationService();
+        var receivedCount = 0;
+
+        await cancellationService.SubscribeToCancellationsAsync(_ => Interlocked.Increment(ref receivedCount));
+        await Task.Delay(300);
+
+        // Verify subscription works
+        await cancellationService.PublishCancellationAsync(Guid.CreateVersion7());
+        await Task.Delay(500);
+        var countBefore = receivedCount;
+        countBefore.Should().BeGreaterThan(0);
+
+        // Act - Unsubscribe
+        await cancellationService.UnsubscribeFromCancellationsAsync();
+        await Task.Delay(300);
+
+        // Publish again after unsubscribe
+        await cancellationService.PublishCancellationAsync(Guid.CreateVersion7());
+        await Task.Delay(500);
+
+        // Assert - Count should not increase after unsubscribe
+        receivedCount.Should().Be(countBefore);
+    }
 }

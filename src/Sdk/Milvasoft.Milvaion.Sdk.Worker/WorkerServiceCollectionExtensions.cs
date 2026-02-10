@@ -280,7 +280,7 @@ public static class WorkerServiceCollectionExtensions
         var workerOptions = workerSection.Get<WorkerOptions>();
 
         // Register FileHealthCheckBackgroundService if enabled
-        if (workerOptions.HealthCheck.Enabled)
+        if (workerOptions?.HealthCheck?.Enabled ?? false)
         {
             services.AddHealthChecks()
                     .AddCheck<RedisHealthCheck>("Redis", tags: ["redis", "cache"])

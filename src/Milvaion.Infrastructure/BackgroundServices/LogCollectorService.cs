@@ -277,7 +277,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                     // Group by CorrelationId
                     var logsByCorrelation = batch.GroupBy(m => m.CorrelationId).ToList();
 
-                    var logsToInsert = batch.Select(l => new JobOccurrenceLog
+                    var logsToInsert = batch.Where(l => l?.Log != null).Select(l => new JobOccurrenceLog
                     {
                         Id = Guid.CreateVersion7(),
                         OccurrenceId = l.CorrelationId,
@@ -458,7 +458,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             // Insert logs that now have occurrence
             if (logsWithOccurrence.Count > 0)
             {
-                var logsToInsert = logsWithOccurrence.Select(l => new JobOccurrenceLog
+                var logsToInsert = logsWithOccurrence.Where(l => l.Log != null).Select(l => new JobOccurrenceLog
                 {
                     Id = Guid.CreateVersion7(),
                     OccurrenceId = l.CorrelationId,

@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -9,6 +9,7 @@ using Milvaion.Infrastructure.BackgroundServices;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvaion.IntegrationTests.TestBase;
+using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 using Milvasoft.Milvaion.Sdk.Utils;
@@ -643,6 +644,19 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
         );
 
+    private LogCollectorService CreateDisabledLogCollectorService() => new(
+            _serviceProvider,
+            _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            Options.Create(new LogCollectorOptions
+            {
+                Enabled = false,
+                BatchSize = 1,
+                BatchIntervalMs = 100
+            }),
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()
+        );
+
     private async Task PublishLogMessageAsync(WorkerLogBatchMessage message, CancellationToken cancellationToken)
     {
         var factory = new ConnectionFactory
@@ -680,4 +694,498 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             body: body,
             cancellationToken: cancellationToken);
     }
+
+    private async Task PublishRawLogMessageAsync(byte[] body, CancellationToken cancellationToken)
+    {
+        var factory = new ConnectionFactory
+        {
+            HostName = _factory.GetRabbitMqHost(),
+            Port = _factory.GetRabbitMqPort(),
+            UserName = "guest",
+            Password = "guest"
+        };
+
+        await using var connection = await factory.CreateConnectionAsync(cancellationToken);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        await channel.QueueDeclareAsync(
+            queue: WorkerConstant.Queues.WorkerLogs,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: cancellationToken);
+
+        var properties = new BasicProperties
+        {
+            Persistent = true
+        };
+
+        await channel.BasicPublishAsync(
+            exchange: "",
+            routingKey: WorkerConstant.Queues.WorkerLogs,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cancellationToken);
+    }
+
+    #region Negative / Edge-case Scenarios
+
+    [Fact]
+    public async Task CollectLogs_ShouldNotProcess_WhenDisabledInOptions()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("DisabledCollectorJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var uniqueMessage = $"Should not appear {Guid.CreateVersion7():N}";
+
+        // Publish log message before starting disabled collector
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
+        {
+            BatchTimestamp = DateTime.UtcNow,
+            Logs =
+            [
+                new()
+                {
+                    CorrelationId = occurrence.CorrelationId,
+                    WorkerId = "test-worker",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Information",
+                        Message = uniqueMessage,
+                        Category = "DisabledTest"
+                    },
+                    MessageTimestamp = DateTime.UtcNow
+                }
+            ]
+        }, cts.Token);
+
+        // Act - Start disabled collector
+        var collector = CreateDisabledLogCollectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await collector.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        await collector.StopAsync(cts.Token);
+
+        // Assert - No logs should be processed
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        updatedOccurrence.Logs.Should().NotContain(l => l.Message == uniqueMessage,
+            "disabled collector should not process any messages");
+    }
+
+    [Fact]
+    public async Task CollectLogs_ShouldHandleInvalidMessage_WithoutCrashing()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("InvalidMsgJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueMessage = $"Valid after invalid {Guid.CreateVersion7():N}";
+
+        // Act - Start collector
+        var collector = CreateLogCollectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await collector.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        // Publish invalid (garbage) message
+        await PublishRawLogMessageAsync("this is not valid json!!!@#$%"u8.ToArray(), cts.Token);
+
+        // Publish a valid message after the invalid one
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
+        {
+            BatchTimestamp = DateTime.UtcNow,
+            Logs =
+            [
+                new()
+                {
+                    CorrelationId = occurrence.CorrelationId,
+                    WorkerId = "test-worker",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Information",
+                        Message = uniqueMessage,
+                        Category = "InvalidTest"
+                    },
+                    MessageTimestamp = DateTime.UtcNow
+                }
+            ]
+        }, cts.Token);
+
+        // Wait for the valid message to be processed (proves collector didn't crash)
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Logs?.Any(l => l.Message == uniqueMessage) == true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await collector.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("collector should recover from invalid message and process subsequent valid messages");
+    }
+
+    [Fact]
+    public async Task CollectLogs_ShouldHandleEmptyBatchMessage()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("EmptyBatchJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueMessage = $"Valid after empty batch {Guid.CreateVersion7():N}";
+
+        // Act - Start collector
+        var collector = CreateLogCollectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await collector.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        // Publish empty batch message (Count = 0)
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
+        {
+            BatchTimestamp = DateTime.UtcNow,
+            Logs = [] // Empty
+        }, cts.Token);
+
+        // Publish a valid message after the empty one
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
+        {
+            BatchTimestamp = DateTime.UtcNow,
+            Logs =
+            [
+                new()
+                {
+                    CorrelationId = occurrence.CorrelationId,
+                    WorkerId = "test-worker",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Information",
+                        Message = uniqueMessage,
+                        Category = "EmptyBatchTest"
+                    },
+                    MessageTimestamp = DateTime.UtcNow
+                }
+            ]
+        }, cts.Token);
+
+        // Wait for valid message to be processed
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Logs?.Any(l => l.Message == uniqueMessage) == true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await collector.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("collector should handle empty batch and continue processing");
+    }
+
+    [Fact]
+    public async Task CollectLogs_ShouldEventuallyInsert_WhenOccurrenceCreatedAfterLogArrives()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("PendingLogJob");
+
+        // Create a correlation ID for an occurrence that doesn't exist yet
+        var futureCorrelationId = Guid.CreateVersion7();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueMessage = $"Pending log {Guid.CreateVersion7():N}";
+
+        // Act - Start collector
+        var collector = CreateLogCollectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await collector.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        // Publish log for non-existent occurrence (will trigger FK violation → pending queue)
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
+        {
+            BatchTimestamp = DateTime.UtcNow,
+            Logs =
+            [
+                new()
+                {
+                    CorrelationId = futureCorrelationId,
+                    WorkerId = "test-worker",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Information",
+                        Message = uniqueMessage,
+                        Category = "PendingTest"
+                    },
+                    MessageTimestamp = DateTime.UtcNow
+                }
+            ]
+        }, cts.Token);
+
+        // Wait a bit for the FK violation to occur and log to move to pending queue
+        await Task.Delay(2000, cts.Token);
+
+        // Now create the occurrence (simulates dispatcher creating it after log arrived)
+        var dbContext = GetDbContext();
+        var occurrence = new JobOccurrence
+        {
+            Id = futureCorrelationId,
+            CorrelationId = futureCorrelationId,
+            JobId = job.Id,
+            JobName = job.JobNameInWorker,
+            JobVersion = 1,
+            Status = JobOccurrenceStatus.Running,
+            CreatedAt = DateTime.UtcNow,
+            CreatorUserName = "TestUser"
+        };
+
+        await dbContext.JobOccurrences.AddAsync(occurrence, cts.Token);
+        await dbContext.SaveChangesAsync(cts.Token);
+
+        // Wait for the pending log to be retried and inserted
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(futureCorrelationId, cts.Token);
+                return occ?.Logs?.Any(l => l.Message == uniqueMessage) == true;
+            },
+            timeout: TimeSpan.FromSeconds(20),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await collector.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("pending log should be retried and inserted after occurrence is created");
+
+        var updatedOccurrence = await GetOccurrenceAsync(futureCorrelationId, cts.Token);
+        var pendingLog = updatedOccurrence.Logs.FirstOrDefault(l => l.Message == uniqueMessage);
+        pendingLog.Should().NotBeNull();
+        pendingLog!.Category.Should().Be("PendingTest");
+    }
+
+    [Fact]
+    public async Task CollectLogs_ShouldPreserveExceptionType()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("ExceptionLogJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueCategory = $"ExceptionTest_{Guid.CreateVersion7():N}";
+
+        // Act - Start collector
+        var collector = CreateLogCollectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await collector.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        await PublishLogMessageAsync(new WorkerLogBatchMessage
+        {
+            BatchTimestamp = DateTime.UtcNow,
+            Logs =
+            [
+                new()
+                {
+                    CorrelationId = occurrence.CorrelationId,
+                    WorkerId = "test-worker",
+                    Log = new OccurrenceLog
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Level = "Error",
+                        Message = "NullReferenceException: Object reference not set",
+                        Category = uniqueCategory,
+                        ExceptionType = "System.NullReferenceException"
+                    },
+                    MessageTimestamp = DateTime.UtcNow
+                }
+            ]
+        }, cts.Token);
+
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Logs?.Any(l => l.Category == uniqueCategory) == true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await collector.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("log with exception type should be processed");
+
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        var exLog = updatedOccurrence.Logs.First(l => l.Category == uniqueCategory);
+        exLog.ExceptionType.Should().Be("System.NullReferenceException");
+        exLog.Level.Should().Be("Error");
+    }
+
+    [Fact]
+    public async Task CollectLogs_ShouldHandleSingleMessageFormat()
+    {
+        // Arrange
+        await InitializeAsync();
+        await PurgeAllQueuesAsync();
+
+        var job = await SeedScheduledJobAsync("SingleMsgFormatJob");
+        var occurrence = await SeedJobOccurrenceAsync(
+            jobId: job.Id,
+            jobName: job.JobNameInWorker,
+            status: JobOccurrenceStatus.Running
+        );
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var uniqueMessage = $"Single format log {Guid.CreateVersion7():N}";
+
+        // Act - Start collector
+        var collector = CreateLogCollectorService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await collector.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        await Task.Delay(3000, cts.Token);
+
+        // Publish as single WorkerLogMessage (not batch) - backward compatibility path
+        var singleMessage = new WorkerLogMessage
+        {
+            CorrelationId = occurrence.CorrelationId,
+            WorkerId = "test-worker",
+            Log = new OccurrenceLog
+            {
+                Timestamp = DateTime.UtcNow,
+                Level = "Warning",
+                Message = uniqueMessage,
+                Category = "SingleFormatTest"
+            },
+            MessageTimestamp = DateTime.UtcNow
+        };
+
+        var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(singleMessage, ConstantJsonOptions.PropNameCaseInsensitive));
+        await PublishRawLogMessageAsync(body, cts.Token);
+
+        // Wait for log to be processed
+        var found = await WaitForConditionAsync(
+            async () =>
+            {
+                var occ = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+                return occ?.Logs?.Any(l => l.Message == uniqueMessage) == true;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await collector.StopAsync(cts.Token);
+
+        // Assert
+        found.Should().BeTrue("single message format (backward compat) should be processed");
+
+        var updatedOccurrence = await GetOccurrenceAsync(occurrence.Id, cts.Token);
+        var log = updatedOccurrence.Logs.First(l => l.Message == uniqueMessage);
+        log.Level.Should().Be("Warning");
+        log.Category.Should().Be("SingleFormatTest");
+    }
+
+    #endregion
 }

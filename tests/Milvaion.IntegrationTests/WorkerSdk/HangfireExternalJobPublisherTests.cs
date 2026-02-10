@@ -195,6 +195,54 @@ public class HangfireExternalJobPublisherTests(WorkerSdkContainerFixture fixture
         await act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task PublishOccurrenceEventAsync_ShouldThrowOnNullMessage()
+    {
+        // Arrange
+        var publisher = CreateHangfirePublisher();
+
+        // Act & Assert
+        var act = async () => await publisher.PublishOccurrenceEventAsync(null);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+
+        await publisher.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_ShouldNotThrow_WhenCalledMultipleTimes()
+    {
+        // Arrange
+        var publisher = CreateHangfirePublisher();
+
+        // Ensure connection is established
+        await publisher.PublishJobRegistrationAsync(new ExternalJobRegistrationMessage
+        {
+            ExternalJobId = "DoubleDisposeTest",
+            Source = "Hangfire",
+            DisplayName = "Double Dispose Test"
+        });
+
+        // Act & Assert - double dispose should be safe
+        var act = async () =>
+        {
+            await publisher.DisposeAsync();
+            await publisher.DisposeAsync();
+        };
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_ShouldNotThrow_WhenNoConnectionEstablished()
+    {
+        // Arrange - Create publisher but don't publish anything (no connection)
+        var publisher = CreateHangfirePublisher();
+
+        // Act & Assert
+        var act = async () => await publisher.DisposeAsync();
+        await act.Should().NotThrowAsync();
+    }
+
     #region Helpers
 
     private ExternalJobPublisher CreateHangfirePublisher()

@@ -291,6 +291,175 @@ public class AlertNotifierTests(ServicesWebApplicationFactory factory, ITestOutp
         stubChannel2.SendCallCount.Should().Be(1);
     }
 
+    [Fact]
+    public async Task SendAsync_ShouldReturnFailed_WhenChannelThrowsException()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var failingChannel = new FailingAlertChannel("FailChannel", new Exception("SMTP timeout"));
+
+        var options = new AlertingOptions
+        {
+            Alerts = new Dictionary<AlertType, AlertConfig>
+            {
+                [AlertType.JobExecutionFailed] = new AlertConfig
+                {
+                    Enabled = true,
+                    Routes = ["FailChannel"]
+                }
+            }
+        };
+
+        var notifier = CreateAlertNotifier(options, [failingChannel]);
+
+        var payload = new AlertPayload
+        {
+            Title = "Job Failed",
+            Message = "Test failure"
+        };
+
+        // Act
+        var result = await notifier.SendAsync(AlertType.JobExecutionFailed, payload);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.ChannelResults.Should().ContainSingle();
+        result.ChannelResults.First().Success.Should().BeFalse();
+        result.ChannelResults.First().Message.Should().Contain("SMTP timeout");
+    }
+
+    [Fact]
+    public async Task SendAsync_ShouldReturnSkippedForUnregisteredChannel()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var options = new AlertingOptions
+        {
+            Alerts = new Dictionary<AlertType, AlertConfig>
+            {
+                [AlertType.JobExecutionFailed] = new AlertConfig
+                {
+                    Enabled = true,
+                    Routes = ["NonExistentChannel"]
+                }
+            }
+        };
+
+        var notifier = CreateAlertNotifier(options, []);
+
+        var payload = new AlertPayload
+        {
+            Title = "Test Alert",
+            Message = "Should skip"
+        };
+
+        // Act
+        var result = await notifier.SendAsync(AlertType.JobExecutionFailed, payload);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.ChannelResults.Should().ContainSingle();
+        result.ChannelResults.First().Message.Should().Contain("not registered");
+    }
+
+    [Fact]
+    public async Task SendAsync_ShouldPartialSucceed_WhenOneChannelFailsAndOneSucceeds()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var successChannel = new StubAlertChannel("SuccessChannel", ChannelResult.Successful("SuccessChannel"));
+        var failingChannel = new FailingAlertChannel("FailChannel", new Exception("Network error"));
+
+        var options = new AlertingOptions
+        {
+            Alerts = new Dictionary<AlertType, AlertConfig>
+            {
+                [AlertType.QueueDepthCritical] = new AlertConfig
+                {
+                    Enabled = true,
+                    Routes = ["SuccessChannel", "FailChannel"]
+                }
+            }
+        };
+
+        var notifier = CreateAlertNotifier(options, [successChannel, failingChannel]);
+
+        var payload = new AlertPayload
+        {
+            Title = "Queue Critical",
+            Message = "Partial test"
+        };
+
+        // Act
+        var result = await notifier.SendAsync(AlertType.QueueDepthCritical, payload);
+
+        // Assert - Should be success because at least one channel succeeded
+        result.Success.Should().BeTrue();
+        result.ChannelResults.Should().HaveCount(2);
+        successChannel.SendCallCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SendAsync_ShouldNotBuildActionUrl_WhenActionLinkIsNullOrEmpty()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var stubChannel = new StubAlertChannel("TestChannel", ChannelResult.Successful("TestChannel"));
+
+        var options = new AlertingOptions
+        {
+            MilvaionAppUrl = "https://milvaion.example.com",
+            Alerts = new Dictionary<AlertType, AlertConfig>
+            {
+                [AlertType.JobAutoDisabled] = new AlertConfig
+                {
+                    Enabled = true,
+                    Routes = ["TestChannel"]
+                }
+            }
+        };
+
+        var notifier = CreateAlertNotifier(options, [stubChannel]);
+
+        var payload = new AlertPayload
+        {
+            Title = "No Link Alert",
+            Message = "No action link",
+            ActionLink = null
+        };
+
+        // Act
+        await notifier.SendAsync(AlertType.JobAutoDisabled, payload);
+
+        // Assert
+        stubChannel.LastPayload.ActionLink.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetRoutesForAlert_ShouldReturnEmpty_WhenNoDefaultAndNoSpecificRoutes()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var options = new AlertingOptions
+        {
+            DefaultChannel = null,
+            Alerts = null
+        };
+
+        var notifier = CreateAlertNotifier(options);
+
+        // Act
+        var routes = notifier.GetRoutesForAlert(AlertType.ZombieOccurrenceDetected);
+
+        // Assert
+        routes.Should().BeEmpty();
+    }
+
     private AlertNotifier CreateAlertNotifier(AlertingOptions options, IAlertChannel[] channels = null)
     {
         var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
@@ -320,5 +489,19 @@ public class AlertNotifierTests(ServicesWebApplicationFactory factory, ITestOutp
             LastPayload = payload;
             return Task.FromResult(resultToReturn);
         }
+    }
+
+    /// <summary>
+    /// Alert channel that always throws an exception.
+    /// </summary>
+    private sealed class FailingAlertChannel(string channelName, Exception exceptionToThrow) : IAlertChannel
+    {
+        public string ChannelName => channelName;
+        public bool IsEnabled => true;
+
+        public bool CanSend() => true;
+
+        public Task<ChannelResult> SendAsync(AlertType alertType, AlertPayload payload, CancellationToken cancellationToken = default)
+            => throw exceptionToThrow;
     }
 }
