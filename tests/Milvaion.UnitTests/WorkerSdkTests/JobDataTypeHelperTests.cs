@@ -1,8 +1,10 @@
 using FluentAssertions;
 using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
+using Milvasoft.Milvaion.Sdk.Worker.Attributes;
 using Milvasoft.Milvaion.Sdk.Worker.Utils;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Milvaion.UnitTests.WorkerSdkTests;
 
@@ -221,6 +223,222 @@ public class JobDataTypeHelperTests
 
     #endregion
 
+    #region GetJobDataType - Additional Interfaces
+
+    [Fact]
+    public void GetJobDataType_ShouldReturnType_ForIJobWithResult()
+    {
+        var result = JobDataTypeHelper.GetJobDataType(typeof(TypedJobWithResult));
+        result.Should().Be<SampleJobData>();
+    }
+
+    [Fact]
+    public void GetJobDataType_ShouldReturnType_ForIAsyncJobWithResult()
+    {
+        var result = JobDataTypeHelper.GetJobDataType(typeof(AsyncTypedJobWithResult));
+        result.Should().Be<SampleJobData>();
+    }
+
+    #endregion
+
+    #region GenerateSchema - Type Mapping
+
+    [Fact]
+    public void GenerateSchema_ShouldMapEnumProperty_ToStringWithEnumValues()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("priority");
+        var prioritySchema = (Dictionary<string, object>)properties["priority"];
+        prioritySchema["type"].Should().Be("string");
+        prioritySchema.Should().ContainKey("enum");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapDateTimeProperty_WithDateTimeFormat()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("scheduledAt");
+        var dateSchema = (Dictionary<string, object>)properties["scheduledAt"];
+        dateSchema["type"].Should().Be("string");
+        dateSchema["format"].Should().Be("date-time");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapGuidProperty_WithUuidFormat()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("correlationId");
+        var guidSchema = (Dictionary<string, object>)properties["correlationId"];
+        guidSchema["type"].Should().Be("string");
+        guidSchema["format"].Should().Be("uuid");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapDecimalProperty_ToNumber()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("amount");
+        var decimalSchema = (Dictionary<string, object>)properties["amount"];
+        decimalSchema["type"].Should().Be("number");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapListProperty_ToArrayWithItems()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("tags");
+        var listSchema = (Dictionary<string, object>)properties["tags"];
+        listSchema["type"].Should().Be("array");
+        listSchema.Should().ContainKey("items");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapNestedObjectProperty()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("nested");
+        var nestedSchema = (Dictionary<string, object>)properties["nested"];
+        nestedSchema["type"].Should().Be("object");
+        nestedSchema.Should().ContainKey("properties");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapDateOnlyProperty_WithDateFormat()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("birthDate");
+        var dateSchema = (Dictionary<string, object>)properties["birthDate"];
+        dateSchema["format"].Should().Be("date");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapTimeOnlyProperty_WithTimeFormat()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("startTime");
+        var timeSchema = (Dictionary<string, object>)properties["startTime"];
+        timeSchema["format"].Should().Be("time");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapTimeSpanProperty_WithTimeFormat()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("duration");
+        var tsSchema = (Dictionary<string, object>)properties["duration"];
+        tsSchema["format"].Should().Be("time");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldIncludeDefaultValue_WhenDefaultValueAttributePresent()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("maxRetries");
+        var retrySchema = (Dictionary<string, object>)properties["maxRetries"];
+        retrySchema.Should().ContainKey("default");
+        retrySchema["default"].Should().Be(3);
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldRespectJsonPropertyNameAttribute()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("custom_name");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldSkipReadOnlyProperties()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().NotContainKey("readOnlyField");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldMapDateTimeOffsetProperty()
+    {
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(FullTypeJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        properties.Should().ContainKey("createdAt");
+        var dtoSchema = (Dictionary<string, object>)properties["createdAt"];
+        dtoSchema["format"].Should().Be("date-time");
+    }
+
+    #endregion
+
+    #region DynamicEnum in Schema
+
+    [Fact]
+    public void GenerateSchema_ShouldIncludeDynamicEnumValues_WhenRegistered()
+    {
+        // Arrange
+        var configKey = "TestConfig:Connections";
+        JobDataTypeHelper.RegisterDynamicEnumValues(configKey, ["Conn1", "Conn2"]);
+
+        // Act
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(DynamicEnumJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        // Assert
+        properties.Should().ContainKey("connectionName");
+        var connSchema = (Dictionary<string, object>)properties["connectionName"];
+        connSchema.Should().ContainKey("enum");
+    }
+
+    [Fact]
+    public void GenerateSchema_ShouldNotIncludeEnum_WhenDynamicEnumNotRegistered()
+    {
+        // Act
+        var schema = JobDataTypeHelper.GenerateSchema(typeof(DynamicEnumUnregisteredJobData));
+        var properties = (Dictionary<string, object>)schema["properties"];
+
+        // Assert
+        properties.Should().ContainKey("unknownKey");
+        var connSchema = (Dictionary<string, object>)properties["unknownKey"];
+        connSchema.Should().NotContainKey("enum");
+    }
+
+    #endregion
+
+    #region GetJobDataInfo
+
+    [Fact]
+    public void GetJobDataInfo_ShouldReturnFullInfo_ForTypedJobWithResult()
+    {
+        var info = JobDataTypeHelper.GetJobDataInfo(typeof(TypedJobWithResult));
+
+        info.Should().NotBeNull();
+        info.TypeShortName.Should().Be(nameof(SampleJobData));
+        info.TypeName.Should().Contain("SampleJobData");
+        info.SchemaJson.Should().NotBeNullOrWhiteSpace();
+    }
+
+    #endregion
+
     #region Test Types
 
     private sealed class SimpleJob : IAsyncJob
@@ -238,6 +456,16 @@ public class JobDataTypeHelperTests
         public Task ExecuteAsync(IJobContext context) => Task.CompletedTask;
     }
 
+    private sealed class TypedJobWithResult : IJobWithResult<SampleJobData>
+    {
+        public string Execute(IJobContext context) => "done";
+    }
+
+    private sealed class AsyncTypedJobWithResult : IAsyncJobWithResult<SampleJobData>
+    {
+        public Task<string> ExecuteAsync(IJobContext context) => Task.FromResult("done");
+    }
+
     public class SampleJobData
     {
         [Required]
@@ -247,6 +475,52 @@ public class JobDataTypeHelperTests
         public int RetryCount { get; set; }
 
         public bool SendNotification { get; set; }
+    }
+
+    public class FullTypeJobData
+    {
+        public SamplePriority Priority { get; set; }
+        public DateTime ScheduledAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public Guid CorrelationId { get; set; }
+        public decimal Amount { get; set; }
+        public List<string> Tags { get; set; }
+        public NestedData Nested { get; set; }
+        public DateOnly BirthDate { get; set; }
+        public TimeOnly StartTime { get; set; }
+        public TimeSpan Duration { get; set; }
+
+        [DefaultValue(3)]
+        public int MaxRetries { get; set; }
+
+        [JsonPropertyName("custom_name")]
+        public string CustomProp { get; set; }
+
+        public string ReadOnlyField { get; }
+    }
+
+    public class NestedData
+    {
+        public string Value { get; set; }
+    }
+
+    public enum SamplePriority
+    {
+        Low,
+        Medium,
+        High
+    }
+
+    public class DynamicEnumJobData
+    {
+        [DynamicEnum("TestConfig:Connections")]
+        public string ConnectionName { get; set; }
+    }
+
+    public class DynamicEnumUnregisteredJobData
+    {
+        [DynamicEnum("NotRegistered:Key")]
+        public string UnknownKey { get; set; }
     }
 
     #endregion

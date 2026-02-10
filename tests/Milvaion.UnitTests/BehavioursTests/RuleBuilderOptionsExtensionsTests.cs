@@ -188,6 +188,173 @@ public class RuleBuilderOptionsExtensionsTests
 
     #endregion
 
+    #region NotBeDefaultData (int) - Chained overload
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(10, false)]
+    [InlineData(25, true)]
+    public void NotBeDefaultData_IntChained_ShouldValidateCorrectly(int value, bool expectedValid)
+    {
+        // Arrange - uses IRuleBuilderOptions<T, int> overload (chained after another rule)
+        var validator = new InlineValidator<TestIntModel>();
+        validator.RuleFor(x => x.Value).GreaterThanOrEqualTo(0).NotBeDefaultData();
+        var model = new TestIntModel { Value = value };
+
+        // Act
+        var result = validator.Validate(model);
+
+        // Assert
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    #endregion
+
+    #region NotBeDefaultData (long) - Chained overload
+
+    [Theory]
+    [InlineData(0L, true)]
+    [InlineData(10L, false)]
+    [InlineData(25L, true)]
+    public void NotBeDefaultData_LongChained_ShouldValidateCorrectly(long value, bool expectedValid)
+    {
+        // Arrange - uses IRuleBuilderOptions<T, long> overload (chained after another rule)
+        var validator = new InlineValidator<TestLongModel>();
+        validator.RuleFor(x => x.Value).GreaterThanOrEqualTo(0L).NotBeDefaultData();
+        var model = new TestLongModel { Value = value };
+
+        // Act
+        var result = validator.Validate(model);
+
+        // Assert
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    #endregion
+
+    #region Email - Chained overload
+
+    [Theory]
+    [InlineData("test@example.com", true)]
+    [InlineData("invalid", false)]
+    public void Email_Chained_ShouldValidateCorrectly(string email, bool expectedValid)
+    {
+        // Arrange - uses IRuleBuilderOptions<T, string> overload
+        var validator = new InlineValidator<TestStringModel>();
+        validator.RuleFor(x => x.Value).NotEmpty().Email(_mockLocalizer.Object);
+        var model = new TestStringModel { Value = email };
+
+        // Act
+        var result = validator.Validate(model);
+
+        // Assert
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    #endregion
+
+    #region PhoneNumber - Chained overload
+
+    [Theory]
+    [InlineData("+905551234567", true)]
+    [InlineData("123", false)]
+    public void PhoneNumber_Chained_ShouldValidateCorrectly(string phone, bool expectedValid)
+    {
+        // Arrange - uses IRuleBuilderOptions<T, string> overload
+        var validator = new InlineValidator<TestStringModel>();
+        validator.RuleFor(x => x.Value).NotEmpty().PhoneNumber(_mockLocalizer.Object);
+        var model = new TestStringModel { Value = phone };
+
+        // Act
+        var result = validator.Validate(model);
+
+        // Assert
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    #endregion
+
+    #region UrlAddress - Chained overload
+
+    [Theory]
+    [InlineData("https://example.com", true)]
+    [InlineData("", false)]
+    public void UrlAddress_Chained_ShouldValidateCorrectly(string url, bool expectedValid)
+    {
+        // Arrange - uses IRuleBuilderOptions<T, string> overload
+        var validator = new InlineValidator<TestStringModel>();
+        validator.RuleFor(x => x.Value).NotEmpty().UrlAddress(_mockLocalizer.Object);
+        var model = new TestStringModel { Value = url };
+
+        // Act
+        var result = validator.Validate(model);
+
+        // Assert
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    #endregion
+
+    #region NotNullOrEmpty (string) - Chained overload
+
+    [Theory]
+    [InlineData("valid", true)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void NotNullOrEmpty_StringChained_ShouldValidateCorrectly(string value, bool expectedValid)
+    {
+        // Arrange - uses IRuleBuilderOptions<T, string> overload
+        var validator = new InlineValidator<TestStringModel>();
+        validator.RuleFor(x => x.Value).MaximumLength(100).NotNullOrEmpty(_mockLocalizer.Object, MessageKey.GlobalName);
+        var model = new TestStringModel { Value = value };
+
+        // Act
+        var result = validator.Validate(model);
+
+        // Assert
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    #endregion
+
+    #region NotNullOrEmpty<T, TProperty> generic overload
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(5, true)]
+    public void NotNullOrEmpty_Generic_ShouldValidateCorrectly(int value, bool expectedValid)
+    {
+        // Arrange - uses IRuleBuilder<T, TProperty> generic overload
+        var validator = new InlineValidator<TestIntModel>();
+        validator.RuleFor(x => x.Value).NotNullOrEmpty(_mockLocalizer.Object, MessageKey.GlobalName);
+        var model = new TestIntModel { Value = value };
+
+        // Act
+        var result = validator.Validate(model);
+
+        // Assert
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(5, true)]
+    public void NotNullOrEmpty_GenericChained_ShouldValidateCorrectly(int value, bool expectedValid)
+    {
+        // Arrange - uses IRuleBuilderOptions<T, TProperty> generic overload
+        var validator = new InlineValidator<TestIntModel>();
+        validator.RuleFor(x => x.Value).GreaterThanOrEqualTo(0).NotNullOrEmpty(_mockLocalizer.Object, MessageKey.GlobalName);
+        var model = new TestIntModel { Value = value };
+
+        // Act
+        var result = validator.Validate(model);
+
+        // Assert
+        result.IsValid.Should().Be(expectedValid);
+    }
+
+    #endregion
+
     #region Test Models
 
     public class TestIntModel

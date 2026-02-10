@@ -176,6 +176,124 @@ public class MilvaionJobListenerTests
         return act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public Task JobWasExecuted_ShouldNotThrow_WhenPublisherFails()
+    {
+        // Arrange
+        _publisherMock.Setup(x => x.PublishOccurrenceEventAsync(It.IsAny<ExternalJobOccurrenceMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Connection lost"));
+
+        var context = CreateJobExecutionContext("TestJob", "DEFAULT");
+        context.MergedJobDataMap.Put("Milvaion_CorrelationId", Guid.CreateVersion7().ToString());
+
+        // Act & Assert
+        var act = async () => await _listener.JobWasExecuted(context, null);
+        return act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public Task JobWasExecuted_ShouldNotThrow_WhenPublisherIsNull()
+    {
+        // Arrange
+        var listener = new MilvaionJobListener(null,
+            Options.Create(new WorkerOptions { ExternalScheduler = new MilvaionExternalSchedulerOptions { Source = "Quartz" } }),
+            _loggerFactoryMock.Object);
+        var context = CreateJobExecutionContext("TestJob", "DEFAULT");
+
+        // Act & Assert
+        var act = async () => await listener.JobWasExecuted(context, null);
+        return act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public Task JobExecutionVetoed_ShouldNotThrow_WhenPublisherFails()
+    {
+        // Arrange
+        _publisherMock.Setup(x => x.PublishOccurrenceEventAsync(It.IsAny<ExternalJobOccurrenceMessage>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Connection lost"));
+
+        var context = CreateJobExecutionContext("TestJob", "DEFAULT");
+
+        // Act & Assert
+        var act = async () => await _listener.JobExecutionVetoed(context);
+        return act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public Task JobExecutionVetoed_ShouldNotThrow_WhenPublisherIsNull()
+    {
+        // Arrange
+        var listener = new MilvaionJobListener(null,
+            Options.Create(new WorkerOptions { ExternalScheduler = new MilvaionExternalSchedulerOptions { Source = "Quartz" } }),
+            _loggerFactoryMock.Object);
+        var context = CreateJobExecutionContext("TestJob", "DEFAULT");
+
+        // Act & Assert
+        var act = async () => await listener.JobExecutionVetoed(context);
+        return act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task JobWasExecuted_ShouldGenerateNewCorrelationId_WhenInvalidGuidInDataMap()
+    {
+        // Arrange - Milvaion_CorrelationId is present but not a valid GUID
+        ExternalJobOccurrenceMessage capturedMessage = null;
+        _publisherMock.Setup(x => x.PublishOccurrenceEventAsync(It.IsAny<ExternalJobOccurrenceMessage>(), It.IsAny<CancellationToken>()))
+            .Callback<ExternalJobOccurrenceMessage, CancellationToken>((msg, _) => capturedMessage = msg)
+            .Returns(Task.CompletedTask);
+
+        var context = CreateJobExecutionContext("TestJob", "DEFAULT");
+        context.MergedJobDataMap.Put("Milvaion_CorrelationId", "not-a-guid");
+
+        // Act
+        await _listener.JobWasExecuted(context, null);
+
+        // Assert - Should generate a new CorrelationId since parse fails
+        capturedMessage.Should().NotBeNull();
+        capturedMessage.CorrelationId.Should().NotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task JobWasExecuted_WithException_ShouldHaveNullResult()
+    {
+        // Arrange
+        ExternalJobOccurrenceMessage capturedMessage = null;
+        _publisherMock.Setup(x => x.PublishOccurrenceEventAsync(It.IsAny<ExternalJobOccurrenceMessage>(), It.IsAny<CancellationToken>()))
+            .Callback<ExternalJobOccurrenceMessage, CancellationToken>((msg, _) => capturedMessage = msg)
+            .Returns(Task.CompletedTask);
+
+        var context = CreateJobExecutionContext("TestJob", "DEFAULT");
+        context.MergedJobDataMap.Put("Milvaion_CorrelationId", Guid.CreateVersion7().ToString());
+
+        // Act
+        await _listener.JobWasExecuted(context, new JobExecutionException("fail"));
+
+        // Assert
+        capturedMessage.Result.Should().BeNull();
+        capturedMessage.Exception.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task JobWasExecuted_WithoutException_ShouldHaveResultMessage()
+    {
+        // Arrange
+        ExternalJobOccurrenceMessage capturedMessage = null;
+        _publisherMock.Setup(x => x.PublishOccurrenceEventAsync(It.IsAny<ExternalJobOccurrenceMessage>(), It.IsAny<CancellationToken>()))
+            .Callback<ExternalJobOccurrenceMessage, CancellationToken>((msg, _) => capturedMessage = msg)
+            .Returns(Task.CompletedTask);
+
+        var context = CreateJobExecutionContext("TestJob", "DEFAULT");
+        context.MergedJobDataMap.Put("Milvaion_CorrelationId", Guid.CreateVersion7().ToString());
+
+        // Act
+        await _listener.JobWasExecuted(context, null);
+
+        // Assert
+        capturedMessage.Result.Should().Contain("completed successfully");
+        capturedMessage.Exception.Should().BeNull();
+        capturedMessage.DurationMs.Should().Be(1500);
+    }
+
     private static IJobExecutionContext CreateJobExecutionContext(string jobName, string groupName)
     {
         var jobDetail = JobBuilder.Create<DummyQuartzJob>()

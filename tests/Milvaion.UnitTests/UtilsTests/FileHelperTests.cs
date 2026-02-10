@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Net.Http.Headers;
 using Milvaion.Application.Utils.Extensions;
 using Milvasoft.Core.Utils.Constants;
 
@@ -201,6 +202,118 @@ public class FileHelperTests
         var ipaSig = FileHelper.FileSignatures[".ipa"][0];
 
         apkSig.Should().BeEquivalentTo(ipaSig);
+    }
+
+    #endregion
+
+    #region GetBoundary Tests
+
+    [Fact]
+    public void GetBoundary_ShouldReturnBoundary_WhenValid()
+    {
+        // Arrange
+        var contentType = MediaTypeHeaderValue.Parse("multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW");
+
+        // Act
+        var result = FileHelper.GetBoundary(contentType, 100);
+
+        // Assert
+        result.Should().Be("----WebKitFormBoundary7MA4YWxkTrZu0gW");
+    }
+
+    [Fact]
+    public void GetBoundary_ShouldThrow_WhenBoundaryMissing()
+    {
+        // Arrange
+        var contentType = MediaTypeHeaderValue.Parse("multipart/form-data");
+
+        // Act
+        var act = () => FileHelper.GetBoundary(contentType, 100);
+
+        // Assert
+        act.Should().Throw<InvalidDataException>().WithMessage("*boundary*");
+    }
+
+    [Fact]
+    public void GetBoundary_ShouldThrow_WhenBoundaryExceedsLimit()
+    {
+        // Arrange
+        var longBoundary = new string('a', 200);
+        var contentType = MediaTypeHeaderValue.Parse($"multipart/form-data; boundary={longBoundary}");
+
+        // Act
+        var act = () => FileHelper.GetBoundary(contentType, 10);
+
+        // Assert
+        act.Should().Throw<InvalidDataException>().WithMessage("*limit*exceeded*");
+    }
+
+    #endregion
+
+    #region HasFileContentDisposition Tests
+
+    [Fact]
+    public void HasFileContentDisposition_ShouldReturnTrue_WhenFileNamePresent()
+    {
+        // Arrange
+        var cd = ContentDispositionHeaderValue.Parse("form-data; name=\"file\"; filename=\"test.txt\"");
+
+        // Act & Assert
+        cd.HasFileContentDisposition().Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasFileContentDisposition_ShouldReturnFalse_WhenNoFileName()
+    {
+        // Arrange
+        var cd = ContentDispositionHeaderValue.Parse("form-data; name=\"field\"");
+
+        // Act & Assert
+        cd.HasFileContentDisposition().Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasFileContentDisposition_ShouldReturnFalse_WhenNull()
+    {
+        // Arrange
+        ContentDispositionHeaderValue cd = null;
+
+        // Act & Assert
+        cd.HasFileContentDisposition().Should().BeFalse();
+    }
+
+    #endregion
+
+    #region HasFormDataContentDisposition Tests
+
+    [Fact]
+    public void HasFormDataContentDisposition_ShouldReturnTrue_WhenFormFieldWithoutFile()
+    {
+        // Arrange
+        var cd = ContentDispositionHeaderValue.Parse("form-data; name=\"field\"");
+
+        // Act & Assert
+        cd.HasFormDataContentDisposition().Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasFormDataContentDisposition_ShouldReturnFalse_WhenFilePresent()
+    {
+        // Arrange
+        var cd = ContentDispositionHeaderValue.Parse("form-data; name=\"file\"; filename=\"test.txt\"");
+
+        // Act & Assert
+        cd.HasFormDataContentDisposition().Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasFormDataContentDisposition_ShouldReturnFalse_WhenNull()
+    {
+        // Arrange
+        ContentDispositionHeaderValue cd = null;
+
+        // Act & Assert
+        cd.HasFormDataContentDisposition().Should().BeFalse();
     }
 
     #endregion

@@ -1,11 +1,18 @@
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Extensions;
+using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Filters;
+using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Services;
+using Milvasoft.Milvaion.Sdk.Worker.Utils;
 
 namespace Milvaion.UnitTests.HangfireSdkTests;
 
 [Trait("Hangfire SDK Unit Tests", "HangfireMilvaionExtensions unit tests.")]
 public class HangfireMilvaionExtensionsTests
 {
+    #region GetExternalJobId
+
     [Fact]
     public void GetExternalJobId_ShouldReturnTypeNameDotMethodName()
     {
@@ -55,6 +62,39 @@ public class HangfireMilvaionExtensionsTests
         // Assert
         result.Should().Be("SampleHangfireJob.");
     }
+
+    #endregion
+
+    #region AddMilvaionHangfireIntegration
+
+    [Fact]
+    public void AddMilvaionHangfireIntegration_ShouldRegisterCoreServices()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "hangfire-worker",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["Worker:ExternalScheduler:Source"] = "Hangfire",
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        // Act
+        services.AddMilvaionHangfireIntegration(configuration);
+
+        // Assert
+        services.Any(d => d.ServiceType == typeof(IExternalJobPublisher)).Should().BeTrue();
+        services.Any(d => d.ServiceType == typeof(ExternalJobRegistry)).Should().BeTrue();
+        services.Any(d => d.ServiceType == typeof(MilvaionJobFilter)).Should().BeTrue();
+    }
+
+    #endregion
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "<Pending>")]
     private sealed class SampleHangfireJob
