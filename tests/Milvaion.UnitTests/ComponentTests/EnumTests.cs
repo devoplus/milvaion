@@ -89,7 +89,7 @@ public class EnumTests
     }
 
     [Fact]
-    public void NotificationType_ShouldHaveThreeValues()
+    public void AlertType_ShouldHaveElevenValues()
     {
         // Act
         var values = Enum.GetValues<AlertType>();

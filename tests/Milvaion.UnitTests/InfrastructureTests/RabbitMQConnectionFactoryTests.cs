@@ -63,7 +63,7 @@ public class RabbitMQConnectionFactoryTests
     }
 
     [Fact]
-    public async Task CreateChannelAsync_WhenNotInitialized_ShouldThrowInvalidOperationException()
+    public Task CreateChannelAsync_WhenNotInitialized_ShouldThrowInvalidOperationException()
     {
         // Arrange
         var factory = new RabbitMQConnectionFactory(_options, _loggerFactory);
@@ -72,8 +72,7 @@ public class RabbitMQConnectionFactoryTests
         var act = () => factory.CreateChannelAsync();
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-                 .WithMessage("*not initialized*");
+        return act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*not initialized*");
     }
 
     [Fact]
@@ -86,12 +85,11 @@ public class RabbitMQConnectionFactoryTests
         var act = () => factory.Connection;
 
         // Assert
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("*not initialized*");
+        act.Should().Throw<InvalidOperationException>().WithMessage("*not initialized*");
     }
 
     [Fact]
-    public async Task DisposeAsync_WhenNotInitialized_ShouldNotThrow()
+    public Task DisposeAsync_WhenNotInitialized_ShouldNotThrow()
     {
         // Arrange
         var factory = new RabbitMQConnectionFactory(_options, _loggerFactory);
@@ -100,7 +98,7 @@ public class RabbitMQConnectionFactoryTests
         var act = () => factory.DisposeAsync().AsTask();
 
         // Assert
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     [Fact]

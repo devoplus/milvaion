@@ -147,45 +147,45 @@ public class MilvaionSchedulerListenerTests
     }
 
     [Fact]
-    public async Task SchedulerStarting_ShouldNotThrow()
+    public Task SchedulerStarting_ShouldNotThrow()
     {
         var act = async () => await _listener.SchedulerStarting();
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task SchedulerShutdown_ShouldNotThrow()
+    public Task SchedulerShutdown_ShouldNotThrow()
     {
         var act = async () => await _listener.SchedulerShutdown();
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task SchedulerError_ShouldNotThrow()
+    public Task SchedulerError_ShouldNotThrow()
     {
         var act = async () => await _listener.SchedulerError("Test error", new SchedulerException("test"));
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task SchedulerInStandbyMode_ShouldNotThrow()
+    public Task SchedulerInStandbyMode_ShouldNotThrow()
     {
         var act = async () => await _listener.SchedulerInStandbyMode();
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task SchedulingDataCleared_ShouldNotThrow()
+    public Task SchedulingDataCleared_ShouldNotThrow()
     {
         var act = async () => await _listener.SchedulingDataCleared();
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task JobInterrupted_ShouldNotThrow()
+    public Task JobInterrupted_ShouldNotThrow()
     {
         var act = async () => await _listener.JobInterrupted(new JobKey("test"));
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     private sealed class DummyJob : IJob

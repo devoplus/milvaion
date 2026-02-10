@@ -37,6 +37,7 @@ public class HangfireMilvaionExtensionsTests
         result.Should().StartWith("SampleHangfireJob");
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "<Pending>")]
     private sealed class SampleHangfireJob
     {
         public void Execute() { }

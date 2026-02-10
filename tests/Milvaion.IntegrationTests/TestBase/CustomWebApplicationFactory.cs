@@ -202,28 +202,25 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
     /// </summary>
     public string GetRabbitMqConnectionString() => $"{GetRabbitMqHost()}:{GetRabbitMqPort()}";
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.ConfigureAppConfiguration((context, config) =>
-        {
-            config.AddInMemoryCollection(new Dictionary<string, string>
-            {
-                ["ConnectionStrings:DefaultConnectionString"] = $"{GetConnectionString()};Pooling=false;",
-                ["MilvaionConfig:Redis:ConnectionString"] = GetRedisConnectionString(),
-                ["MilvaionConfig:RabbitMQ:Host"] = GetRabbitMqHost(),
-                ["MilvaionConfig:RabbitMQ:Port"] = GetRabbitMqPort().ToString(),
-                ["MilvaionConfig:RabbitMQ:Username"] = "guest",
-                ["MilvaionConfig:RabbitMQ:Password"] = "guest",
-                ["MilvaionConfig:StatusTracker:Enabled"] = "false",
-                ["MilvaionConfig:WorkerAutoDiscovery:Enabled"] = "false",
-                ["MilvaionConfig:ZombieOccurrenceDetector:Enabled"] = "false",
-                ["MilvaionConfig:FailedOccurrenceHandler:Enabled"] = "false",
-                ["MilvaionConfig:LogCollector:Enabled"] = "false",
-                ["MilvaionConfig:Alerting"] = "{}",
-                ["MilvaionConfig:Logging:Seq:Enabled"] = "false",
-            });
-        });
-    }
+    protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.ConfigureAppConfiguration((context, config) =>
+                                                                         {
+                                                                             config.AddInMemoryCollection(new Dictionary<string, string>
+                                                                             {
+                                                                                 ["ConnectionStrings:DefaultConnectionString"] = $"{GetConnectionString()};Pooling=false;",
+                                                                                 ["MilvaionConfig:Redis:ConnectionString"] = GetRedisConnectionString(),
+                                                                                 ["MilvaionConfig:RabbitMQ:Host"] = GetRabbitMqHost(),
+                                                                                 ["MilvaionConfig:RabbitMQ:Port"] = GetRabbitMqPort().ToString(),
+                                                                                 ["MilvaionConfig:RabbitMQ:Username"] = "guest",
+                                                                                 ["MilvaionConfig:RabbitMQ:Password"] = "guest",
+                                                                                 ["MilvaionConfig:StatusTracker:Enabled"] = "false",
+                                                                                 ["MilvaionConfig:WorkerAutoDiscovery:Enabled"] = "false",
+                                                                                 ["MilvaionConfig:ZombieOccurrenceDetector:Enabled"] = "false",
+                                                                                 ["MilvaionConfig:FailedOccurrenceHandler:Enabled"] = "false",
+                                                                                 ["MilvaionConfig:LogCollector:Enabled"] = "false",
+                                                                                 ["MilvaionConfig:Alerting"] = "{}",
+                                                                                 ["MilvaionConfig:Logging:Seq:Enabled"] = "false",
+                                                                             });
+                                                                         });
 
     public virtual HttpClient CreateClientWithHeaders(params KeyValuePair<string, string>[] headers)
     {

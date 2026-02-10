@@ -8,7 +8,6 @@ using Milvasoft.Milvaion.Sdk.Worker.Quartz.Listeners;
 using Milvasoft.Milvaion.Sdk.Worker.Quartz.Services;
 using Moq;
 using Quartz;
-using Quartz.Impl;
 
 namespace Milvaion.UnitTests.QuartzSdkTests;
 
@@ -38,10 +37,7 @@ public class MilvaionJobListenerTests
     }
 
     [Fact]
-    public void Name_ShouldReturnMilvaionJobListener()
-    {
-        _listener.Name.Should().Be("MilvaionJobListener");
-    }
+    public void Name_ShouldReturnMilvaionJobListener() => _listener.Name.Should().Be("MilvaionJobListener");
 
     [Fact]
     public async Task JobToBeExecuted_ShouldPublishStartingEvent()
@@ -150,7 +146,7 @@ public class MilvaionJobListenerTests
     }
 
     [Fact]
-    public async Task JobToBeExecuted_ShouldNotThrow_WhenPublisherFails()
+    public Task JobToBeExecuted_ShouldNotThrow_WhenPublisherFails()
     {
         // Arrange
         _publisherMock.Setup(x => x.PublishOccurrenceEventAsync(It.IsAny<ExternalJobOccurrenceMessage>(), It.IsAny<CancellationToken>()))
@@ -160,11 +156,11 @@ public class MilvaionJobListenerTests
 
         // Act & Assert - should not throw
         var act = async () => await _listener.JobToBeExecuted(context);
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task JobToBeExecuted_ShouldNotThrow_WhenPublisherIsNull()
+    public Task JobToBeExecuted_ShouldNotThrow_WhenPublisherIsNull()
     {
         // Arrange
         var workerOptions = Options.Create(new WorkerOptions
@@ -177,7 +173,7 @@ public class MilvaionJobListenerTests
 
         // Act & Assert
         var act = async () => await listener.JobToBeExecuted(context);
-        await act.Should().NotThrowAsync();
+        return act.Should().NotThrowAsync();
     }
 
     private static IJobExecutionContext CreateJobExecutionContext(string jobName, string groupName)
@@ -198,7 +194,7 @@ public class MilvaionJobListenerTests
         context.Setup(x => x.ScheduledFireTimeUtc).Returns(DateTimeOffset.UtcNow);
         context.Setup(x => x.FireTimeUtc).Returns(DateTimeOffset.UtcNow);
         context.Setup(x => x.JobRunTime).Returns(TimeSpan.FromMilliseconds(1500));
-        context.Setup(x => x.MergedJobDataMap).Returns(new JobDataMap());
+        context.Setup(x => x.MergedJobDataMap).Returns([]);
 
         return context.Object;
     }
