@@ -1132,14 +1132,14 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             // Always release the lock when done (or on failure)
             await _redisLock.ReleaseNamedLockAsync(recoveryLockName, instanceId, cancellationToken);
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-
-            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
-
             var redisStatsService = _serviceProvider.GetRequiredService<IRedisStatsService>();
 
             _ = Task.Run(async () =>
             {
+                await using var syncScope = _serviceProvider.CreateAsyncScope();
+
+                var dbContext = syncScope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
                 await redisStatsService.SyncCountersFromDatabaseAsync(dbContext, cancellationToken);
             }, cancellationToken);
 
