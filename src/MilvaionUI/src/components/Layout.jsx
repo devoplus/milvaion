@@ -1,7 +1,9 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Icon from './Icon'
+import NotificationPanel from './NotificationPanel'
 import authService from '../services/authService'
+import notificationService from '../services/notificationService'
 import { useTheme } from '../contexts/ThemeContext'
 import './Layout.css'
 
@@ -13,6 +15,8 @@ const [showUserMenu, setShowUserMenu] = useState(false)
 const [showAdminMenu, setShowAdminMenu] = useState(true)
 const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+const [isNotificationOpen, setIsNotificationOpen] = useState(false)
+const [unseenCount, setUnseenCount] = useState(0)
 const user = authService.getCurrentUser()
 
   // Close mobile menu when route changes
@@ -44,6 +48,30 @@ const user = authService.getCurrentUser()
       document.body.style.overflow = ''
     }
   }, [isMobileMenuOpen])
+
+  // Fetch unseen notification count periodically
+  const fetchUnseenCount = useCallback(async () => {
+    try {
+      const response = await notificationService.getNotifications({ pageIndex: 0, itemCount: 100 })
+      if (response?.isSuccess) {
+        const items = response.data ?? []
+        setUnseenCount(items.filter(n => !n.seenDate).length)
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchUnseenCount()
+    const interval = setInterval(fetchUnseenCount, 60000)
+    return () => clearInterval(interval)
+  }, [fetchUnseenCount])
+
+  const handleNotificationClose = useCallback(() => {
+    setIsNotificationOpen(false)
+    fetchUnseenCount()
+  }, [fetchUnseenCount])
 
   const isActive = (path) => {
     return location.pathname === path || location.pathname.startsWith(path + '/')
@@ -218,13 +246,25 @@ const user = authService.getCurrentUser()
           <div className="sidebar-actions">
 
 
+            {/* Notifications */}
+            <button
+              className="sidebar-action-btn notification-trigger-btn"
+              onClick={() => setIsNotificationOpen(true)}
+              title="Notifications"
+            >
+              <Icon name="notifications" size={20} />
+              {unseenCount > 0 && (
+                <span className="notification-badge">{unseenCount > 99 ? '99+' : unseenCount}</span>
+              )}
+            </button>
+
             {/* Theme Toggle with Circular Reveal Animation */}
             <button
               className="sidebar-action-btn theme-toggle-btn"
               onClick={(e) => toggleTheme(e)}
               title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
-              <Icon name={isDark ? 'light_mode' : 'dark_mode'} size={20} style={{ paddingRight: '20px' }} />
+              <Icon name={isDark ? 'light_mode' : 'dark_mode'} size={20} />
             </button>
 
 
@@ -289,6 +329,7 @@ const user = authService.getCurrentUser()
       <main className={`main-content ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         {children}
       </main>
+      <NotificationPanel isOpen={isNotificationOpen} onClose={handleNotificationClose} />
     </div>
   )
 }

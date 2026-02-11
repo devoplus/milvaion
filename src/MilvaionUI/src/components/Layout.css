@@ -256,10 +256,12 @@ align-items: center;
   height: 40px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
+  background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
+  padding: 0;
 }
 
 .sidebar-action-btn:hover {
@@ -270,6 +272,10 @@ align-items: center;
 
 .sidebar-action-btn svg {
   fill: currentColor;
+}
+
+.notification-trigger-btn {
+  position: relative;
 }
 
 .sidebar.collapsed .sidebar-actions {
