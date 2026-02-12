@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
@@ -26,6 +27,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 /// </summary>
 public class LogCollectorService(IServiceProvider serviceProvider,
                                  RabbitMQConnectionFactory rabbitMQFactory,
+                                 IAlertNotifier alertNotifier,
                                  IOptions<LogCollectorOptions> logCollectorOptions,
                                  ILoggerFactory loggerFactory,
                                  BackgroundServiceMetrics metrics,
@@ -33,6 +35,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
+    private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<LogCollectorService>();
     private readonly LogCollectorOptions _options = logCollectorOptions.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
@@ -110,6 +113,15 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 if (retryCount >= maxRetries)
                 {
                     _logger.Fatal("LogCollectorService failed to connect after {MaxRetries} attempts. Service will be disabled until application restart.", maxRetries);
+
+                    _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
+                    {
+                        Title = "LogCollector Service Stopped",
+                        Message = $"LogCollectorService failed to connect to RabbitMQ after {maxRetries} attempts. Service is disabled until application restart.",
+                        Severity = AlertSeverity.Critical,
+                        Source = nameof(LogCollectorService),
+                        ThreadKey = "service-degraded-logcollector"
+                    });
 
                     break;
                 }

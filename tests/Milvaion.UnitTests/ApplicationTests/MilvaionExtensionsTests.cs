@@ -9,23 +9,13 @@ public class MilvaionExtensionsTests
     #region IsBase64StringValidLength
 
     [Fact]
-    public void IsBase64StringValidLength_ShouldReturnTrue_WhenEmpty()
-    {
-        MilvaionExtensions.IsBase64StringValidLength("").Should().BeTrue();
-    }
+    public void IsBase64StringValidLength_ShouldReturnTrue_WhenEmpty() => MilvaionExtensions.IsBase64StringValidLength("").Should().BeTrue();
 
     [Fact]
-    public void IsBase64StringValidLength_ShouldReturnTrue_WhenNull()
-    {
-        MilvaionExtensions.IsBase64StringValidLength(null).Should().BeTrue();
-    }
+    public void IsBase64StringValidLength_ShouldReturnTrue_WhenNull() => MilvaionExtensions.IsBase64StringValidLength(null).Should().BeTrue();
 
     [Fact]
-    public void IsBase64StringValidLength_ShouldReturnTrue_WhenSmallBase64()
-    {
-        // "Hello" in base64 = "SGVsbG8="
-        MilvaionExtensions.IsBase64StringValidLength("SGVsbG8=").Should().BeTrue();
-    }
+    public void IsBase64StringValidLength_ShouldReturnTrue_WhenSmallBase64() => MilvaionExtensions.IsBase64StringValidLength("SGVsbG8=").Should().BeTrue();
 
     [Fact]
     public void IsBase64StringValidLength_ShouldReturnFalse_WhenLargerThan1MB()
@@ -36,41 +26,23 @@ public class MilvaionExtensionsTests
     }
 
     [Fact]
-    public void IsBase64StringValidLength_ShouldHandleDoublePaddedBase64()
-    {
-        // "H" in base64 = "SA==" (double padding)
-        MilvaionExtensions.IsBase64StringValidLength("SA==").Should().BeTrue();
-    }
+    public void IsBase64StringValidLength_ShouldHandleDoublePaddedBase64() => MilvaionExtensions.IsBase64StringValidLength("SA==").Should().BeTrue();
 
     [Fact]
-    public void IsBase64StringValidLength_ShouldHandleSinglePaddedBase64()
-    {
-        // "He" in base64 = "SGU=" (single padding)
-        MilvaionExtensions.IsBase64StringValidLength("SGU=").Should().BeTrue();
-    }
+    public void IsBase64StringValidLength_ShouldHandleSinglePaddedBase64() => MilvaionExtensions.IsBase64StringValidLength("SGU=").Should().BeTrue();
 
     [Fact]
-    public void IsBase64StringValidLength_ShouldHandleNoPaddingBase64()
-    {
-        // "Hel" in base64 = "SGVs" (no padding)
-        MilvaionExtensions.IsBase64StringValidLength("SGVs").Should().BeTrue();
-    }
+    public void IsBase64StringValidLength_ShouldHandleNoPaddingBase64() => MilvaionExtensions.IsBase64StringValidLength("SGVs").Should().BeTrue();
 
     #endregion
 
     #region IsBase64StringHasValidFileExtension
 
     [Fact]
-    public void IsBase64StringHasValidFileExtension_ShouldReturnTrue_WhenEmpty()
-    {
-        MilvaionExtensions.IsBase64StringHasValidFileExtension("").Should().BeTrue();
-    }
+    public void IsBase64StringHasValidFileExtension_ShouldReturnTrue_WhenEmpty() => MilvaionExtensions.IsBase64StringHasValidFileExtension("").Should().BeTrue();
 
     [Fact]
-    public void IsBase64StringHasValidFileExtension_ShouldReturnTrue_WhenNull()
-    {
-        MilvaionExtensions.IsBase64StringHasValidFileExtension(null).Should().BeTrue();
-    }
+    public void IsBase64StringHasValidFileExtension_ShouldReturnTrue_WhenNull() => MilvaionExtensions.IsBase64StringHasValidFileExtension(null).Should().BeTrue();
 
     [Fact]
     public void IsBase64StringHasValidFileExtension_ShouldReturnTrue_ForJpegDataUri()
@@ -94,10 +66,7 @@ public class MilvaionExtensionsTests
     }
 
     [Fact]
-    public void IsBase64StringHasValidFileExtension_ShouldReturnFalse_WhenNoDataPrefix()
-    {
-        MilvaionExtensions.IsBase64StringHasValidFileExtension("SGVsbG8=").Should().BeFalse();
-    }
+    public void IsBase64StringHasValidFileExtension_ShouldReturnFalse_WhenNoDataPrefix() => MilvaionExtensions.IsBase64StringHasValidFileExtension("SGVsbG8=").Should().BeFalse();
 
     #endregion
 
@@ -111,38 +80,23 @@ public class MilvaionExtensionsTests
     }
 
     [Fact]
-    public void IsValidDataUri_ShouldReturnFalse_ForInvalidFormat()
-    {
-        MilvaionExtensions.IsValidDataUri("not-a-data-uri").Should().BeFalse();
-    }
+    public void IsValidDataUri_ShouldReturnFalse_ForInvalidFormat() => MilvaionExtensions.IsValidDataUri("not-a-data-uri").Should().BeFalse();
 
     [Fact]
-    public void IsValidDataUri_ShouldReturnFalse_ForEmptyString()
-    {
-        MilvaionExtensions.IsValidDataUri("").Should().BeFalse();
-    }
+    public void IsValidDataUri_ShouldReturnFalse_ForEmptyString() => MilvaionExtensions.IsValidDataUri("").Should().BeFalse();
 
     #endregion
 
     #region DataUriToPlainText
 
     [Fact]
-    public void DataUriToPlainText_ShouldReturnEmpty_WhenNull()
-    {
-        MilvaionExtensions.DataUriToPlainText(null).Should().BeEmpty();
-    }
+    public void DataUriToPlainText_ShouldReturnEmpty_WhenNull() => MilvaionExtensions.DataUriToPlainText(null).Should().BeEmpty();
 
     [Fact]
-    public void DataUriToPlainText_ShouldReturnEmpty_WhenEmpty()
-    {
-        MilvaionExtensions.DataUriToPlainText("").Should().BeEmpty();
-    }
+    public void DataUriToPlainText_ShouldReturnEmpty_WhenEmpty() => MilvaionExtensions.DataUriToPlainText("").Should().BeEmpty();
 
     [Fact]
-    public void DataUriToPlainText_ShouldReturnEmpty_WhenInvalidFormat()
-    {
-        MilvaionExtensions.DataUriToPlainText("no-base64-marker").Should().BeEmpty();
-    }
+    public void DataUriToPlainText_ShouldReturnEmpty_WhenInvalidFormat() => MilvaionExtensions.DataUriToPlainText("no-base64-marker").Should().BeEmpty();
 
     [Fact]
     public void DataUriToPlainText_ShouldDecodeValidDataUri()
@@ -159,10 +113,7 @@ public class MilvaionExtensionsTests
     #region GetCurrentEnvironment / IsCurrentEnvProduction
 
     [Fact]
-    public void IsCurrentEnvProduction_ShouldReturnFalse_InTestEnvironment()
-    {
-        MilvaionExtensions.IsCurrentEnvProduction().Should().BeFalse();
-    }
+    public void IsCurrentEnvProduction_ShouldReturnFalse_InTestEnvironment() => MilvaionExtensions.IsCurrentEnvProduction().Should().BeFalse();
 
     [Fact]
     public void GetCurrentEnvironment_ShouldReturnString()
@@ -176,22 +127,13 @@ public class MilvaionExtensionsTests
     #region UrlRegex
 
     [Fact]
-    public void UrlRegex_ShouldMatchValidHttpUrl()
-    {
-        MilvaionExtensions.UrlRegex().IsMatch("http://example.com").Should().BeTrue();
-    }
+    public void UrlRegex_ShouldMatchValidHttpUrl() => MilvaionExtensions.UrlRegex().IsMatch("http://example.com").Should().BeTrue();
 
     [Fact]
-    public void UrlRegex_ShouldMatchValidHttpsUrl()
-    {
-        MilvaionExtensions.UrlRegex().IsMatch("https://example.com/path").Should().BeTrue();
-    }
+    public void UrlRegex_ShouldMatchValidHttpsUrl() => MilvaionExtensions.UrlRegex().IsMatch("https://example.com/path").Should().BeTrue();
 
     [Fact]
-    public void UrlRegex_ShouldNotMatchInvalidUrl()
-    {
-        MilvaionExtensions.UrlRegex().IsMatch("not-a-url").Should().BeFalse();
-    }
+    public void UrlRegex_ShouldNotMatchInvalidUrl() => MilvaionExtensions.UrlRegex().IsMatch("not-a-url").Should().BeFalse();
 
     #endregion
 }

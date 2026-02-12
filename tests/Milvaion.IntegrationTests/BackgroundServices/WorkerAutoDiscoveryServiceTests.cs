@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Models.Options;
@@ -347,6 +348,7 @@ public class WorkerAutoDiscoveryServiceTests(ServicesWebApplicationFactory facto
             {
                 Enabled = true
             }),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
             _serviceProvider.GetRequiredService<ILoggerFactory>(),
             _serviceProvider,
             _serviceProvider.GetRequiredService<BackgroundServiceMetrics>()

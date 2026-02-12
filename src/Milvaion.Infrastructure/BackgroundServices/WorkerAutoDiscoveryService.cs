@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Dtos.AlertingDtos;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
@@ -25,6 +27,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                                         RabbitMQConnectionFactory rabbitMQFactory,
                                         IOptions<WorkerAutoDiscoveryOptions> options,
+                                        IAlertNotifier alertNotifier,
                                         ILoggerFactory loggerFactory,
                                         IServiceProvider serviceProvider,
                                         BackgroundServiceMetrics metrics,
@@ -34,6 +37,7 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
     private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<WorkerAutoDiscoveryService>();
     private readonly WorkerAutoDiscoveryOptions _options = options.Value;
+    private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly BackgroundServiceMetrics _metrics = metrics;
     private IChannel _registrationChannel;
@@ -400,7 +404,26 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                             var success = await _redisWorkerService.RemoveWorkerInstanceAsync(worker.WorkerId, deadInstance.InstanceId, stoppingToken);
 
                             if (success)
+                            {
                                 _logger.Information("Cleaned up dead worker instance: {InstanceId}", deadInstance.InstanceId);
+
+                                _alertNotifier.SendFireAndForget(AlertType.WorkerDisconnected, new AlertPayload
+                                {
+                                    Title = "Worker Disconnected",
+                                    Message = $"Worker instance '{deadInstance.InstanceId}' (worker: {worker.WorkerId}) disconnected. Last heartbeat was {(now - deadInstance.LastHeartbeat).TotalSeconds:F0}s ago.",
+                                    Severity = AlertSeverity.Warning,
+                                    Source = nameof(WorkerAutoDiscoveryService),
+                                    ThreadKey = $"worker-disconnected-{deadInstance.InstanceId}",
+                                    ActionLink = "/workers",
+                                    AdditionalData = new
+                                    {
+                                        worker.WorkerId,
+                                        deadInstance.InstanceId,
+                                        deadInstance.LastHeartbeat,
+                                        SecondsSinceLastHeartbeat = (now - deadInstance.LastHeartbeat).TotalSeconds
+                                    }
+                                });
+                            }
                         }
                     }
                 }

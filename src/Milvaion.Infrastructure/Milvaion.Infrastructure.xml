@@ -63,8 +63,9 @@
             <param name="loggerFactory">Logger factory</param>
             <param name="options">Memory tracking configuration (optional)</param>
             <param name="memoryStatsRegistry">Optional registry for exposing stats via endpoint</param>
+            <param name="alertNotifier">Optional alert notifier for memory leak alerts</param>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService.#ctor(Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Application.Utils.Models.Options.BackgroundServiceOptions,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry,Milvaion.Application.Interfaces.IAlertNotifier)">
             <summary>
             Base class for background services with memory tracking capabilities.
             Monitors memory usage, detects memory leaks, and logs metrics.
@@ -75,6 +76,7 @@
             <param name="loggerFactory">Logger factory</param>
             <param name="options">Memory tracking configuration (optional)</param>
             <param name="memoryStatsRegistry">Optional registry for exposing stats via endpoint</param>
+            <param name="alertNotifier">Optional alert notifier for memory leak alerts</param>
         </member>
         <member name="F:Milvaion.Infrastructure.BackgroundServices.Base.MemoryTrackedBackgroundService._isRunning">
             <summary>
@@ -168,7 +170,7 @@
             Provides visibility and manual recovery capability for jobs that exceeded max retry attempts.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.FailedOccurrenceHandlerOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.FailedOccurrenceHandlerOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Background service that consumes failed jobs from Dead Letter Queue and stores them in database.
             Provides visibility and manual recovery capability for jobs that exceeded max retry attempts.
@@ -224,7 +226,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService"/> class.
             </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisLockService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions},Milvaion.Application.Interfaces.IDispatcherControlService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisLockService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.JobDispatcherOptions},Milvaion.Application.Interfaces.IDispatcherControlService,Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Background service that dispatches scheduled jobs from Redis to RabbitMQ.
             </summary>
@@ -349,7 +351,7 @@
             Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.LogCollectorService.#ctor(System.IServiceProvider,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.LogCollectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes worker logs from RabbitMQ and appends them to JobOccurrence.Logs.
             </summary>
@@ -457,6 +459,11 @@
             This method returns immediately and never blocks the main processing flow.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.SendJobExecutionFailedAlerts(System.Collections.Generic.List{Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.FailedOccurrenceInfo})">
+            <summary>
+            Sends alerts for failed job executions using fire-and-forget pattern.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.StopAsync(System.Threading.CancellationToken)">
             <summary>
             Stops the background service and cleans up resources.
@@ -481,6 +488,16 @@
             Represents a circuit breaker update for a job.
             </summary>
         </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.FailedOccurrenceInfo">
+            <summary>
+            Represents a failed occurrence for alert notification.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.FailedOccurrenceInfo.#ctor(System.Guid,System.String,System.Guid,System.String)">
+            <summary>
+            Represents a failed occurrence for alert notification.
+            </summary>
+        </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ConsumerCounterUpdate">
             <summary>
             Represents a consumer counter update for Redis batch processing.
@@ -502,7 +519,7 @@
             Stores runtime state in Redis for high performance.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkerAutoDiscoveryService.#ctor(Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions},Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Logging.ILoggerFactory,System.IServiceProvider,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Consumes worker registration and heartbeat messages from RabbitMQ.
             Stores runtime state in Redis for high performance.
@@ -543,7 +560,7 @@
             Prevents job blocking when occurrences are created but never consumed by workers.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ZombieOccurrenceDetectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisWorkerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Milvaion.Application.Interfaces.IAlertNotifier,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.ZombieOccurrenceDetectorOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Background service that detects and cleans up zombie occurrences (Queued status for too long).
             Prevents job blocking when occurrences are created but never consumed by workers.

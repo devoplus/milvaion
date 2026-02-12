@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
@@ -588,6 +589,7 @@ public class ZombieOccurrenceDetectorServiceTests(ServicesWebApplicationFactory 
             _serviceProvider.GetRequiredService<IRedisSchedulerService>(),
             _serviceProvider.GetRequiredService<IRedisWorkerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new ZombieOccurrenceDetectorOptions
             {
                 Enabled = true,

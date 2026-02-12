@@ -28,8 +28,8 @@ const processQueue = (error, token = null) => {
 // Request interceptor for adding auth token
 api.interceptors.request.use(
   (config) => {
-    // Skip auth for login and refresh endpoints
-    if (config.url?.includes('/account/login')) {
+    // Skip auth only for the login endpoint itself (not refresh)
+    if (config.url?.endsWith('/account/login')) {
       return config
     }
 
@@ -45,14 +45,23 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor for handling 401 and automatic token refresh
+// Response interceptor for handling 419 (token expired) with automatic refresh
 api.interceptors.response.use(
   (response) => response.data, // Extract data for convenience
   async (error) => {
     const originalRequest = error.config
 
-    // If error is not 401/419 or request already retried, reject immediately
-    if ((error.response?.status !== 401 && error.response?.status !== 419) || originalRequest._retry) {
+    // 401 = truly unauthorized → redirect to login, no refresh attempt
+    if (error.response?.status === 401) {
+      authService.logout()
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+      return Promise.reject(error)
+    }
+
+    // Only attempt refresh on 419 (token expired)
+    if (error.response?.status !== 419 || originalRequest._retry) {
       return Promise.reject(error)
     }
 

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Infrastructure.BackgroundServices.Base;
@@ -22,6 +23,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
                                              IRedisSchedulerService redisScheduler,
                                              IRedisWorkerService redisWorkerService,
                                              IRedisStatsService redisStatsService,
+                                             IAlertNotifier alertNotifier,
                                              IOptions<ZombieOccurrenceDetectorOptions> options,
                                              ILoggerFactory loggerFactory,
                                              BackgroundServiceMetrics metrics,
@@ -31,6 +33,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
     private readonly IRedisSchedulerService _redisScheduler = redisScheduler;
     private readonly IRedisWorkerService _redisWorkerService = redisWorkerService;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
+    private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<ZombieOccurrenceDetectorService>();
     private readonly ZombieOccurrenceDetectorOptions _options = options.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
@@ -139,6 +142,24 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
 
         _logger.Debug("Cleaned up {ZombieCount} zombie + {LostCount} lost = {TotalCount} problematic occurrences",
             zombieQueued.Count, lostRunning.Count, allProblematicOccurrences.Count);
+
+        // Send zombie occurrence alerts
+        _alertNotifier.SendFireAndForget(AlertType.ZombieOccurrenceDetected, new AlertPayload
+        {
+            Title = "Zombie Occurrences Detected",
+            Message = $"Detected and cleaned up {allProblematicOccurrences.Count} problematic occurrences ({zombieQueued.Count} zombie queued, {lostRunning.Count} lost running).",
+            Severity = AlertSeverity.Warning,
+            Source = nameof(ZombieOccurrenceDetectorService),
+            ThreadKey = "zombie-occurrence-detected",
+            ActionLink = "/executions",
+            AdditionalData = new
+            {
+                ZombieQueuedCount = zombieQueued.Count,
+                LostRunningCount = lostRunning.Count,
+                TotalCount = allProblematicOccurrences.Count,
+                OccurrenceIds = allProblematicOccurrences.Select(o => o.Id).Take(10).ToList()
+            }
+        });
     }
 
     /// <summary>

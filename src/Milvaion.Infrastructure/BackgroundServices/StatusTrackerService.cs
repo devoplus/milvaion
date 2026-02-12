@@ -141,6 +141,16 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 if (retryCount >= maxRetries)
                 {
                     _logger.Fatal("StatusTrackerService failed to connect after {MaxRetries} attempts. Service will be disabled until application restart.", maxRetries);
+
+                    _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
+                    {
+                        Title = "StatusTracker Service Stopped",
+                        Message = $"StatusTrackerService failed to connect to RabbitMQ after {maxRetries} attempts. Service is disabled until application restart.",
+                        Severity = AlertSeverity.Critical,
+                        Source = nameof(StatusTrackerService),
+                        ThreadKey = "service-degraded-statustracker"
+                    });
+
                     break;
                 }
 
@@ -346,6 +356,9 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     // Publish SignalR events
                     await PublishSignalREventsAsync(scope, occurrences, cancellationToken);
 
+                    // Send job execution failed alerts (fire-and-forget)
+                    SendJobExecutionFailedAlerts(updateResult.FailedOccurrences);
+
                     // Record metrics
                     RecordBatchMetrics(sw, batch.Count, occurrences);
 
@@ -532,6 +545,9 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             if (newStatus == JobOccurrenceStatus.Failed)
             {
                 result.CircuitBreakerUpdates[occurrence.JobId] = new CircuitBreakerUpdate(true, message.Exception ?? "Unknown error");
+
+                // Send job execution failed alert
+                result.FailedOccurrences.Add(new FailedOccurrenceInfo(occurrence.JobId, occurrence.JobName, message.CorrelationId, message.Exception));
             }
             else if (newStatus == JobOccurrenceStatus.Completed)
             {
@@ -862,6 +878,32 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
+    /// Sends alerts for failed job executions using fire-and-forget pattern.
+    /// </summary>
+    private void SendJobExecutionFailedAlerts(List<FailedOccurrenceInfo> failedOccurrences)
+    {
+        foreach (var failed in failedOccurrences)
+        {
+            _alertNotifier.SendFireAndForget(AlertType.JobExecutionFailed, new AlertPayload
+            {
+                Title = "Job Execution Failed",
+                Message = $"Job '{failed.JobName}' failed. Error: {TruncateException(failed.Exception, 150)}",
+                Severity = AlertSeverity.Error,
+                Source = nameof(StatusTrackerService),
+                ThreadKey = $"job-failed-{failed.JobId}",
+                ActionLink = $"/jobs/{failed.JobId}",
+                AdditionalData = new
+                {
+                    failed.JobId,
+                    failed.JobName,
+                    failed.CorrelationId,
+                    Exception = TruncateException(failed.Exception, 500)
+                }
+            });
+        }
+    }
+
+    /// <summary>
     /// Stops the background service and cleans up resources.
     /// </summary>
     /// <param name="cancellationToken"></param>
@@ -950,6 +992,11 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     private readonly record struct CircuitBreakerUpdate(bool IsFailed, string Exception);
 
     /// <summary>
+    /// Represents a failed occurrence for alert notification.
+    /// </summary>
+    private readonly record struct FailedOccurrenceInfo(Guid JobId, string JobName, Guid CorrelationId, string Exception);
+
+    /// <summary>
     /// Represents a consumer counter update for Redis batch processing.
     /// </summary>
     private readonly record struct ConsumerCounterUpdate(
@@ -966,6 +1013,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     {
         public Dictionary<Guid, CircuitBreakerUpdate> CircuitBreakerUpdates { get; } = [];
         public List<ConsumerCounterUpdate> ConsumerCounterUpdates { get; } = [];
+        public List<FailedOccurrenceInfo> FailedOccurrences { get; } = [];
     }
 
     #endregion

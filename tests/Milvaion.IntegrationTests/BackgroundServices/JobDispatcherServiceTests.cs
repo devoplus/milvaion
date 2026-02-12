@@ -996,6 +996,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
             _serviceProvider.GetRequiredService<IRedisWorkerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<IRabbitMQPublisher>(),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new JobDispatcherOptions
             {
                 Enabled = true,
@@ -1016,6 +1017,7 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
             _serviceProvider.GetRequiredService<IRedisWorkerService>(),
             _serviceProvider.GetRequiredService<IRedisStatsService>(),
             _serviceProvider.GetRequiredService<IRabbitMQPublisher>(),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new JobDispatcherOptions
             {
                 Enabled = false,

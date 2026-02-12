@@ -240,6 +240,21 @@
             An unknown or unhandled exception occurred.
             </summary>
         </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.FailedOccurrenceReceived">
+            <summary>
+            A failed occurrence was received from the Dead Letter Queue (max retries exceeded).
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.ServiceDegraded">
+            <summary>
+            A background service entered degraded mode or stopped after repeated failures.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Domain.Enums.AlertType.MemoryLeakDetected">
+            <summary>
+            A potential memory leak was detected in a background service.
+            </summary>
+        </member>
         <member name="T:Milvaion.Domain.Enums.NotificationEntity">
             <summary>
             Notication related entity types.

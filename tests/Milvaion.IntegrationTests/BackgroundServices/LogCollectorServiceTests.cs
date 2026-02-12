@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Infrastructure.BackgroundServices;
@@ -634,6 +635,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
     private LogCollectorService CreateLogCollectorService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new LogCollectorOptions
             {
                 Enabled = true,
@@ -647,6 +649,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
     private LogCollectorService CreateDisabledLogCollectorService() => new(
             _serviceProvider,
             _serviceProvider.GetRequiredService<RabbitMQConnectionFactory>(),
+            _serviceProvider.GetRequiredService<IAlertNotifier>(),
             Options.Create(new LogCollectorOptions
             {
                 Enabled = false,

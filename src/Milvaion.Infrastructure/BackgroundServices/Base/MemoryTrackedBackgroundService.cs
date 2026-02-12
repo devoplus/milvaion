@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Milvaion.Application.Dtos.AdminDtos;
+using Milvaion.Application.Dtos.AlertingDtos;
+using Milvaion.Application.Interfaces;
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Utils;
 using System.Diagnostics;
@@ -17,7 +19,8 @@ namespace Milvaion.Infrastructure.BackgroundServices.Base;
 /// <param name="loggerFactory">Logger factory</param>
 /// <param name="options">Memory tracking configuration (optional)</param>
 /// <param name="memoryStatsRegistry">Optional registry for exposing stats via endpoint</param>
-public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactory, BackgroundServiceOptions options, IMemoryStatsRegistry memoryStatsRegistry = null) : BackgroundService
+/// <param name="alertNotifier">Optional alert notifier for memory leak alerts</param>
+public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactory, BackgroundServiceOptions options, IMemoryStatsRegistry memoryStatsRegistry = null, IAlertNotifier alertNotifier = null) : BackgroundService
 {
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<MemoryTrackedBackgroundService>();
     private readonly MemoryTrackingOptions _options = options.MemoryTrackingOptions ?? new MemoryTrackingOptions();
@@ -134,6 +137,22 @@ public abstract class MemoryTrackedBackgroundService(ILoggerFactory loggerFactor
         {
             _potentialMemoryLeak = true;
             _logger.Error("[{ServiceName}] Potential MEMORY LEAK detected! Total growth: {TotalGrowthMB} MB over {Hours:F1} hours", ServiceName, totalGrowth / 1024.0 / 1024, uptimeHours);
+
+            alertNotifier?.SendFireAndForget(AlertType.MemoryLeakDetected, new AlertPayload
+            {
+                Title = "Memory Leak Detected",
+                Message = $"Service '{ServiceName}' has a potential memory leak. Total growth: {totalGrowth / 1024.0 / 1024:F1} MB over {uptimeHours:F1} hours.",
+                Severity = AlertSeverity.Critical,
+                Source = ServiceName,
+                ThreadKey = $"memory-leak-{ServiceName}",
+                AdditionalData = new
+                {
+                    ServiceName,
+                    TotalGrowthMB = totalGrowth / 1024.0 / 1024,
+                    UptimeHours = uptimeHours,
+                    CurrentMemoryMB = currentMemory / 1024.0 / 1024
+                }
+            });
         }
 
         _lastMemoryUsed = currentMemory;

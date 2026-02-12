@@ -53,7 +53,7 @@ public class AccountManager(IMilvaionRepositoryBase<UserSession> userSessionRepo
             Scope = "Milvaion",
             TokenType = "Bearer",
             RefreshToken = IdentityHelpers.CreateRefreshToken(),
-            RefreshTokenExpiresIn = _identityOptions.Token.ExpirationMinute * 2880 // 24 hours  
+            RefreshTokenExpiresIn = _identityOptions.Token.ExpirationMinute * 5760 // 24 hours
         };
 
         var sessionsToRemove = FindSessionsToRemove(user.Sessions, deviceId);

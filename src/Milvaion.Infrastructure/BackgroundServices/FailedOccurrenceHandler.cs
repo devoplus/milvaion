@@ -2,6 +2,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Dtos.AlertingDtos;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
@@ -25,6 +27,7 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 /// </summary>
 public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
                                      RabbitMQConnectionFactory rabbitMQFactory,
+                                     IAlertNotifier alertNotifier,
                                      IOptions<FailedOccurrenceHandlerOptions> options,
                                      ILoggerFactory loggerFactory,
                                      BackgroundServiceMetrics metrics,
@@ -32,6 +35,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly RabbitMQConnectionFactory _rabbitMQFactory = rabbitMQFactory;
+    private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<FailedOccurrenceHandler>();
     private readonly FailedOccurrenceHandlerOptions _options = options.Value;
     private readonly BackgroundServiceMetrics _metrics = metrics;
@@ -196,6 +200,27 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
         _metrics.RecordFailedOccurrenceProcessDuration(sw.Elapsed.TotalMilliseconds);
 
         _logger.Debug("[DLQ] Failed job stored in database ({SavedCount} rows). JobId: {JobId}, OccurrenceId: {OccurrenceId}, FailureType: {FailureType}, RetryCount: {RetryCount}", saved, failedJob.JobId, failedJob.OccurrenceId, failedJob.FailureType, failedJob.RetryCount);
+
+        // Send failed occurrence alert
+        _alertNotifier.SendFireAndForget(AlertType.FailedOccurrenceReceived, new AlertPayload
+        {
+            Title = "Failed Occurrence (DLQ)",
+            Message = $"Job '{failedJob.JobDisplayName ?? failedJob.JobNameInWorker}' exhausted all retries ({failedJob.RetryCount}). Error: {truncatedException?[..Math.Min(150, truncatedException?.Length ?? 0)]}",
+            Severity = AlertSeverity.Error,
+            Source = nameof(FailedOccurrenceHandler),
+            ThreadKey = $"failed-occurrence-{failedJob.JobId}",
+            ActionLink = $"/failed-executions",
+            AdditionalData = new
+            {
+                failedJob.JobId,
+                JobName = failedJob.JobDisplayName ?? failedJob.JobNameInWorker,
+                failedJob.OccurrenceId,
+                failedJob.CorrelationId,
+                failedJob.RetryCount,
+                failedJob.FailureType,
+                failedJob.WorkerId
+            }
+        });
     }
 
     /// <summary>

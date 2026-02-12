@@ -6,6 +6,7 @@ using Moq;
 namespace Milvaion.UnitTests.SdkTests;
 
 [Trait("SDK Unit Tests", "MilvaionLogger unit tests.")]
+#pragma warning disable CA1873 // Avoid potentially expensive logging
 public class MilvaionLoggerTests
 {
     private readonly Mock<ILogger> _loggerMock;
@@ -270,3 +271,4 @@ public class MilvaionLoggerTests
 
     #endregion
 }
+#pragma warning restore CA1873 // Avoid potentially expensive logging

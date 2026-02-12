@@ -59,4 +59,19 @@ public enum AlertType : byte
     /// An unknown or unhandled exception occurred.
     /// </summary>
     UnknownException = 10,
+
+    /// <summary>
+    /// A failed occurrence was received from the Dead Letter Queue (max retries exceeded).
+    /// </summary>
+    FailedOccurrenceReceived = 11,
+
+    /// <summary>
+    /// A background service entered degraded mode or stopped after repeated failures.
+    /// </summary>
+    ServiceDegraded = 12,
+
+    /// <summary>
+    /// A potential memory leak was detected in a background service.
+    /// </summary>
+    MemoryLeakDetected = 13,
 }

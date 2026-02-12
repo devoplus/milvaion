@@ -95,7 +95,7 @@ public class EnumTests
         var values = Enum.GetValues<AlertType>();
 
         // Assert
-        values.Should().HaveCount(11);
+        values.Should().HaveCount(14);
     }
 
     [Theory]

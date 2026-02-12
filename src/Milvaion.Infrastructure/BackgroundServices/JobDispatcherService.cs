@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Interfaces;
 using Milvaion.Application.Interfaces.RabbitMQ;
 using Milvaion.Application.Interfaces.Redis;
@@ -31,6 +32,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                                   IRedisWorkerService redisWorkerService,
                                   IRedisStatsService redisStatsService,
                                   IRabbitMQPublisher rabbitMQPublisher,
+                                  IAlertNotifier alertNotifier,
                                   IOptions<JobDispatcherOptions> options,
                                   IDispatcherControlService controlService,
                                   ILoggerFactory loggerFactory,
@@ -43,6 +45,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     private readonly IRedisWorkerService _redisWorkerService = redisWorkerService;
     private readonly IRedisStatsService _redisStatsService = redisStatsService;
     private readonly IRabbitMQPublisher _rabbitMQPublisher = rabbitMQPublisher;
+    private readonly IAlertNotifier _alertNotifier = alertNotifier;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<JobDispatcherService>();
     private readonly JobDispatcherOptions _options = options.Value;
     private readonly IDispatcherControlService _controlService = controlService;
@@ -162,6 +165,15 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 if (consecutiveFailures >= maxConsecutiveFailures)
                 {
                     _logger.Fatal("Job dispatcher entering degraded mode after {Failures} consecutive failures. Backing off for {Backoff}s before retry.", consecutiveFailures, backoffSeconds);
+
+                    _alertNotifier.SendFireAndForget(AlertType.ServiceDegraded, new AlertPayload
+                    {
+                        Title = "Job Dispatcher Degraded",
+                        Message = $"Job dispatcher entered degraded mode after {consecutiveFailures} consecutive failures. Backing off for {backoffSeconds}s.",
+                        Severity = AlertSeverity.Critical,
+                        Source = nameof(JobDispatcherService),
+                        ThreadKey = "service-degraded-dispatcher"
+                    });
 
                     await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), stoppingToken);
 
