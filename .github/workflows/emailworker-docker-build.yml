@@ -21,6 +21,9 @@ jobs:
         id: version
         run: echo "VERSION=$(cat src/Workers/EmailWorker/VERSION)" >> $GITHUB_OUTPUT
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -35,6 +38,7 @@ jobs:
         with:
           context: .
           file: ./src/Workers/EmailWorker/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-email-worker:latest
