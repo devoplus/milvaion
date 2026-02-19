@@ -54,6 +54,8 @@ jobs:
           outputs: type=image,"name=${{ secrets.DOCKERHUB_USERNAME }}/milvaion-http-worker",push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=build-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=build-${{ env.PLATFORM_PAIR }}
+          provenance: mode=max
+          sbom: true
 
       - name: Export digest
         run: |
