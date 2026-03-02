@@ -331,7 +331,14 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
     if (!confirmed) return
 
     try {
-      await occurrenceService.delete(occurrenceIds)
+      const response = await occurrenceService.delete(occurrenceIds)
+
+      if (response?.isSuccess === false) {
+        const message = response.messages?.[0]?.message || 'Failed to delete execution(s).'
+        await showError(message)
+        return
+      }
+
       await loadOccurrences()
       await showSuccess(`${occurrenceIds.length} execution${occurrenceIds.length > 1 ? 's' : ''} deleted successfully`)
     } catch (err) {
@@ -351,7 +358,14 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
     if (!confirmed) return
 
     try {
-      await jobService.delete(id)
+      const response = await jobService.delete(id)
+
+      if (response?.isSuccess === false) {
+        const message = response.messages?.[0]?.message || 'Failed to delete job.'
+        await showError(message)
+        return
+      }
+
       await showSuccess('Job deleted successfully')
       // Navigate back to jobs list after successful deletion
       window.location.href = '/jobs'

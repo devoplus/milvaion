@@ -54,7 +54,14 @@ function FailedOccurrenceDetail() {
     if (!confirmed) return
 
     try {
-      await failedOccurrenceService.delete(id)
+      const response = await failedOccurrenceService.delete(id)
+
+      if (response?.isSuccess === false) {
+        const message = response.messages?.[0]?.message || 'Failed to delete job record.'
+        await showError(message)
+        return
+      }
+
       await showSuccess('Failed job deleted successfully')
       navigate('/failed-executions')
     } catch (err) {
@@ -123,7 +130,14 @@ function FailedOccurrenceDetail() {
     }
 
     try {
-      await failedOccurrenceService.markAsResolved(id, resolutionNote, resolutionAction)
+      const response = await failedOccurrenceService.markAsResolved(id, resolutionNote, resolutionAction)
+
+      if (response?.isSuccess === false) {
+        const message = response.messages?.[0]?.message || 'Failed to resolve job.'
+        await showError(message)
+        return
+      }
+
       await loadJob()
       await showSuccess('Failed job marked as resolved')
     } catch (err) {

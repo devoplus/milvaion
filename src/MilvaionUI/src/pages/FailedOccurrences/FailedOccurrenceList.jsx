@@ -156,7 +156,14 @@ function FailedOccurrenceList() {
     if (!confirmed) return
 
     try {
-      await failedOccurrenceService.delete(jobIds)
+      const response = await failedOccurrenceService.delete(jobIds)
+
+      if (response?.isSuccess === false) {
+        const message = response.messages?.[0]?.message || 'Failed to delete job record(s).'
+        await showError(message)
+        return
+      }
+
       setSelectedJobs([])
       await loadJobs()
       await showSuccess(`${jobIds.length > 1 ? `${jobIds.length} failed jobs` : 'Failed job'} deleted successfully`)

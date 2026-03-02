@@ -348,7 +348,18 @@ const { modalProps, showModal } = useModal()
       onConfirm: async () => {
         setDeleting(true)
         try {
-          await occurrenceService.delete(id)
+          const response = await occurrenceService.delete(id)
+
+          if (response?.isSuccess === false) {
+            const errorMessage = response.messages?.[0]?.message || 'Failed to delete occurrence'
+            showModal({
+              title: '❌ Delete Failed',
+              message: errorMessage,
+              confirmText: 'OK'
+            })
+            return
+          }
+
           showModal({
             title: '✅ Occurrence Deleted',
             message: 'Occurrence deleted successfully',

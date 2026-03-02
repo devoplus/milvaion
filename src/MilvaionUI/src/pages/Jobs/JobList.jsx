@@ -128,7 +128,14 @@ function JobList() {
     if (!confirmed) return
 
     try {
-      await jobService.delete(id)
+      const response = await jobService.delete(id)
+
+      if (response?.isSuccess === false) {
+        const message = response.messages?.[0]?.message || 'Failed to delete job.'
+        await showError(message)
+        return
+      }
+
       await loadJobs()
       await showSuccess('Job deleted successfully')
     } catch (err) {
