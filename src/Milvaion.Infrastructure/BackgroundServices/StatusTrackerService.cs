@@ -67,6 +67,10 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     //  Batch processing
     private readonly System.Collections.Concurrent.ConcurrentQueue<JobStatusUpdateMessage> _statusBatch = new();
     private readonly SemaphoreSlim _batchLock = new(1, 1);
+
+    // Retry queue for Redis completion updates that failed or timed out.
+    // MarkJobAsCompletedAsync is idempotent (SREM), so retrying is safe.
+    private readonly System.Collections.Concurrent.ConcurrentQueue<Guid> _pendingRedisCompletions = new();
     private readonly static List<string> _updatePropNames =
     [
         nameof(JobOccurrence.Status),
@@ -109,6 +113,9 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 await Task.Delay(_options.BatchIntervalMs, stoppingToken);
 
                 await ProcessBatchAsync(stoppingToken);
+
+                // Retry failed Redis completions independently of batch processing.
+                await DrainPendingRedisCompletionsAsync(stoppingToken);
 
                 TrackMemoryAfterIteration();
             }
@@ -623,13 +630,69 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
+    /// Drains and retries pending Redis completion updates that failed in previous batches.
+    /// Runs independently so retries happen even when no new status messages arrive.
+    /// </summary>
+    private async Task DrainPendingRedisCompletionsAsync(CancellationToken cancellationToken)
+    {
+        if (_pendingRedisCompletions.IsEmpty)
+            return;
+
+        var pending = new List<Guid>();
+
+        while (_pendingRedisCompletions.TryDequeue(out var jobId))
+            pending.Add(jobId);
+
+        if (pending.Count == 0)
+            return;
+
+        _logger.Debug("Retrying {Count} pending Redis completion(s)...", pending.Count);
+
+        var stillFailed = new System.Collections.Concurrent.ConcurrentBag<Guid>();
+
+        foreach (var jobId in pending)
+        {
+            try
+            {
+                var removed = await _redisScheduler.MarkJobAsCompletedAsync(jobId, cancellationToken);
+
+                if (!removed)
+                    stillFailed.Add(jobId);
+                else
+                    _logger.Debug("Pending Redis completion succeeded for job {JobId}", jobId);
+            }
+            catch (Exception ex)
+            {
+                stillFailed.Add(jobId);
+                _logger.Warning(ex, "Pending Redis completion retry failed for job {JobId}", jobId);
+            }
+        }
+
+        // Re-queue any that still failed
+        foreach (var jobId in stillFailed)
+            _pendingRedisCompletions.Enqueue(jobId);
+
+        if (!stillFailed.IsEmpty)
+            _logger.Warning("{Count} Redis completion(s) still pending after retry. JobIds: {JobIds}",
+                stillFailed.Count, string.Join(", ", stillFailed.Take(5)));
+    }
+
+    /// <summary>
     /// Updates Redis state for running/completed jobs.
+    /// Failed/timed-out completion updates are re-queued and retried in the next batch.
+    /// MarkJobAsCompletedAsync (SREM) is idempotent, so retrying duplicates is safe.
     /// </summary>
     private async Task UpdateRedisStateAsync(List<JobOccurrence> occurrences, CancellationToken cancellationToken)
     {
         // Batch Redis updates efficiently with deduplication
         // Group by JobId to avoid duplicate Redis calls for same job
         var redisUpdates = new Dictionary<Guid, (JobOccurrenceStatus status, Guid correlationId)>();
+
+        // Drain pending completions from previous failed/timed-out attempts
+        while (_pendingRedisCompletions.TryDequeue(out var pendingJobId))
+        {
+            redisUpdates.TryAdd(pendingJobId, (JobOccurrenceStatus.Completed, Guid.Empty));
+        }
 
         foreach (var occurrence in occurrences)
         {
@@ -644,6 +707,8 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         if (redisUpdates.IsNullOrEmpty())
             return;
 
+        var failedCompletions = new System.Collections.Concurrent.ConcurrentBag<Guid>();
+
         var redisUpdateTasks = redisUpdates.Select(kvp => Task.Run(async () =>
         {
             var (status, correlationId) = kvp.Value;
@@ -653,26 +718,45 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             {
                 if (status == JobOccurrenceStatus.Running)
                 {
-                    // TryMarkJobAsRunningAsync is idempotent - no need to log if already marked
                     await _redisScheduler.TryMarkJobAsRunningAsync(jobId, correlationId, cancellationToken);
                 }
                 else if (status.IsFinalStatus())
                 {
-                    await _redisScheduler.MarkJobAsCompletedAsync(jobId, cancellationToken);
+                    var removed = await _redisScheduler.MarkJobAsCompletedAsync(jobId, cancellationToken);
+
+                    if (!removed)
+                        failedCompletions.Add(jobId);
                 }
             }
             catch (Exception ex)
             {
-                // Only log actual errors, not idempotent duplicate calls
-                _logger.Debug(ex, "Failed to update Redis for job {JobId} (non-critical)", jobId);
+                if (status.IsFinalStatus())
+                    failedCompletions.Add(jobId);
+
+                _logger.Warning(ex, "Failed to update Redis state for job {JobId} (status: {Status}). Will retry in next batch.", jobId, status);
             }
         }, cancellationToken)).ToList();
 
-        var redisTimeout = Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
-        var redisCompleted = await Task.WhenAny(Task.WhenAll(redisUpdateTasks), redisTimeout);
+        try
+        {
+            await Task.WhenAll(redisUpdateTasks).WaitAsync(TimeSpan.FromSeconds(3), cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            // Timeout - re-queue all pending completion updates (idempotent, safe to retry)
+            foreach (var kvp in redisUpdates.Where(u => u.Value.status.IsFinalStatus()))
+                failedCompletions.Add(kvp.Key);
 
-        if (redisCompleted == redisTimeout)
-            _logger.Warning("Redis updates timed out after 3 seconds for {Count} deduplicated operations (from {Total} occurrences)", redisUpdates.Count, occurrences.Count);
+            _logger.Warning("Redis state updates timed out after 3s. {Count} completion(s) queued for retry.", failedCompletions.Count);
+        }
+
+        // Re-queue failed completions for next batch cycle
+        foreach (var jobId in failedCompletions)
+            _pendingRedisCompletions.Enqueue(jobId);
+
+        if (!failedCompletions.IsEmpty)
+            _logger.Warning("{Count} Redis completion update(s) will be retried in next batch. JobIds: {JobIds}",
+                failedCompletions.Count, string.Join(", ", failedCompletions.Take(5)));
     }
 
     /// <summary>

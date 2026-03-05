@@ -305,10 +305,12 @@ public static class InfraServiceCollectionExtensions
         // Register HttpClient for alert channels (if not already registered)
         services.AddHttpClient(nameof(GoogleChatAlertChannel));
         services.AddHttpClient(nameof(SlackAlertChannel));
+        services.AddHttpClient(nameof(TeamsAlertChannel));
 
         // Register alert channels as Singleton (they are stateless and can be safely shared)
         services.AddSingleton<IAlertChannel, GoogleChatAlertChannel>();
         services.AddSingleton<IAlertChannel, SlackAlertChannel>();
+        services.AddSingleton<IAlertChannel, TeamsAlertChannel>();
         services.AddSingleton<IAlertChannel, EmailAlertChannel>();
         services.AddSingleton<IAlertChannel, InternalNotificationAlertChannel>();
 

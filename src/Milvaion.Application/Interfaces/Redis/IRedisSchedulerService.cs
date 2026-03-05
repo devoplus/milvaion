@@ -190,7 +190,8 @@ public interface IRedisSchedulerService
     /// </summary>
     /// <param name="jobId">Job identifier</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task MarkJobAsCompletedAsync(Guid jobId, CancellationToken cancellationToken = default);
+    /// <returns>True if actually removed from Redis. False if circuit breaker fallback was used (Redis unavailable).</returns>
+    Task<bool> MarkJobAsCompletedAsync(Guid jobId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Checks if a job is currently running.

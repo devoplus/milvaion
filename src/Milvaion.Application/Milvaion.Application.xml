@@ -7334,6 +7334,7 @@
             </summary>
             <param name="jobId">Job identifier</param>
             <param name="cancellationToken">Cancellation token</param>
+            <returns>True if actually removed from Redis. False if circuit breaker fallback was used (Redis unavailable).</returns>
         </member>
         <member name="M:Milvaion.Application.Interfaces.Redis.IRedisSchedulerService.IsJobRunningAsync(System.Guid,System.Threading.CancellationToken)">
             <summary>
@@ -8465,6 +8466,26 @@
         <member name="T:Milvaion.Application.Utils.Models.Options.SlackChannelConfig">
             <summary>
             Slack channel configuration.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.TeamsChannelOptions">
+            <summary>
+            Microsoft Teams channel configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.TeamsChannelOptions.DefaultChannel">
+            <summary>
+            Gets or sets the default channel to send alerts to when not specified.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.TeamsChannelOptions.Channels">
+            <summary>
+            Gets or sets the configured Teams channels with their webhook URLs.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.TeamsChannelConfig">
+            <summary>
+            Teams channel configuration.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.EmailChannelOptions">

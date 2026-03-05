@@ -850,7 +850,7 @@ public class RedisSchedulerService : IRedisSchedulerService
         );
 
     /// <inheritdoc/>
-    public Task MarkJobAsCompletedAsync(Guid jobId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
+    public Task<bool> MarkJobAsCompletedAsync(Guid jobId, CancellationToken cancellationToken = default) => _circuitBreaker.ExecuteAsync(
             operation: async () =>
             {
                 try
@@ -859,7 +859,7 @@ public class RedisSchedulerService : IRedisSchedulerService
 
                     _logger.Debug("Job {JobId} marked as completed", jobId);
 
-                    return true; // Dummy return
+                    return true;
                 }
                 catch (Exception ex)
                 {
@@ -867,7 +867,7 @@ public class RedisSchedulerService : IRedisSchedulerService
                     throw;
                 }
             },
-            fallback: async () => true, // void method için dummy fallback
+            fallback: async () => false, // Circuit breaker open - Redis unavailable
             operationName: "MarkJobAsCompleted",
             cancellationToken: cancellationToken
         );

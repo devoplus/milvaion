@@ -1,15 +1,18 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Milvaion.Api;
+﻿using Milvaion.Api;
 using Milvaion.Api.AppStartup;
 using Milvaion.Api.Hubs;
 using Milvaion.Api.Middlewares;
 using Milvaion.Api.Migrations;
 using Milvaion.Application;
+using Milvaion.Application.Dtos.AlertingDtos;
+using Milvaion.Application.Interfaces;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Application.Utils.LinkedWithFormatters;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Domain;
+using Milvaion.Domain.Enums;
 using Milvaion.Infrastructure;
+using Milvaion.Infrastructure.BackgroundServices;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvasoft.Components.Rest;
 using Milvasoft.Core.Utils.Converters;
@@ -127,10 +130,22 @@ try
 
     #endregion
 
+
+    var alertNotifier = app.Services.GetRequiredService<IAlertNotifier>();
+
+    await alertNotifier.SendAsync(AlertType.ServiceDegraded, new AlertPayload
+    {
+        Title = "StatusTracker Service Stopped",
+        Message = $"StatusTrackerService failed to connect to RabbitMQ after {1} attempts. Service is disabled until application restart.",
+        Severity = AlertSeverity.Critical,
+        Source = nameof(StatusTrackerService),
+        ThreadKey = "service-degraded-statustracker"
+    });
+
     // Initialize RabbitMQ queues and exchanges before starting the application
     var rabbitMQFactory = app.Services.GetRequiredService<RabbitMQConnectionFactory>();
-    await rabbitMQFactory.InitializeAsync();
 
+    await rabbitMQFactory.InitializeAsync();
     await app.RunAsync();
 
 }

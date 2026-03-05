@@ -174,12 +174,16 @@ public static class WorkerServiceCollectionExtensions
             {
                 var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
                 var connectionString = string.IsNullOrEmpty(options.Redis.Password)
-                    ? options.Redis.ConnectionString
-                    : $"{options.Redis.ConnectionString},password={options.Redis.Password}";
+                    ? options.Redis.ConnectionString + ",abortConnect=false"
+                    : $"{options.Redis.ConnectionString},password={options.Redis.Password},abortConnect=false";
 
                 return StackExchange.Redis.ConnectionMultiplexer.Connect(connectionString);
             });
         }
+
+        // Validate RabbitMQ and Redis connections at startup (fail-fast).
+        // Registered before consumers so it runs first in the hosted service pipeline.
+        services.AddHostedService<ConnectionStartupValidator>();
 
         // Register core services (only for regular workers, not external schedulers)
         if (requireJobConsumers)
@@ -211,8 +215,9 @@ public static class WorkerServiceCollectionExtensions
         {
             var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
             var logger = sp.GetRequiredService<ILoggerFactory>().CreateMilvaLogger<IMilvaLogger>();
+            var redis = sp.GetService<StackExchange.Redis.IConnectionMultiplexer>();
 
-            return new ConnectionMonitor(options, logger);
+            return new ConnectionMonitor(options, logger, redis);
         });
 
         // Register interface for ConnectionMonitor

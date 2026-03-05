@@ -158,38 +158,82 @@ public class RedisCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWi
     }
 
     private static async Task<int> CleanOrphanedRunningStatesAsync(IServer server,
-                                                                   IDatabase db,
-                                                                   string prefix,
-                                                                   HashSet<Guid> activeJobIds,
-                                                                   IJobContext context)
+                                                                    IDatabase db,
+                                                                    string prefix,
+                                                                    HashSet<Guid> activeJobIds,
+                                                                    IJobContext context)
     {
         context.LogInformation("  Scanning for orphaned running states...");
 
-        var pattern = $"{prefix}running:*";
+        var runningJobsKey = $"{prefix}running_jobs";
         var orphanedCount = 0;
-        var scannedCount = 0;
 
-        await foreach (var key in server.KeysAsync(pattern: pattern))
+        // 1. Clean the global running_jobs SET - remove jobs that are no longer active
+        var members = await db.SetMembersAsync(runningJobsKey);
+
+        if (members.Length > 0)
         {
-            scannedCount++;
+            context.LogInformation($"  Found {members.Length} entries in running_jobs SET");
 
-            var keyStr = key.ToString();
-            var parts = keyStr.Split(':');
+            var toRemove = new List<RedisValue>();
 
-            if (parts.Length >= 3 && Guid.TryParse(parts[^1], out var jobId))
+            foreach (var member in members)
             {
-                if (!activeJobIds.Contains(jobId))
+                if (Guid.TryParse(member.ToString(), out var jobId) && !activeJobIds.Contains(jobId))
                 {
-                    await db.KeyDeleteAsync(key);
-                    orphanedCount++;
+                    toRemove.Add(member);
                 }
+
+                context.CancellationToken.ThrowIfCancellationRequested();
+            }
+
+            if (toRemove.Count > 0)
+            {
+                await db.SetRemoveAsync(runningJobsKey, [.. toRemove]);
+                orphanedCount += toRemove.Count;
+                context.LogInformation($"  Removed {toRemove.Count} orphaned entries from running_jobs SET");
+            }
+        }
+
+        // 2. Clean orphaned running_jobs_by_worker:* SETs
+        var workerPattern = $"{prefix}running_jobs_by_worker:*";
+        var scannedWorkerKeys = 0;
+        var orphanedWorkerEntries = 0;
+
+        await foreach (var key in server.KeysAsync(pattern: workerPattern))
+        {
+            scannedWorkerKeys++;
+            var workerMembers = await db.SetMembersAsync(key);
+            var workerToRemove = new List<RedisValue>();
+
+            foreach (var member in workerMembers)
+            {
+                if (Guid.TryParse(member.ToString(), out var jobId) && !activeJobIds.Contains(jobId))
+                {
+                    workerToRemove.Add(member);
+                }
+            }
+
+            if (workerToRemove.Count > 0)
+            {
+                await db.SetRemoveAsync(key, [.. workerToRemove]);
+                orphanedWorkerEntries += workerToRemove.Count;
+            }
+
+            // Delete empty per-worker SETs
+            if (await db.SetLengthAsync(key) == 0)
+            {
+                await db.KeyDeleteAsync(key);
             }
 
             context.CancellationToken.ThrowIfCancellationRequested();
         }
 
-        context.LogInformation($"  [OK] Scanned {scannedCount} running state keys, deleted {orphanedCount} orphaned entries");
+        if (orphanedWorkerEntries > 0)
+            context.LogInformation($"  Cleaned {orphanedWorkerEntries} orphaned entries from {scannedWorkerKeys} per-worker running SETs");
 
-        return orphanedCount;
+        context.LogInformation($"  [OK] Total orphaned running states cleaned: {orphanedCount + orphanedWorkerEntries}");
+
+        return orphanedCount + orphanedWorkerEntries;
     }
 }

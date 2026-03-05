@@ -38,6 +38,13 @@ public class WorkerOptions
     public int ExecutionTimeoutSeconds { get; set; } = 3600; // 1 hour default
 
     /// <summary>
+    /// Maximum time to wait for RabbitMQ and Redis connections at startup (in seconds).
+    /// If connections cannot be established within this timeout, the worker process will exit.
+    /// Default: 30 seconds. Set to 0 to disable startup validation.
+    /// </summary>
+    public int StartupConnectionTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
     /// Health check options.
     /// </summary>
     public HealthCheckOptions HealthCheck { get; set; } = new();

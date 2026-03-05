@@ -108,6 +108,7 @@ public class WorkerHealthCheckTests(WorkerSdkContainerFixture fixture, ITestOutp
     private sealed class StubConnectionMonitor(bool isHealthy) : IConnectionMonitor
     {
         public bool IsRabbitMQHealthy => isHealthy;
+        public bool IsRedisHealthy => isHealthy;
 
         public Task<bool> RefreshStatusAsync() => Task.FromResult(isHealthy);
         public void OnConnectionRestored() { }

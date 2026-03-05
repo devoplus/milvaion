@@ -432,9 +432,17 @@
             Persists occurrence changes to database using bulk update.
             </summary>
         </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DrainPendingRedisCompletionsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Drains and retries pending Redis completion updates that failed in previous batches.
+            Runs independently so retries happen even when no new status messages arrive.
+            </summary>
+        </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.UpdateRedisStateAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
             <summary>
             Updates Redis state for running/completed jobs.
+            Failed/timed-out completion updates are re-queued and retried in the next batch.
+            MarkJobAsCompletedAsync (SREM) is idempotent, so retrying duplicates is safe.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.PublishSignalREventsAsync(Microsoft.Extensions.DependencyInjection.AsyncServiceScope,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Threading.CancellationToken)">
@@ -1452,6 +1460,31 @@
             <inheritdoc/>
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.SlackAlertChannel.SendCoreAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Alerting.Channels.TeamsAlertChannel">
+            <summary>
+            Alert channel implementation for Microsoft Teams using Incoming Webhooks with Adaptive Cards.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.TeamsAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.TeamsAlertChannel.#ctor(Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.AlertingOptions},System.Net.Http.IHttpClientFactory,System.Lazy{Milvasoft.Core.Abstractions.IMilvaLogger})">
+            <summary>
+            Alert channel implementation for Microsoft Teams using Incoming Webhooks with Adaptive Cards.
+            </summary>
+            <remarks>
+            Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Alerting.Channels.TeamsAlertChannel"/> class.
+            </remarks>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Alerting.Channels.TeamsAlertChannel.ChannelName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.TeamsAlertChannel.GetChannelOptions(Milvaion.Application.Utils.Models.Options.AlertingOptions)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Alerting.Channels.TeamsAlertChannel.SendCoreAsync(Milvaion.Domain.Enums.AlertType,Milvaion.Application.Dtos.AlertingDtos.AlertPayload,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.DeveloperService">

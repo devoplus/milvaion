@@ -64,6 +64,7 @@ public class AlertChannelsOptions
 {
     public GoogleChatChannelOptions GoogleChat { get; set; } = new();
     public SlackChannelOptions Slack { get; set; } = new();
+    public TeamsChannelOptions Teams { get; set; } = new();
     public EmailChannelOptions Email { get; set; } = new();
     public InternalNotificationChannelOptions InternalNotification { get; set; } = new();
 }
@@ -137,6 +138,31 @@ public class SlackChannelOptions : ChannelConfigBase
 /// Slack channel configuration.
 /// </summary>
 public class SlackChannelConfig
+{
+    public string Channel { get; set; }
+    public string WebhookUrl { get; set; }
+}
+
+/// <summary>
+/// Microsoft Teams channel configuration.
+/// </summary>
+public class TeamsChannelOptions : ChannelConfigBase
+{
+    /// <summary>
+    /// Gets or sets the default channel to send alerts to when not specified.
+    /// </summary>
+    public string DefaultChannel { get; set; } = "alerts";
+
+    /// <summary>
+    /// Gets or sets the configured Teams channels with their webhook URLs.
+    /// </summary>
+    public List<TeamsChannelConfig> Channels { get; set; } = [];
+}
+
+/// <summary>
+/// Teams channel configuration.
+/// </summary>
+public class TeamsChannelConfig
 {
     public string Channel { get; set; }
     public string WebhookUrl { get; set; }
@@ -224,6 +250,7 @@ public enum AlertChannelType
 {
     GoogleChat,
     Slack,
+    Teams,
     Email,
     InternalNotification
 }

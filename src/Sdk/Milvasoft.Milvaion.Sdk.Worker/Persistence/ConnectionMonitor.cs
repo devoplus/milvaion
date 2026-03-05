@@ -1,6 +1,7 @@
 using Milvasoft.Core.Abstractions;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using RabbitMQ.Client;
+using StackExchange.Redis;
 
 namespace Milvasoft.Milvaion.Sdk.Worker.Persistence;
 
@@ -15,7 +16,12 @@ public interface IConnectionMonitor : IDisposable, IAsyncDisposable
     bool IsRabbitMQHealthy { get; }
 
     /// <summary>
-    /// Force immediate health check (async).
+    /// Current Redis connection health status.
+    /// </summary>
+    bool IsRedisHealthy { get; }
+
+    /// <summary>
+    /// Force immediate health check for all connections (async).
     /// </summary>
     Task<bool> RefreshStatusAsync();
 
@@ -26,23 +32,44 @@ public interface IConnectionMonitor : IDisposable, IAsyncDisposable
 }
 
 /// <summary>
-/// Monitors connection health to RabbitMQ via periodic background checks.
+/// Monitors connection health to RabbitMQ and Redis via periodic background checks.
+/// Uses exponential backoff with jitter to prevent thundering herd when services are recovering.
 /// </summary>
 public class ConnectionMonitor : IConnectionMonitor
 {
     private readonly IMilvaLogger _logger;
     private readonly WorkerOptions _options;
+    private readonly IConnectionMultiplexer _redis;
     private IConnection _rabbitConnection;
     private readonly Lock _lockObj = new();
-    private bool _isHealthy = false;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _backgroundCheckTask;
     private bool _disposed = false;
 
-    public ConnectionMonitor(WorkerOptions options, IMilvaLogger logger)
+    // Backoff configuration
+    private const double _healthyIntervalSeconds = 30;
+    private const double _initialBackoffSeconds = 5;
+    private const double _maxBackoffSeconds = 60;
+    private const double _backoffMultiplier = 2;
+    private const double _jitterFactor = 0.2; // ±20%
+
+    // RabbitMQ backoff state
+    private bool _isRabbitHealthy = false;
+    private double _rabbitBackoffSeconds = _initialBackoffSeconds;
+    private int _rabbitConsecutiveFailures;
+    private bool _wasRabbitHealthy = true;
+
+    // Redis backoff state
+    private bool _isRedisHealthy = false;
+    private bool _wasRedisHealthy = true;
+
+    private static readonly Random _jitterRandom = new();
+
+    public ConnectionMonitor(WorkerOptions options, IMilvaLogger logger, IConnectionMultiplexer redis = null)
     {
         _logger = logger;
         _options = options;
+        _redis = redis;
 
         // Start background health check loop
         _backgroundCheckTask = Task.Run(() => BackgroundHealthCheckLoopAsync(_cts.Token));
@@ -56,12 +83,26 @@ public class ConnectionMonitor : IConnectionMonitor
         get
         {
             lock (_lockObj)
-                return _isHealthy;
+                return _isRabbitHealthy;
         }
     }
 
     /// <summary>
-    /// Background loop that periodically checks RabbitMQ health.
+    /// Current Redis connection health status (updated by background task).
+    /// Returns true if Redis is not configured.
+    /// </summary>
+    public bool IsRedisHealthy
+    {
+        get
+        {
+            lock (_lockObj)
+                return _isRedisHealthy;
+        }
+    }
+
+    /// <summary>
+    /// Background loop that periodically checks RabbitMQ and Redis health.
+    /// Healthy: checks every 30s. Unhealthy: exponential backoff 5s → 10s → 20s → 40s → 60s (cap) with ±20% jitter.
     /// </summary>
     private async Task BackgroundHealthCheckLoopAsync(CancellationToken cancellationToken)
     {
@@ -69,14 +110,54 @@ public class ConnectionMonitor : IConnectionMonitor
         {
             try
             {
-                var isHealthy = await CheckRabbitMQHealthAsync();
+                var rabbitHealthy = await CheckRabbitMQHealthAsync();
+                var redisHealthy = CheckRedisHealth();
 
                 lock (_lockObj)
                 {
-                    _isHealthy = isHealthy;
+                    _isRabbitHealthy = rabbitHealthy;
+                    _isRedisHealthy = redisHealthy;
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                // RabbitMQ state transition logging
+                if (rabbitHealthy && !_wasRabbitHealthy)
+                {
+                    _logger?.Information("RabbitMQ connection restored after {Failures} consecutive failure(s)", _rabbitConsecutiveFailures);
+                    _rabbitBackoffSeconds = _initialBackoffSeconds;
+                    _rabbitConsecutiveFailures = 0;
+                }
+                else if (!rabbitHealthy && _wasRabbitHealthy)
+                {
+                    _logger?.Warning("RabbitMQ connection lost. Entering backoff retry...");
+                }
+
+                // Redis state transition logging
+                if (redisHealthy && !_wasRedisHealthy)
+                {
+                    _logger?.Information("Redis connection restored");
+                }
+                else if (!redisHealthy && _wasRedisHealthy)
+                {
+                    _logger?.Warning("Redis connection lost");
+                }
+
+                _wasRabbitHealthy = rabbitHealthy;
+                _wasRedisHealthy = redisHealthy;
+
+                // Use the shorter delay between RabbitMQ backoff and healthy interval
+                var allHealthy = rabbitHealthy && redisHealthy;
+
+                var delay = allHealthy
+                    ? TimeSpan.FromSeconds(_healthyIntervalSeconds)
+                    : TimeSpan.FromSeconds(ApplyJitter(_rabbitBackoffSeconds));
+
+                if (!rabbitHealthy)
+                {
+                    _rabbitConsecutiveFailures++;
+                    _rabbitBackoffSeconds = Math.Min(_rabbitBackoffSeconds * _backoffMultiplier, _maxBackoffSeconds);
+                }
+
+                await Task.Delay(delay, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -88,12 +169,26 @@ public class ConnectionMonitor : IConnectionMonitor
 
                 lock (_lockObj)
                 {
-                    _isHealthy = false;
+                    _isRabbitHealthy = false;
+                    _isRedisHealthy = _redis?.IsConnected ?? true;
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                _rabbitConsecutiveFailures++;
+                var delay = TimeSpan.FromSeconds(ApplyJitter(_rabbitBackoffSeconds));
+                _rabbitBackoffSeconds = Math.Min(_rabbitBackoffSeconds * _backoffMultiplier, _maxBackoffSeconds);
+
+                await Task.Delay(delay, cancellationToken);
             }
         }
+    }
+
+    /// <summary>
+    /// Applies ±20% jitter to desynchronize retry attempts across pods.
+    /// </summary>
+    private static double ApplyJitter(double seconds)
+    {
+        var jitter = seconds * _jitterFactor * (2 * _jitterRandom.NextDouble() - 1);
+        return Math.Max(1, seconds + jitter);
     }
 
     /// <summary>
@@ -131,18 +226,39 @@ public class ConnectionMonitor : IConnectionMonitor
     }
 
     /// <summary>
-    /// Force immediate health check (async).
+    /// Check Redis connection health. Returns true if Redis is not configured.
+    /// </summary>
+    private bool CheckRedisHealth()
+    {
+        if (_redis == null)
+            return true;
+
+        try
+        {
+            return _redis.IsConnected;
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug(ex, "Redis health check failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Force immediate health check for all connections (async).
     /// </summary>
     public async Task<bool> RefreshStatusAsync()
     {
-        var isHealthy = await CheckRabbitMQHealthAsync();
+        var rabbitHealthy = await CheckRabbitMQHealthAsync();
+        var redisHealthy = CheckRedisHealth();
 
         lock (_lockObj)
         {
-            _isHealthy = isHealthy;
+            _isRabbitHealthy = rabbitHealthy;
+            _isRedisHealthy = redisHealthy;
         }
 
-        return isHealthy;
+        return rabbitHealthy && redisHealthy;
     }
 
     public void OnConnectionRestored()
