@@ -3,7 +3,6 @@ using Microsoft.Extensions.Options;
 using Milvaion.Application.Dtos.AlertingDtos;
 using Milvaion.Application.Utils.Models.Options;
 using Milvaion.Domain.Enums;
-using Milvaion.Infrastructure.Services.Alerting;
 using Milvaion.Infrastructure.Services.Alerting.Channels;
 using Milvasoft.Core.Abstractions;
 using Moq;

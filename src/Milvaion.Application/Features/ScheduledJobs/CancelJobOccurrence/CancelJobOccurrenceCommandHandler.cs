@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Components.CQRS.Command;

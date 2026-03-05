@@ -1,6 +1,4 @@
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
 using Milvasoft.Milvaion.Sdk.Domain.JsonModels;

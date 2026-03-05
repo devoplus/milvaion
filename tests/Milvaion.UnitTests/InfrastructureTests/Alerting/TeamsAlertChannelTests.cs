@@ -161,7 +161,7 @@ public class TeamsAlertChannelTests
                 ItExpr.IsAny<CancellationToken>())
             .Callback<HttpRequestMessage, CancellationToken>(async (req, _) =>
             {
-                capturedBody = await req.Content.ReadAsStringAsync();
+                capturedBody = await req.Content.ReadAsStringAsync(_);
             })
             .ReturnsAsync(new HttpResponseMessage
             {

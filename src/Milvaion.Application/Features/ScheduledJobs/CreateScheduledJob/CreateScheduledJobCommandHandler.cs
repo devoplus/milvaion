@@ -1,6 +1,5 @@
 ﻿using Cronos;
 using Mapster;
-using Microsoft.EntityFrameworkCore;
 using Milvaion.Application.Interfaces.Redis;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.MilvaResponse;

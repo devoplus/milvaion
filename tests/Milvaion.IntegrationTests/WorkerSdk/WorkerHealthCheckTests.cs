@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Worker.HealthChecks;

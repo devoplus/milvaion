@@ -261,17 +261,11 @@ public class ConnectionMonitor : IConnectionMonitor
         return rabbitHealthy && redisHealthy;
     }
 
-    public void OnConnectionRestored()
+    public void OnConnectionRestored() => _rabbitConnection?.CallbackExceptionAsync += (sender, args) =>
     {
-        if (_rabbitConnection != null)
-        {
-            _rabbitConnection.CallbackExceptionAsync += (sender, args) =>
-            {
-                _logger?.Warning(args.Exception, "RabbitMQ callback exception");
-                return Task.CompletedTask;
-            };
-        }
-    }
+        _logger?.Warning(args.Exception, "RabbitMQ callback exception");
+        return Task.CompletedTask;
+    };
 
     private async Task DisposeConnectionAsync()
     {

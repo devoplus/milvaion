@@ -1,11 +1,8 @@
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Worker.Hangfire.Services;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
-using Milvasoft.Milvaion.Sdk.Worker.RabbitMQ;
 using Milvasoft.Milvaion.Sdk.Worker.Utils;
 using Xunit.Abstractions;
 

@@ -5,7 +5,6 @@ using Milvaion.Application.Utils.Models.Options;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Domain;
 using Milvasoft.Milvaion.Sdk.Domain.Enums;
-using StackExchange.Redis;
 using Xunit.Abstractions;
 
 namespace Milvaion.IntegrationTests.Services;

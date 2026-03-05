@@ -62,7 +62,6 @@ public class TeamsAlertChannel(IOptions<AlertingOptions> alertingOptions,
     private TeamsWebhookMessage CreateAdaptiveCardMessage(AlertType alertType, AlertPayload payload)
     {
         var severityEmoji = GetSeverityEmoji(payload.Severity);
-        var severityColor = GetSeverityColor(payload.Severity);
 
         var bodyItems = new List<AdaptiveElement>
         {
@@ -173,6 +172,7 @@ public class TeamsAlertChannel(IOptions<AlertingOptions> alertingOptions,
 
 #region Teams Adaptive Card Models
 
+#pragma warning disable CA1822 // Mark members as static
 internal class TeamsWebhookMessage
 {
     [JsonPropertyName("type")]
@@ -292,5 +292,5 @@ internal class AdaptiveColumn
     [JsonPropertyName("items")]
     public List<AdaptiveElement> Items { get; set; }
 }
-
+#pragma warning restore CA1822 // Mark members as static
 #endregion

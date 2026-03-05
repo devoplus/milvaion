@@ -27,13 +27,13 @@
 		<PackageReference Include="Mapster" Version="9.0.0-pre01" />
 		<PackageReference Include="MediatR" Version="[12.5.0]" />
 		<PackageReference Include="Cronos" Version="0.11.1" />
-		<PackageReference Include="Milvasoft.Caching.InMemory" Version="10.0.0" />
-		<PackageReference Include="Milvasoft.Caching.Redis" Version="10.0.0" />
-		<PackageReference Include="Milvasoft.Components.CQRS" Version="10.0.0" />
-		<PackageReference Include="Milvasoft.Interception.Ef" Version="10.0.0" />
-		<PackageReference Include="Milvasoft.Localization.Resx" Version="10.0.0" />
-		<PackageReference Include="Milvasoft.Components.Rest" Version="10.0.0" />
-		<PackageReference Include="Milvasoft.Interception" Version="10.0.0" />
+		<PackageReference Include="Milvasoft.Caching.InMemory" Version="10.0.1" />
+		<PackageReference Include="Milvasoft.Caching.Redis" Version="10.0.1" />
+		<PackageReference Include="Milvasoft.Components.CQRS" Version="10.0.1" />
+		<PackageReference Include="Milvasoft.Interception.Ef" Version="10.0.1" />
+		<PackageReference Include="Milvasoft.Localization.Resx" Version="10.0.1" />
+		<PackageReference Include="Milvasoft.Components.Rest" Version="10.0.1" />
+		<PackageReference Include="Milvasoft.Interception" Version="10.0.1" />
 	</ItemGroup>
 
 

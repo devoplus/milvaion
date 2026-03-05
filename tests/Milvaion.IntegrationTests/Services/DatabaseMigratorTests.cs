@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.Persistence;
-using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.IntegrationTests.TestBase;
 using Xunit.Abstractions;
 

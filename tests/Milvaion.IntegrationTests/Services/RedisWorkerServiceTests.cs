@@ -1,7 +1,6 @@
 using FluentAssertions;
 using Milvaion.IntegrationTests.TestBase;
 using Milvasoft.Milvaion.Sdk.Models;
-using StackExchange.Redis;
 using System.Text.Json;
 using Xunit.Abstractions;
 

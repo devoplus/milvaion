@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Milvasoft.Core.Abstractions;
+using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using RabbitMQ.Client;
 using StackExchange.Redis;
@@ -11,20 +13,13 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Persistence;
 /// Validates RabbitMQ and Redis connectivity at startup.
 /// If connections cannot be established within the configured timeout, throws to stop the host (fail-fast).
 /// </summary>
-internal class ConnectionStartupValidator : IHostedService
+internal class ConnectionStartupValidator(IOptions<WorkerOptions> options,
+                                          ILoggerFactory loggerFactory,
+                                          IConnectionMultiplexer redis = null) : IHostedService
 {
-    private readonly WorkerOptions _options;
-    private readonly ILogger<ConnectionStartupValidator> _logger;
-    private readonly IConnectionMultiplexer _redis;
-
-    public ConnectionStartupValidator(IOptions<WorkerOptions> options,
-                                      ILogger<ConnectionStartupValidator> logger,
-                                      IConnectionMultiplexer redis = null)
-    {
-        _options = options.Value;
-        _logger = logger;
-        _redis = redis;
-    }
+    private readonly WorkerOptions _options = options.Value;
+    private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<ConnectionStartupValidator>();
+    private readonly IConnectionMultiplexer _redis = redis;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -32,19 +27,20 @@ internal class ConnectionStartupValidator : IHostedService
 
         if (timeoutSeconds <= 0)
         {
-            _logger.LogInformation("Startup connection validation is disabled");
+            _logger.Information("Startup connection validation is disabled");
             return;
         }
 
-        _logger.LogInformation("Validating startup connections (timeout: {Timeout}s)...", timeoutSeconds);
+        _logger.Information("Validating startup connections (timeout: {Timeout}s)...", timeoutSeconds);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
         await ValidateRabbitMQAsync(timeoutCts.Token);
         await ValidateRedisAsync(timeoutCts.Token);
 
-        _logger.LogInformation("All startup connections validated successfully");
+        _logger.Information("All startup connections validated successfully");
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -73,16 +69,18 @@ internal class ConnectionStartupValidator : IHostedService
             try
             {
                 var connection = await factory.CreateConnectionAsync(cancellationToken);
+
                 await connection.CloseAsync(cancellationToken);
+
                 connection.Dispose();
 
-                _logger.LogInformation("RabbitMQ connection validated: {Host}:{Port}", rabbitMQ.Host, rabbitMQ.Port);
+                _logger.Information("RabbitMQ connection validated: {Host}:{Port}", rabbitMQ.Host, rabbitMQ.Port);
+
                 return;
             }
             catch (OperationCanceledException)
             {
-                throw new InvalidOperationException(
-                    $"Failed to connect to RabbitMQ at {rabbitMQ.Host}:{rabbitMQ.Port} within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
+                throw new InvalidOperationException($"Failed to connect to RabbitMQ at {rabbitMQ.Host}:{rabbitMQ.Port} within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
             }
             catch (Exception ex)
             {
@@ -90,11 +88,12 @@ internal class ConnectionStartupValidator : IHostedService
 
                 // Exponential backoff with jitter for startup retries
                 var delay = Math.Min(baseDelay * Math.Pow(2, attempt - 1), maxDelay);
+
                 var jitter = delay * 0.2 * (2 * jitterRandom.NextDouble() - 1);
+
                 delay = Math.Max(1, delay + jitter);
 
-                _logger.LogWarning("RabbitMQ not ready ({Host}:{Port}): {Error}. Retry #{Attempt} in {Delay:F1}s...",
-                    rabbitMQ.Host, rabbitMQ.Port, ex.Message, attempt, delay);
+                _logger.Warning("RabbitMQ not ready ({Host}:{Port}): {Error}. Retry #{Attempt} in {Delay:F1}s...", rabbitMQ.Host, rabbitMQ.Port, ex.Message, attempt, delay);
 
                 try
                 {
@@ -102,8 +101,7 @@ internal class ConnectionStartupValidator : IHostedService
                 }
                 catch (OperationCanceledException)
                 {
-                    throw new InvalidOperationException(
-                        $"Failed to connect to RabbitMQ at {rabbitMQ.Host}:{rabbitMQ.Port} within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
+                    throw new InvalidOperationException($"Failed to connect to RabbitMQ at {rabbitMQ.Host}:{rabbitMQ.Port} within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
                 }
             }
         }
@@ -113,7 +111,7 @@ internal class ConnectionStartupValidator : IHostedService
     {
         if (_redis == null)
         {
-            _logger.LogDebug("Redis not configured, skipping validation");
+            _logger.Debug("Redis not configured, skipping validation");
             return;
         }
 
@@ -128,7 +126,7 @@ internal class ConnectionStartupValidator : IHostedService
             {
                 if (_redis.IsConnected)
                 {
-                    _logger.LogInformation("Redis connection validated");
+                    _logger.Information("Redis connection validated");
                     return;
                 }
 
@@ -136,19 +134,19 @@ internal class ConnectionStartupValidator : IHostedService
             }
             catch (OperationCanceledException)
             {
-                throw new InvalidOperationException(
-                    $"Failed to connect to Redis within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
+                throw new InvalidOperationException($"Failed to connect to Redis within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
             }
             catch (Exception ex)
             {
                 attempt++;
 
                 var delay = Math.Min(baseDelay * Math.Pow(2, attempt - 1), maxDelay);
+
                 var jitter = delay * 0.2 * (2 * jitterRandom.NextDouble() - 1);
+
                 delay = Math.Max(1, delay + jitter);
 
-                _logger.LogWarning("Redis not ready: {Error}. Retry #{Attempt} in {Delay:F1}s...",
-                    ex.Message, attempt, delay);
+                _logger.Warning("Redis not ready: {Error}. Retry #{Attempt} in {Delay:F1}s...", ex.Message, attempt, delay);
 
                 try
                 {
@@ -156,8 +154,7 @@ internal class ConnectionStartupValidator : IHostedService
                 }
                 catch (OperationCanceledException)
                 {
-                    throw new InvalidOperationException(
-                        $"Failed to connect to Redis within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
+                    throw new InvalidOperationException($"Failed to connect to Redis within {_options.StartupConnectionTimeoutSeconds}s after {attempt} attempt(s). Worker cannot start.");
                 }
             }
         }
