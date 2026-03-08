@@ -10,6 +10,7 @@ Deletes old job occurrences based on retention policy.
 **Schedule:** Daily at 2 AM
 
 **Configuration:**
+
 ```json
 "OccurrenceRetention": {
   "CompletedRetentionDays": 30,

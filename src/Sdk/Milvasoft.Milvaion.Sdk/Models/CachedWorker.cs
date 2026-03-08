@@ -147,6 +147,11 @@ public class WorkerMetadata
     public string RuntimeVersion { get; set; }
 
     /// <summary>
+    /// Heartbeat interval in seconds configured for this worker.
+    /// </summary>
+    public int HeartbeatInterval { get; set; }
+
+    /// <summary>
     /// Job configuration metadata for each job type this worker can execute.
     /// </summary>
     public List<JobConfigMetadata> JobConfigs { get; set; }

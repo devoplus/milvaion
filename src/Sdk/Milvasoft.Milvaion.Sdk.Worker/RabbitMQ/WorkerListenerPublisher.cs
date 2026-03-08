@@ -169,6 +169,7 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                 ProcessorCount = Environment.ProcessorCount,
                 OSVersion = Environment.OSVersion.ToString(),
                 RuntimeVersion = Environment.Version.ToString(),
+                HeartbeatInterval = _options.Heartbeat?.IntervalSeconds ?? 30,
                 JobConfigs = _jobConfigs?.Select(kv => new JobConfigMetadata
                 {
                     JobType = kv.Key,
