@@ -15,6 +15,10 @@ import AdminDashboard from './pages/Admin/AdminDashboard'
 import Configuration from './pages/Configuration'
 import FailedOccurrenceList from './pages/FailedOccurrences/FailedOccurrenceList'
 import FailedOccurrenceDetail from './pages/FailedOccurrences/FailedOccurrenceDetail'
+import UserList from './pages/UserManagement/UserList'
+import RoleList from './pages/UserManagement/RoleList'
+import ActivityLogList from './pages/UserManagement/ActivityLogList'
+import Profile from './pages/Profile/Profile'
 
 function App() {
   return (
@@ -45,6 +49,10 @@ function App() {
                     <Route path="/failed-executions/:id" element={<FailedOccurrenceDetail />} />
                     <Route path="/admin" element={<AdminDashboard />} />
                     <Route path="/configuration" element={<Configuration />} />
+                    <Route path="/users" element={<UserList />} />
+                    <Route path="/roles" element={<RoleList />} />
+                    <Route path="/activity-logs" element={<ActivityLogList />} />
+                    <Route path="/profile" element={<Profile />} />
 
                     {/* Catch all - redirect to dashboard */}
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />

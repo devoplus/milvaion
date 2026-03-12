@@ -13,6 +13,7 @@ const navigate = useNavigate()
 const { theme, toggleTheme, isDark } = useTheme()
 const [showUserMenu, setShowUserMenu] = useState(false)
 const [showAdminMenu, setShowAdminMenu] = useState(true)
+const [showUserMgmtMenu, setShowUserMgmtMenu] = useState(true)
 const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 const [isNotificationOpen, setIsNotificationOpen] = useState(false)
@@ -175,6 +176,8 @@ const user = authService.getCurrentUser()
             </Link>
           </li>
 
+         
+
           {/* Admin Collapsible Menu - Normal Mode */}
           {!isSidebarCollapsed && (
             <li className="nav-group">
@@ -213,7 +216,44 @@ const user = authService.getCurrentUser()
               )}
             </li>
           )}
-
+          {/* User Management Collapsible Menu - Normal Mode */}
+          {!isSidebarCollapsed && (
+            <li className="nav-group">
+              <button
+                className="nav-group-header"
+                onClick={() => setShowUserMgmtMenu(!showUserMgmtMenu)}
+                title="User Management"
+              >
+                <div className="nav-group-title">
+                  <Icon name="manage_accounts" size={20} />
+                  <span>User Management</span>
+                </div>
+                <Icon name={showUserMgmtMenu ? 'expand_less' : 'expand_more'} size={20} />
+              </button>
+              {showUserMgmtMenu && (
+                <ul className="nav-submenu">
+                  <li className={isActive('/users') ? 'active' : ''}>
+                    <Link to="/users">
+                      <Icon name="group" size={18} />
+                      <span>Users</span>
+                    </Link>
+                  </li>
+                  <li className={isActive('/roles') ? 'active' : ''}>
+                    <Link to="/roles">
+                      <Icon name="shield" size={18} />
+                      <span>Roles</span>
+                    </Link>
+                  </li>
+                  <li className={isActive('/activity-logs') ? 'active' : ''}>
+                    <Link to="/activity-logs">
+                      <Icon name="history" size={18} />
+                      <span>Activity Logs</span>
+                    </Link>
+                  </li>
+                </ul>
+              )}
+            </li>
+          )}
           {/* Admin Menu Items - Collapsed Mode (Show children directly) */}
           {isSidebarCollapsed && (
             <>
@@ -237,6 +277,27 @@ const user = authService.getCurrentUser()
         </ul>
 
 
+
+        {/* User Management Menu Items - Collapsed Mode */}
+        {isSidebarCollapsed && (
+          <>
+            <li className={isActive('/users') ? 'active' : ''}>
+              <Link to="/users" title="Users">
+                <Icon name="group" size={20} />
+              </Link>
+            </li>
+            <li className={isActive('/roles') ? 'active' : ''}>
+              <Link to="/roles" title="Roles">
+                <Icon name="shield" size={20} />
+              </Link>
+            </li>
+            <li className={isActive('/activity-logs') ? 'active' : ''}>
+              <Link to="/activity-logs" title="Activity Logs">
+                <Icon name="history" size={20} />
+              </Link>
+            </li>
+          </>
+        )}
 
 
         {/* User Menu at Bottom */}
@@ -317,6 +378,10 @@ const user = authService.getCurrentUser()
 
             {!isSidebarCollapsed && showUserMenu && (
               <div className="user-menu-dropdown">
+                <button onClick={() => { setShowUserMenu(false); navigate('/profile') }} className="profile-button">
+                  <Icon name="account_circle" size={20} />
+                  <span>Profile</span>
+                </button>
                 <button onClick={handleLogout} className="logout-button">
                   <Icon name="logout" size={20} />
                   <span>Sign Out</span>
