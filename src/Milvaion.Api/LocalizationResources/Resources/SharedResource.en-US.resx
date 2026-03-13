@@ -250,7 +250,7 @@
     <value>User delete</value>
   </data>
   <data name="UserActivity.CreateRole" xml:space="preserve">
-    <value>Rol create</value>
+    <value>Role create</value>
   </data>
   <data name="UserActivity.DeleteRole" xml:space="preserve">
     <value>Role delete</value>
@@ -809,19 +809,250 @@ Maximum file size:
   <data name="Global.Job" xml:space="preserve">
   <value>Job</value>
 </data>
-<data name="Global.JobType" xml:space="preserve">
+  <data name="Global.JobType" xml:space="preserve">
   <value>Job Type</value>
 </data>
-<data name="CronOrExecuteAtRequired" xml:space="preserve">
+  <data name="CronOrExecuteAtRequired" xml:space="preserve">
   <value>Either CronExpression or ExecuteAt must be provided</value>
 </data>
-<data name="InvalidCronExpression" xml:space="preserve">
+  <data name="InvalidCronExpression" xml:space="preserve">
   <value>Invalid cron expression format or no future occurrences</value>
 </data>
-<data name="ExecuteAtMustBeInFuture" xml:space="preserve">
+  <data name="ExecuteAtMustBeInFuture" xml:space="preserve">
   <value>ExecuteAt must be in the future</value>
 </data>
-<data name="InvalidJobData" xml:space="preserve">
+  <data name="InvalidJobData" xml:space="preserve">
   <value>JobData must be valid JSON</value>
 </data>
+  <data name="Global.ScheduledJob" xml:space="preserve">
+    <value>Job</value>
+  </data>
+  <data name="Global.Worker" xml:space="preserve">
+    <value>Worker</value>
+  </data>
+  <data name="Global.FailedOccurrence" xml:space="preserve">
+    <value>Failed Execution</value>
+  </data>
+  <data name="Global.Occurrence" xml:space="preserve">
+    <value>Execution</value>
+  </data>
+  <data name="JobNotFound" xml:space="preserve">
+    <value>Job not found!</value>
+  </data>
+  <data name="JobType" xml:space="preserve">
+    <value>Job Type</value>
+  </data>
+  <data name="WorkerNotFound" xml:space="preserve">
+    <value>Worker not found!</value>
+  </data>
+  <data name="WorkerId" xml:space="preserve">
+    <value>Worker</value>
+  </data>
+  <data name="OccurrenceId" xml:space="preserve">
+    <value>Execution</value>
+  </data>
+  <data name="FailedOccurrenceNotFound" xml:space="preserve">
+    <value>Failed Execution not found!</value>
+  </data>
+  <data name="JobId" xml:space="preserve">
+    <value>Job</value>
+  </data>
+  <data name="ExternalJobCannotBeModified" xml:space="preserve">
+    <value>External job cannot be modified!</value>
+  </data>
+  <data name="ExternalJobCannotBeTriggered" xml:space="preserve">
+    <value>External job cannot be triggered!</value>
+  </data>
+  <data name="ExternalJobCannotBeCancelled" xml:space="preserve">
+    <value>External job cannot be canceled!</value>
+  </data>
+  <data name="AlertChannelType" xml:space="preserve">
+    <value>Alert Channel</value>
+  </data>
+  <data name="AlertChannelType.GoogleChat" xml:space="preserve">
+    <value>Google Chat</value>
+  </data>
+  <data name="AlertChannelType.Slack" xml:space="preserve">
+    <value>Slack</value>
+  </data>
+  <data name="AlertChannelType.Teams" xml:space="preserve">
+    <value>Teams</value>
+  </data>
+  <data name="AlertChannelType.Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="AlertChannelType.InternalNotification" xml:space="preserve">
+    <value>Internal Notification</value>
+  </data>
+  <data name="QueueHealthStatus" xml:space="preserve">
+    <value>Queue Health Status</value>
+  </data>
+  <data name="QueueHealthStatus.Healthy" xml:space="preserve">
+    <value>Healthy</value>
+  </data>
+  <data name="QueueHealthStatus.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="QueueHealthStatus.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="QueueHealthStatus.Unavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="SystemHealth" xml:space="preserve">
+    <value>System Health</value>
+  </data>
+  <data name="SystemHealth.Healthy" xml:space="preserve">
+    <value>Healthy</value>
+  </data>
+  <data name="SystemHealth.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="SystemHealth.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="SystemHealth.Degraded" xml:space="preserve">
+    <value>Degraded</value>
+  </data>
+  <data name="ExportType" xml:space="preserve">
+    <value>Export Type</value>
+  </data>
+  <data name="AlertSeverity" xml:space="preserve">
+    <value>Alert Severity</value>
+  </data>
+  <data name="AlertSeverity.Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="AlertSeverity.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="AlertSeverity.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="AlertSeverity.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="AlertType" xml:space="preserve">
+    <value>Alert Type</value>
+  </data>
+  <data name="AlertType.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="AlertType.JobDispatcherMemoryUsageCritical" xml:space="preserve">
+    <value>Job Dispatcher Memory Usage Critical</value>
+  </data>
+  <data name="AlertType.DatabaseConnectionFailed" xml:space="preserve">
+    <value>Database Connection Failed</value>
+  </data>
+  <data name="AlertType.ZombieOccurrenceDetected" xml:space="preserve">
+    <value>Zombie Occurrence Detected</value>
+  </data>
+  <data name="AlertType.JobAutoDisabled" xml:space="preserve">
+    <value>Job Auto Disabled</value>
+  </data>
+  <data name="AlertType.QueueDepthCritical" xml:space="preserve">
+    <value>Queue Depth Critical</value>
+  </data>
+  <data name="AlertType.WorkerDisconnected" xml:space="preserve">
+    <value>Worker Disconnected</value>
+  </data>
+  <data name="AlertType.RedisConnectionFailed" xml:space="preserve">
+    <value>Redis Connection Failed</value>
+  </data>
+  <data name="AlertType.RabbitMQConnectionFailed" xml:space="preserve">
+    <value>Rabbit MQConnection Failed</value>
+  </data>
+  <data name="AlertType.JobExecutionFailed" xml:space="preserve">
+    <value>Job Execution Failed</value>
+  </data>
+  <data name="AlertType.UnknownException" xml:space="preserve">
+    <value>Unknown Exception</value>
+  </data>
+  <data name="AlertType.FailedOccurrenceReceived" xml:space="preserve">
+    <value>Failed Occurrence Received</value>
+  </data>
+  <data name="AlertType.ServiceDegraded" xml:space="preserve">
+    <value>Service Degraded</value>
+  </data>
+  <data name="AlertType.MemoryLeakDetected" xml:space="preserve">
+    <value>Memory Leak Detected</value>
+  </data>
+  <data name="NotificationEntity" xml:space="preserve">
+    <value>Notification Entity</value>
+  </data>
+  <data name="NotificationEntity.None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="UserType" xml:space="preserve">
+    <value>User Type</value>
+  </data>
+  <data name="PG.InternalNotificationManagement" xml:space="preserve">
+    <value>Internal Notification management permissions</value>
+  </data>
+  <data name="PG.ScheduledJobManagement" xml:space="preserve">
+    <value>Scheduled Job management permissions</value>
+  </data>
+  <data name="PG.WorkerManagement" xml:space="preserve">
+    <value>Worker management permissions</value>
+  </data>
+  <data name="PG.SystemAdministration" xml:space="preserve">
+    <value>System Administration permissions</value>
+  </data>
+  <data name="PG.FailedOccurrenceManagement" xml:space="preserve">
+    <value>Failed Occurrence management permissions</value>
+  </data>
+  <data name="Global.ActivityLog" xml:space="preserve">
+    <value>Activity Log</value>
+  </data>
+  <data name="Global.Permission" xml:space="preserve">
+    <value>Global Permission</value>
+  </data>
+  <data name="Global.RolePermissionRelation" xml:space="preserve">
+    <value>Permission Relation</value>
+  </data>
+  <data name="Global.UserRoleRelation" xml:space="preserve">
+    <value>Role Relation</value>
+  </data>
+  <data name="Global.UserSession" xml:space="preserve">
+    <value>User Session</value>
+  </data>
+  <data name="Global.UserSessionHistory" xml:space="preserve">
+    <value>Session History</value>
+  </data>
+  <data name="Global.MigrationHistory" xml:space="preserve">
+    <value>Migration History</value>
+  </data>
+  <data name="Global.EfMigrationHistory" xml:space="preserve">
+    <value>Migration History</value>
+  </data>
+  <data name="Global.MenuGroup" xml:space="preserve">
+    <value>Menu Group</value>
+  </data>
+  <data name="Global.MenuItem" xml:space="preserve">
+    <value>Menu Item</value>
+  </data>
+  <data name="Global.PageAction" xml:space="preserve">
+    <value>Page Action</value>
+  </data>
+  <data name="ScheduledJobManagement" xml:space="preserve">
+    <value>Job</value>
+  </data>
+  <data name="WorkerManagement" xml:space="preserve">
+    <value>Worker</value>
+  </data>
+  <data name="SystemAdministration" xml:space="preserve">
+    <value>Admin Operations</value>
+  </data>
+  <data name="FailedOccurrenceManagement" xml:space="preserve">
+    <value>Failed Execution</value>
+  </data>
+  <data name="InternalNotificationManagement" xml:space="preserve">
+    <value>In App Notification</value>
+  </data>
+  <data name="PG.Cancel" xml:space="preserve">
+    <value>Job cancellation</value>
+  </data>
+  <data name="PG.Trigger" xml:space="preserve">
+    <value>Job manual trigger</value>
+  </data>
 </root>

@@ -4,6 +4,7 @@ import authService from '../../services/authService'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './Profile.css'
 
 function Profile() {
@@ -32,7 +33,7 @@ function Profile() {
       const data = response?.data || response
       setProfile(data)
     } catch (err) {
-      setError('Failed to load profile')
+      setError(getApiErrorMessage(err, 'Failed to load profile'))
       console.error(err)
     } finally {
       setLoading(false)

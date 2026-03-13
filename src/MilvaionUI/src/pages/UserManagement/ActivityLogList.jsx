@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import activityLogService from '../../services/activityLogService'
 import Icon from '../../components/Icon'
 import { SkeletonTable } from '../../components/Skeleton'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './ActivityLogList.css'
 
 const activityLabels = {
@@ -94,7 +95,7 @@ function ActivityLogList() {
       setLogs(data)
       setTotalCount(total)
     } catch (err) {
-      setError('Failed to load activity logs')
+      setError(getApiErrorMessage(err, 'Failed to load activity logs'))
       console.error(err)
     } finally {
       if (showLoading) setLoading(false)

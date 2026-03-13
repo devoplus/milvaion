@@ -9,6 +9,7 @@ import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonDetail } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './OccurrenceDetail.css'
 
 function OccurrenceDetail() {
@@ -99,7 +100,7 @@ const { modalProps, showModal } = useModal()
         setSignalRConnected(false)
       }
     } catch (err) {
-      setError('Failed to load occurrence details')
+      setError(getApiErrorMessage(err, 'Failed to load occurrence details'))
       setOccurrence(null)
       console.error(err)
     } finally {

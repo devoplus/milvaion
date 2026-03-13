@@ -10,6 +10,7 @@ import JsonEditor from '../../components/JsonEditor'
 import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonDetail } from '../../components/Skeleton'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import { useTriggerJob } from '../../hooks/useTriggerJob'
 import { useModal } from '../../hooks/useModal'
 import './JobDetail.css'
@@ -87,7 +88,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
       
       setLastRefreshTime(new Date())
     } catch (err) {
-      setError('Failed to load job details')
+      setError(getApiErrorMessage(err, 'Failed to load job details'))
       console.error(err)
     } finally {
       if (showLoading) {

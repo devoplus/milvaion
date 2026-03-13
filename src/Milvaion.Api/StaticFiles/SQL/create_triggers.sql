@@ -1,6 +1,6 @@
 ﻿
 ----------------------------------------------------------------------------------------------------------------
--- Auto increment start 21 
+-- Auto increment start 21
 
 DO $$
 DECLARE
@@ -9,18 +9,18 @@ DECLARE
     sequence_name TEXT;
 BEGIN
     FOR seq_record IN
-        SELECT 
-            table_name, 
-            column_name, 
+        SELECT
+            table_name,
+            column_name,
             pg_get_serial_sequence('"' || table_name || '"', column_name) AS seq_name
-        FROM 
+        FROM
             information_schema.columns
-        WHERE 
-            table_schema = 'public' 
+        WHERE
+            table_schema = 'public'
             AND pg_get_serial_sequence('"' || table_name || '"', column_name) IS NOT NULL
     LOOP
         sequence_name := split_part(seq_record.seq_name, '.', 2);
-  
+
         EXECUTE format('ALTER SEQUENCE %s RESTART WITH 21;', sequence_name);
     END LOOP;
 END $$;
@@ -52,7 +52,7 @@ BEGIN
     END IF;
 
     RETURN NEW;
-	
+
 END;
 $$ LANGUAGE plpgsql;
 
@@ -61,26 +61,26 @@ $$ LANGUAGE plpgsql;
 -- Add trigger to all tables
 
 
-DO $$ 
+DO $$
 DECLARE
     r RECORD;
 BEGIN
     FOR r IN (
-        SELECT 
+        SELECT
             c.relname AS table_name
-        FROM 
+        FROM
             pg_class c
-        JOIN 
+        JOIN
             pg_namespace n ON n.oid = c.relnamespace
-        JOIN 
+        JOIN
             pg_attribute a ON a.attrelid = c.oid
-        JOIN 
+        JOIN
             pg_constraint con ON con.conrelid = c.oid AND con.contype = 'p' -- Primary Key
-        WHERE 
+        WHERE
             n.nspname = 'public'
             AND a.attnum = ANY(con.conkey) -- Primary key kolonlarını filtrele
             AND a.attidentity IN ('a', 'd') -- Auto-increment identity kolonları
-            AND c.relname not in('_MigrationHistory')
+            AND c.relname not in('_MigrationHistory', 'Users')
     ) LOOP
         -- Trigger ekle
         EXECUTE format('
@@ -102,14 +102,14 @@ END $$;
 
 --CREATE OR REPLACE FUNCTION prevent_seed_modification()
 --RETURNS TRIGGER AS $$
---DECLARE 
+--DECLARE
 --		pk_column_name TEXT := TG_ARGV[0];
 --    	pk_column_value NUMERIC;
 --BEGIN
 
 --	-- Dynamically get new value
 --    EXECUTE format('SELECT ($1).%I', pk_column_name) INTO pk_column_value USING NEW;
-	
+
 --    IF TG_OP = 'INSERT' THEN
 --        IF pk_column_value < 21 THEN
 --            RAISE EXCEPTION 'Seed records cannot be modified.';
@@ -127,7 +127,7 @@ END $$;
 --    END IF;
 
 --    RETURN NEW; -- RETURN OLD; if TG_OP = 'DELETE'
-	
+
 --END;
 --$$ LANGUAGE plpgsql;
 
@@ -135,23 +135,23 @@ END $$;
 -- Add trigger to all tables
 -- Find auto-increment identity columns and add trigger to prevent modification
 
---DO $$ 
+--DO $$
 --DECLARE
 --    r RECORD;
 --BEGIN
 --    FOR r IN (
---        SELECT 
+--        SELECT
 --            c.relname AS table_name,
 --		    a.attname as column_name
---        FROM 
+--        FROM
 --            pg_class c
---        JOIN 
+--        JOIN
 --            pg_namespace n ON n.oid = c.relnamespace
---        JOIN 
+--        JOIN
 --            pg_attribute a ON a.attrelid = c.oid
---        JOIN 
+--        JOIN
 --            pg_constraint con ON con.conrelid = c.oid AND con.contype = 'p' -- Primary Key
---        WHERE 
+--        WHERE
 --            n.nspname = 'public'
 --            AND a.attnum = ANY(con.conkey) -- Primary key kolonlarını filtrele
 --            AND a.attidentity IN ('a', 'd') -- Auto-increment identity kolonları

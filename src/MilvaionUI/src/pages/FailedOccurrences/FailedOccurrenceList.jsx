@@ -7,6 +7,7 @@ import Icon from '../../components/Icon'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonTable } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './FailedOccurrenceList.css'
 
 function FailedOccurrenceList() {
@@ -93,7 +94,7 @@ function FailedOccurrenceList() {
       setTotalCount(total)
       setLastRefreshTime(new Date())
     } catch (err) {
-      setError('Failed to load failed jobs')
+      setError(getApiErrorMessage(err, 'Failed to load failed jobs'))
       console.error(err)
     } finally {
       if (showLoading) {

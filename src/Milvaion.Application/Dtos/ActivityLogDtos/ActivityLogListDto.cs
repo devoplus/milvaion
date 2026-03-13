@@ -28,7 +28,6 @@ public class ActivityLogListDto : MilvaionBaseDto<int>
     /// </summary>
     [Filterable(false)]
     [Browsable(false)]
-    [LinkedWith<EnumFormatter<UserActivity>>(nameof(Activity), $"{EnumFormatter<UserActivity>.FormatterName}.{nameof(UserActivity)}")]
     public string ActivityDescription { get; set; }
 
     /// <summary>

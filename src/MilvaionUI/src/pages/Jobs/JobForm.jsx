@@ -6,6 +6,7 @@ import Icon from '../../components/Icon'
 import CronExpressionInput from '../../components/CronExpressionInput'
 import JsonStringConverter from '../../components/JsonStringConverter'
 import JsonEditor from '../../components/JsonEditor'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './JobForm.css'
 
 // Helper function to generate example JSON from JSON Schema
@@ -182,7 +183,7 @@ function JobForm() {
       return activeInternalWorkers
     } catch (err) {
       console.error('Failed to load workers:', err)
-      setError('Failed to load workers. Check console for details.')
+      setError(getApiErrorMessage(err, 'Failed to load workers.'))
       return []
     }
   }, [])
@@ -215,7 +216,7 @@ function JobForm() {
 
       setScheduleType(data.cronExpression ? 'cron' : 'once')
     } catch (err) {
-      setError('Failed to load job')
+      setError(getApiErrorMessage(err, 'Failed to load job'))
       console.error(err)
     } finally {
       setLoading(false)
@@ -510,11 +511,12 @@ function JobForm() {
           </div>
 
           {/* Worker & Job Type Card */}
-          <div className={`form-card ${isExternalJob ? 'disabled-section' : ''}`}>
+          <div className={`form-card ${isExternalJob || isEditMode ? 'disabled-section' : ''}`}>
             <div className="form-section">
               <h3 className="form-section-title">
                 Worker Configuration
                 {isExternalJob && <span className="external-label">Managed by external scheduler</span>}
+                {!isExternalJob && isEditMode && <span className="external-label">Cannot be changed after creation</span>}
               </h3>
 
               <div className="form-row">
@@ -528,8 +530,8 @@ function JobForm() {
                     value={formData.workerId}
                     onChange={handleWorkerChange}
                     required
-                    disabled={isExternalJob}
-                    title={isExternalJob ? "External jobs cannot change worker" : ""}
+                    disabled={isExternalJob || isEditMode}
+                    title={isExternalJob ? "External jobs cannot change worker" : isEditMode ? "Worker cannot be changed after creation" : ""}
                   >
                     <option value="">Select a worker...</option>
                     {workers.map(worker => (
@@ -551,8 +553,8 @@ function JobForm() {
                     value={formData.selectedJobName}
                     onChange={handleChange}
                     required
-                    disabled={!selectedWorker || isExternalJob}
-                    title={isExternalJob ? "External jobs cannot change job type" : ""}
+                    disabled={!selectedWorker || isExternalJob || isEditMode}
+                    title={isExternalJob ? "External jobs cannot change job type" : isEditMode ? "Job type cannot be changed after creation" : ""}
                   >
                     <option value="">
                       {!selectedWorker ? 'Select a worker first...' : 'Select job type...'}

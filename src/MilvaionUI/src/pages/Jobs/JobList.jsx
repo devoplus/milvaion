@@ -9,6 +9,7 @@ import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonJobList } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import { useTriggerJob } from '../../hooks/useTriggerJob'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './JobList.css'
 
 function JobList() {
@@ -93,7 +94,7 @@ function JobList() {
       setTotalCount(total)
       setLastRefreshTime(new Date())
     } catch (err) {
-      setError('Failed to load jobs')
+      setError(getApiErrorMessage(err, 'Failed to load jobs'))
       console.error(err)
     } finally {
       if (showLoading) {

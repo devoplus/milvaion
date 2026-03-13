@@ -3,6 +3,7 @@ import workerService from '../../services/workerService'
 import Icon from '../../components/Icon'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { formatDateTime, formatTimeSince } from '../../utils/dateUtils'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './WorkerList.css'
 
 function WorkerList() {
@@ -31,7 +32,7 @@ function WorkerList() {
       setWorkers(workerData)
       setLastRefreshTime(new Date())
     } catch (err) {
-      setError('Failed to load workers')
+      setError(getApiErrorMessage(err, 'Failed to load workers'))
       console.error(err)
     } finally {
       setLoading(false)

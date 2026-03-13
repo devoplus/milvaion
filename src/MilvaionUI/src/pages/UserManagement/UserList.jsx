@@ -5,6 +5,7 @@ import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './UserList.css'
 
 function UserList() {
@@ -70,7 +71,7 @@ function UserList() {
       setUsers(data)
       setTotalCount(total)
     } catch (err) {
-      setError('Failed to load users')
+      setError(getApiErrorMessage(err, 'Failed to load users'))
       console.error(err)
     } finally {
       if (showLoading) setLoading(false)
@@ -257,7 +258,7 @@ function UserList() {
         <div className="search-box">
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder="Search by username..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"

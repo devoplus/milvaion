@@ -6,6 +6,7 @@ import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './ExecutionList.css'
 import OccurrenceTable from '../../components/OccurrenceTable'
 
@@ -68,7 +69,7 @@ function ExecutionList() {
       setOccurrences(data)
       setTotalCount(total)
     } catch (err) {
-      setError('Failed to load executions')
+      setError(getApiErrorMessage(err, 'Failed to load executions'))
       console.error(err)
     } finally {
       if (showLoading) {

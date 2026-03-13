@@ -5,6 +5,7 @@ import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './RoleList.css'
 
 function RoleList() {
@@ -68,7 +69,7 @@ function RoleList() {
       setRoles(data)
       setTotalCount(total)
     } catch (err) {
-      setError('Failed to load roles')
+      setError(getApiErrorMessage(err, 'Failed to load roles'))
       console.error(err)
     } finally {
       if (showLoading) setLoading(false)
@@ -256,7 +257,7 @@ function RoleList() {
         <div className="search-box">
           <input
             type="text"
-            placeholder="Search roles..."
+            placeholder="Search by role name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -412,7 +413,6 @@ function RoleList() {
                                 ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
                                 onChange={() => toggleGroupPermissions(group.permissions)}
                               />
-                              <span className="group-name">{groupName}</span>
                               {group.description && <span className="group-description">{group.description}</span>}
                             </div>
                             <div className="permission-items">

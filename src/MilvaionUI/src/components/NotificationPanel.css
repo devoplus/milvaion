@@ -81,6 +81,53 @@
     color: var(--status-failed);
   }
 
+/* Confirm Dialog */
+.notification-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(211, 47, 47, 0.08);
+  border-bottom: 1px solid rgba(211, 47, 47, 0.2);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.notification-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.confirm-btn {
+  padding: 0.35rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.confirm-btn.cancel {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.confirm-btn.cancel:hover {
+  background: var(--bg-hover);
+}
+
+.confirm-btn.delete {
+  background: #d32f2f;
+  color: white;
+}
+
+.confirm-btn.delete:hover {
+  background: #b71c1c;
+}
+
 /* Panel Body */
 .notification-panel-body {
   flex: 1;
@@ -117,6 +164,14 @@
 
   .notification-item:hover {
     background: var(--bg-hover);
+  }
+
+  .notification-item.clickable {
+    cursor: pointer;
+  }
+
+  .notification-item.clickable:hover {
+    background: color-mix(in srgb, var(--accent-color) 8%, transparent);
   }
 
   .notification-item.unseen {
