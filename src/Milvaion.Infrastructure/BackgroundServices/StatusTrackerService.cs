@@ -804,10 +804,10 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
             var jobsToUpdate = new List<ScheduledJob>();
             var autoDisabledJobs = new List<ScheduledJob>();
-            var failureWindowThreshold = DateTime.UtcNow.AddMinutes(-_autoDisableOptions.FailureWindowMinutes);
 
             foreach (var job in jobs)
             {
+                var failureWindowThreshold = DateTime.UtcNow.AddMinutes(-(job.AutoDisableSettings.FailureWindowMinutes ?? _autoDisableOptions.FailureWindowMinutes));
                 var update = jobUpdates[job.Id];
 
                 // Check if auto-disable is enabled for this job

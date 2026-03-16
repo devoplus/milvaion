@@ -148,7 +148,8 @@ function JobForm() {
     // Auto-disable settings
     autoDisableSettings: {
       enabled: true,
-      threshold: ''
+      threshold: '',
+      failureWindowMinutes: ''
     },
     // External job info (read-only)
     externalJobInfo: null
@@ -209,7 +210,8 @@ function JobForm() {
         executionTimeoutSeconds: data.executionTimeoutSeconds || '',
         autoDisableSettings: {
           enabled: data.autoDisableSettings?.enabled ?? true,
-          threshold: data.autoDisableSettings?.threshold || ''
+          threshold: data.autoDisableSettings?.threshold || '',
+          failureWindowMinutes: data.autoDisableSettings?.failureWindowMinutes || ''
         },
         externalJobInfo: data.externalJobInfo || null
       })
@@ -330,7 +332,8 @@ function JobForm() {
         executionTimeoutSeconds: formData.executionTimeoutSeconds ? parseInt(formData.executionTimeoutSeconds) : null,
         autoDisableSettings: {
           enabled: formData.autoDisableSettings.enabled,
-          threshold: formData.autoDisableSettings.threshold ? parseInt(formData.autoDisableSettings.threshold) : null
+          threshold: formData.autoDisableSettings.threshold ? parseInt(formData.autoDisableSettings.threshold) : null,
+          failureWindowMinutes: formData.autoDisableSettings.failureWindowMinutes ? parseInt(formData.autoDisableSettings.failureWindowMinutes) : null
         }
       }
 
@@ -346,7 +349,7 @@ function JobForm() {
         await jobService.create(payload)
       }
 
-      navigate('/jobs')
+      navigate(isEditMode ? `/jobs/${id}` : '/jobs')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save job')
       console.error(err)
@@ -826,23 +829,43 @@ function JobForm() {
             </div>
 
             {formData.autoDisableSettings.enabled && (
-              <div className="form-group">
-                <label htmlFor="threshold">
-                  Failure Threshold
-                </label>
-                <input
-                  type="number"
-                  id="threshold"
-                  name="threshold"
-                  value={formData.autoDisableSettings.threshold}
-                  onChange={handleAutoDisableChange}
-                  min="1"
-                  max="100"
-                  placeholder="Default: 5 (if not changed)"
-                  disabled={isExternalJob}
-                />
-                <small>Number of consecutive failures before auto-disable (default: 5)</small>
-              </div>
+              <>
+                <div className="form-group">
+                  <label htmlFor="threshold">
+                    Failure Threshold
+                  </label>
+                  <input
+                    type="number"
+                    id="threshold"
+                    name="threshold"
+                    value={formData.autoDisableSettings.threshold}
+                    onChange={handleAutoDisableChange}
+                    min="1"
+                    max="100"
+                    placeholder="Default: 5 (if not changed)"
+                    disabled={isExternalJob}
+                  />
+                  <small>Number of consecutive failures before auto-disable (default: 5)</small>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="failureWindowMinutes">
+                    Failure Window (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    id="failureWindowMinutes"
+                    name="failureWindowMinutes"
+                    value={formData.autoDisableSettings.failureWindowMinutes}
+                    onChange={handleAutoDisableChange}
+                    min="1"
+                    max="10080"
+                    placeholder="Default: 60 (if not changed)"
+                    disabled={isExternalJob}
+                  />
+                  <small>Time window for counting consecutive failures. Older failures are ignored (default: 60 min)</small>
+                </div>
+              </>
             )}
           </div>
 

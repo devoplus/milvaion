@@ -313,7 +313,7 @@
         </member>
         <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountNotificationDto.Text">
             <summary>
-            Text content of the notification. Can be null. 
+            Text content of the notification. Can be null.
             If it is null, Data property should be used in frontend(text generated with translations in frontend) for dynamic content.
             </summary>
         </member>
@@ -345,6 +345,11 @@
         <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountNotificationDto.IsSeenDescription">
             <summary>
             Determines whether the notification is seen or not.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountNotificationDto.CreationDate">
+            <summary>
+            Date when the user marked this notification as seen. Null if unseen.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountNotificationDto.Projection">
@@ -3411,6 +3416,14 @@
             <summary>
             Job-specific threshold for consecutive failures before auto-disable.
             If null, uses global setting from configuration.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.UpsertJobAutoDisableSettings.FailureWindowMinutes">
+            <summary>
+            Time window in minutes for counting consecutive failures.
+            Failures older than this window don't count towards the threshold.
+            This prevents jobs from being disabled due to old historical failures.
+            Default: 60 minutes (1 hour)
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.OccurrenceCreatedSignal">

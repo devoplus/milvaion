@@ -20,6 +20,7 @@ public class JobAutoDisableSettingsTests
         settings.DisableReason.Should().BeNull();
         settings.Enabled.Should().BeNull();
         settings.Threshold.Should().BeNull();
+        settings.FailureWindowMinutes.Should().BeNull();
     }
 
     [Fact]
@@ -36,7 +37,8 @@ public class JobAutoDisableSettingsTests
             DisabledAt = now,
             DisableReason = "Auto-disabled after 5 consecutive failures",
             Enabled = true,
-            Threshold = 3
+            Threshold = 3,
+            FailureWindowMinutes = 5,
         };
 
         // Assert
@@ -46,6 +48,7 @@ public class JobAutoDisableSettingsTests
         settings.DisableReason.Should().Be("Auto-disabled after 5 consecutive failures");
         settings.Enabled.Should().BeTrue();
         settings.Threshold.Should().Be(3);
+        settings.FailureWindowMinutes.Should().Be(5);
     }
 
     [Fact]

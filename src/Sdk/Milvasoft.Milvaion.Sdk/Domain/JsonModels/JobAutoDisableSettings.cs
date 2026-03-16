@@ -43,4 +43,12 @@ public class JobAutoDisableSettings
     /// If null, uses global setting from configuration.
     /// </summary>
     public int? Threshold { get; set; }
+
+    /// <summary>
+    /// Time window in minutes for counting consecutive failures.
+    /// Failures older than this window don't count towards the threshold.
+    /// This prevents jobs from being disabled due to old historical failures.
+    /// Default: 60 minutes (1 hour)
+    /// </summary>
+    public int? FailureWindowMinutes { get; set; }
 }

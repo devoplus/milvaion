@@ -1328,7 +1328,8 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
             AutoDisableSettings = new JobAutoDisableSettings
             {
                 Enabled = true,
-                Threshold = null // Use global threshold
+                Threshold = null, // Use global threshold
+                FailureWindowMinutes = null // Use global setting
             }
         };
 

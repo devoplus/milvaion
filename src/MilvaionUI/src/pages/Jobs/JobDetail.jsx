@@ -692,6 +692,13 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
                   </div>
 
                   <div className="info-row">
+                    <span className="info-label">Failure Window</span>
+                    <span className="info-value">
+                      {job.autoDisableSettings.failureWindowMinutes ? `${job.autoDisableSettings.failureWindowMinutes} min` : 'Default (60 min)'}
+                    </span>
+                  </div>
+
+                  <div className="info-row">
                     <span className="info-label">Current Failure Count</span>
                     <span className={`info-value ${job.autoDisableSettings.consecutiveFailureCount > 0 ? 'warning' : ''}`}>
                       {job.autoDisableSettings.consecutiveFailureCount || 0}
