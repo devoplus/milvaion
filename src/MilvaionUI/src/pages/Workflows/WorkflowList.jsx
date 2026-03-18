@@ -98,10 +98,16 @@ function WorkflowList() {
           <Icon name="account_tree" size={28} />
           <h1>Workflows ({workflows.length})</h1>
         </div>
-        <Link to="/workflows/new" className="create-workflow-btn">
-          <Icon name="add" size={18} />
-          Create Workflow
-        </Link>
+        <div className="page-header-actions">
+          <Link to="/workflows/new/builder" className="create-workflow-btn create-workflow-btn--builder" title="Create with visual builder (experimental)">
+            <Icon name="account_tree" size={18} />
+            Builder
+          </Link>
+          <Link to="/workflows/new" className="create-workflow-btn">
+            <Icon name="add" size={18} />
+            Create Workflow
+          </Link>
+        </div>
       </div>
 
       {error && <div className="error-banner">{error}</div>}

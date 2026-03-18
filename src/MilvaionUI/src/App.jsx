@@ -23,6 +23,7 @@ import WorkflowList from './pages/Workflows/WorkflowList'
 import WorkflowDetail from './pages/Workflows/WorkflowDetail'
 import WorkflowForm from './pages/Workflows/WorkflowForm'
 import WorkflowRunDetail from './pages/Workflows/WorkflowRunDetail'
+import WorkflowBuilder from './pages/Workflows/WorkflowBuilder/WorkflowBuilder'
 
 function App() {
   return (
@@ -59,8 +60,10 @@ function App() {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/workflows" element={<WorkflowList />} />
                     <Route path="/workflows/new" element={<WorkflowForm />} />
+                    <Route path="/workflows/new/builder" element={<WorkflowBuilder />} />
                     <Route path="/workflows/:id" element={<WorkflowDetail />} />
                     <Route path="/workflows/:id/edit" element={<WorkflowForm />} />
+                    <Route path="/workflows/:id/builder" element={<WorkflowBuilder />} />
                     <Route path="/workflows/:id/runs/:runId" element={<WorkflowRunDetail />} />
 
                     {/* Catch all - redirect to dashboard */}

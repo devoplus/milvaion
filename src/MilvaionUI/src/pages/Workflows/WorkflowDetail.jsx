@@ -189,6 +189,9 @@ function WorkflowDetail() {
             lastRefreshTime={lastRefreshTime}
             intervalSeconds={15}
           />
+          <Link to={`/workflows/${id}/builder`} className="wfd-btn wfd-btn-secondary" title="Open visual builder (experimental)">
+            <Icon name="account_tree" size={18} /> Builder
+          </Link>
           <Link to={`/workflows/${id}/edit`} className="wfd-btn wfd-btn-secondary">
             <Icon name="edit" size={18} /> Edit
           </Link>

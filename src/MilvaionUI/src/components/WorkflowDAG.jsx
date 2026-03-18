@@ -127,6 +127,23 @@ function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
       })
     }
 
+    const positionedNodes = [...nodePositions.values()]
+    const minX = positionedNodes.length ? Math.min(...positionedNodes.map(pos => pos.x)) : 0
+    const minY = positionedNodes.length ? Math.min(...positionedNodes.map(pos => pos.y)) : 0
+    const offsetX = paddingX - minX
+    const offsetY = paddingY - minY
+
+    nodePositions.forEach((pos, id) => {
+      nodePositions.set(id, {
+        x: pos.x + offsetX,
+        y: pos.y + offsetY,
+      })
+    })
+
+    const normalizedNodes = [...nodePositions.values()]
+    const normalizedMaxX = normalizedNodes.length ? Math.max(...normalizedNodes.map(pos => pos.x + nodeWidth)) : totalWidth
+    const normalizedMaxY = normalizedNodes.length ? Math.max(...normalizedNodes.map(pos => pos.y + nodeHeight)) : totalHeight
+
     // Build step run status map
     const stepRunMap = new Map()
     if (stepRuns) {
@@ -174,7 +191,12 @@ function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
       }
     })
 
-    return { nodes, edges: edgeList, width: totalWidth, height: totalHeight }
+    return {
+      nodes,
+      edges: edgeList,
+      width: Math.max(totalWidth, normalizedMaxX + paddingX),
+      height: Math.max(totalHeight, normalizedMaxY + paddingY),
+    }
   }, [steps, stepRuns])
 
   if (steps.length === 0) {
@@ -232,7 +254,7 @@ function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
                 height={node.height}
                 rx="10"
                 ry="10"
-                fill="var(--card-bg)"
+                fill="var(--bg-secondary)"
                 stroke={statusColor}
                 strokeWidth={node.status === 1 ? 3 : 2}
                 className={node.status === 1 ? 'dag-node-running' : ''}

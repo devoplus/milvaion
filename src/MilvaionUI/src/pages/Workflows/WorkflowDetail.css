@@ -402,7 +402,7 @@
 }
 
 .wfd-version-badge.clickable:hover {
-  background-color: var(--primary);
+  background-color: var(--accent-color);
   color: white;
   transform: translateY(-1px);
 }
@@ -437,7 +437,7 @@
 }
 
 .version-card:hover {
-  border-color: var(--primary);
+  border-color: var(--accent-color);
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
 }
 
@@ -481,7 +481,7 @@
 }
 
 .error-details summary:hover {
-  color: var(--primary);
+  color: var(--accent-color);
 }
 
 .error-json {
@@ -672,7 +672,7 @@
 }
 
 .version-step:hover {
-  border-color: var(--primary);
+  border-color: var(--accent-color);
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 
