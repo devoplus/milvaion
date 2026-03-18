@@ -1,0 +1,55 @@
+.dag-viewport {
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  padding: 8px;
+}
+
+.dag-svg {
+  display: block;
+  min-width: 100%;
+}
+
+.dag-edge {
+  transition: stroke 0.2s;
+}
+
+.dag-node {
+  transition: opacity 0.2s;
+}
+
+.dag-node:hover rect {
+  filter: brightness(1.05);
+}
+
+.dag-node-running {
+  animation: dag-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dag-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.dag-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
+
+.dag-empty p {
+  margin: 0;
+  font-size: 14px;
+}

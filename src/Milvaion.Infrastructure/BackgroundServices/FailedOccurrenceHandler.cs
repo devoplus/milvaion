@@ -154,7 +154,7 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
         var occurrence = await dbContext.JobOccurrences
                                         .AsNoTracking()
                                         .Select(JobOccurrence.Projections.AddFailedOccurrence)
-                                        .FirstOrDefaultAsync(o => o.CorrelationId == correlationId, cancellationToken);
+                                        .FirstOrDefaultAsync(o => o.Id == correlationId, cancellationToken);
 
         if (occurrence == null)
         {
@@ -224,13 +224,15 @@ public class FailedOccurrenceHandler(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Extracts CorrelationId from RabbitMQ message headers.
+    /// Extracts OccurrenceId from RabbitMQ message headers.
     /// </summary>
     private static Guid ExtractCorrelationId(BasicDeliverEventArgs ea)
     {
-        if (ea.BasicProperties.Headers?.TryGetValue("CorrelationId", out var correlationIdObj) == true)
-            return Guid.Parse(Encoding.UTF8.GetString((byte[])correlationIdObj));
+        // Check OccurrenceId header first (new naming)
+        if (ea.BasicProperties.Headers?.TryGetValue("OccurrenceId", out var occurrenceIdObj) == true)
+            return Guid.Parse(Encoding.UTF8.GetString((byte[])occurrenceIdObj));
 
+        // Fallback to CorrelationId property (contains OccurrenceId value)
         if (!string.IsNullOrEmpty(ea.BasicProperties.CorrelationId))
             return Guid.Parse(ea.BasicProperties.CorrelationId);
 

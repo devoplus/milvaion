@@ -6,21 +6,21 @@ namespace Milvaion.Application.Interfaces.RabbitMQ;
 public interface IRabbitMQPublisher
 {
     /// <summary>
-    /// Publishes a scheduled job to the RabbitMQ queue with correlation tracking.
+    /// Publishes a scheduled job to the RabbitMQ queue.
     /// </summary>
     /// <param name="job">The scheduled job to publish</param>
-    /// <param name="correlationId">Correlation ID for distributed tracing</param>
+    /// <param name="occurrenceId">Unique identifier for the job occurrence (Occurrence.Id)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if published successfully</returns>
-    Task<bool> PublishJobAsync(ScheduledJob job, Guid correlationId, CancellationToken cancellationToken = default);
+    Task<bool> PublishJobAsync(ScheduledJob job, Guid occurrenceId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Publishes multiple jobs in a batch with correlation IDs.
+    /// Publishes multiple jobs in a batch with occurrence IDs.
     /// </summary>
-    /// <param name="jobsWithCorrelation">Dictionary of jobs with their correlation IDs</param>
+    /// <param name="jobsWithOccurrence">Dictionary of jobs with their occurrence IDs</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Number of jobs published successfully</returns>
-    Task<int> PublishBatchAsync(Dictionary<ScheduledJob, Guid> jobsWithCorrelation, CancellationToken cancellationToken = default);
+    Task<int> PublishBatchAsync(Dictionary<ScheduledJob, Guid> jobsWithOccurrence, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the number of messages in a specific RabbitMQ queue for a job.

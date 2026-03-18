@@ -1238,7 +1238,7 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
     {
         public Task ExecuteAsync(IJobContext context)
         {
-            onCapture(context.CorrelationId);
+            onCapture(context.OccurrenceId);
             return Task.CompletedTask;
         }
     }

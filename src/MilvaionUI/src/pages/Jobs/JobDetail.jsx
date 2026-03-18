@@ -253,15 +253,18 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
 
     const versionHistory = job.jobVersions.map((versionJson, index) => {
       try {
+        const parsed = JSON.parse(versionJson)
         return {
-          version: job.jobVersions.length - index, // Reverse order (newest first)
-          data: JSON.parse(versionJson)
+          version: job.jobVersions.length - index,
+          data: parsed,
+          error: null
         }
       } catch (err) {
         console.error('Failed to parse version JSON:', err)
         return {
           version: job.jobVersions.length - index,
-          data: { error: 'Failed to parse version data' }
+          data: null,
+          error: `Parse error: ${err.message}`
         }
       }
     })
@@ -287,15 +290,25 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
                   Version {version.version}
                 </span>
                 <span className="version-date">
-                  {version.data.creationDate ? formatDate(version.data.creationDate) : 'Unknown date'}
+                  {version.data?.creationDate ? formatDate(version.data.creationDate) : 'Unknown date'}
                 </span>
               </div>
               <div className="version-content">
-                <JsonViewer
-                  data={version.data}
-                  title={`Version ${version.version} Details`}
-                  defaultExpanded={index === 0}
-                />
+                {version.error ? (
+                  <div className="version-error">
+                    <Icon name="error" size={20} />
+                    <div>
+                      <strong>Failed to parse version data</strong>
+                      <p>{version.error}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <JsonViewer
+                    data={version.data}
+                    title={`Version ${version.version} Details`}
+                    defaultExpanded={index === 0}
+                  />
+                )}
               </div>
             </div>
           ))}

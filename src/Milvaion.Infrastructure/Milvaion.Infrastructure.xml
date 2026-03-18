@@ -189,7 +189,7 @@
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractCorrelationId(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
             <summary>
-            Extracts CorrelationId from RabbitMQ message headers.
+            Extracts OccurrenceId from RabbitMQ message headers.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.FailedOccurrenceHandler.ExtractMaxRetries(RabbitMQ.Client.Events.BasicDeliverEventArgs)">
@@ -411,14 +411,15 @@
             Re-queues messages back to the batch queue for retry.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DeduplicateByCorrelationId(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DeduplicateByOccurrenceId(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage})">
             <summary>
-            Deduplicates messages by CorrelationId (last update wins).
+            Deduplicates messages by OccurrenceId (message.OccurrenceId is Occurrence.Id).
+            Last update wins for same occurrence.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.FetchOccurrencesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
             <summary>
-            Fetches occurrences from database by correlation IDs.
+            Fetches occurrences from database by occurrence IDs (message.OccurrenceId is Occurrence.Id).
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.ApplyStatusUpdatesAsync(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage},System.Threading.CancellationToken)">
@@ -560,6 +561,79 @@
             <summary>
             Background task that detects dead worker instances (no heartbeat) and cleans up their consumer counts.
             Runs every 30 seconds to detect workers that haven't sent heartbeat for 60+ seconds.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService">
+            <summary>
+            Background service that orchestrates workflow (DAG) execution.
+            Polls for pending/running workflow runs and dispatches ready steps.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkflowEngineOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+            <summary>
+            Background service that orchestrates workflow (DAG) execution.
+            Polls for pending/running workflow runs and dispatches ready steps.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ServiceName">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.StartAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ExecuteWithMemoryTrackingAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.StopAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.CheckCronWorkflowsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Checks all active workflows with a cron expression and triggers a run if the schedule is due.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ProcessWorkflowRunsAsync(System.Threading.CancellationToken)">
+            <summary>
+            Processes all active workflow runs.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.CollectRunChanges(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,System.DateTime,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvasoft.Milvaion.Sdk.Domain.WorkflowStep}},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+            <summary>
+            Processes a single workflow run in memory: mutates run/step state and populates change lists.
+            No database calls — all persistence is batched at the caller level.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.AreDependenciesSatisfied(Milvasoft.Milvaion.Sdk.Domain.WorkflowStep,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy)">
+            <summary>
+            Checks if all dependencies
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.EvaluateCondition(Milvasoft.Milvaion.Sdk.Domain.WorkflowStep,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+            <summary>
+            Evaluates a condition expression against parent step outputs and statuses.
+            Supports:
+              - Logical operators: &amp;&amp; (AND), || (OR)  — AND has higher precedence
+              - @status == 'Completed'       → all parent(s) StepStatus check
+              - $.field == 'value'           → all parent(s) result JSON field check
+              - stepId:@status != 'Skipped'  → specific parent status check
+              - stepId:$.price > 100         → specific parent result field check
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.EvaluateClause(System.String,System.Collections.Generic.List{System.Guid},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+            <summary>
+            Evaluates a single clause (no and/or operators).
+            Format: [stepId:](@status|$.field) operator value
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.BatchDispatchStepsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvasoft.Milvaion.Sdk.Domain.WorkflowStep,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.String}},System.Threading.CancellationToken)">
+            <summary>
+            Updates all pre-created step occurrences to Queued/Running, bulk-inserts dispatch logs,
+            then publishes to RabbitMQ. Failures are bulk-saved in a single pass.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ApplyDataMappings(System.String,System.String,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.WorkflowStep})">
+            <summary>
+            Applies data mappings from parent step outputs to the current step's job data.
             </summary>
         </member>
         <member name="T:Milvaion.Infrastructure.BackgroundServices.ZombieOccurrenceDetectorService">
@@ -741,6 +815,14 @@
         <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddZombieOccurrenceDetector(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
             <summary>
             Registers zombie occurrence detector background service.
+            </summary>
+            <param name="services">Service collection</param>
+            <param name="configuration">Configuration</param>
+            <returns>Service collection for chaining</returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.InfraServiceCollectionExtensions.AddWorkflowEngine(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers workflow engine background service for DAG execution.
             </summary>
             <param name="services">Service collection</param>
             <param name="configuration">Configuration</param>

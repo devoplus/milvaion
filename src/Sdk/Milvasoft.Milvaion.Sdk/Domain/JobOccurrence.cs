@@ -136,6 +136,42 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
     /// </summary>
     public virtual List<JobOccurrenceLog> Logs { get; set; }
 
+    /// <summary>
+    /// Workflow run ID if this occurrence was triggered as a workflow step. Null for standalone jobs.
+    /// </summary>
+    public Guid? WorkflowRunId { get; set; }
+
+    /// <summary>
+    /// Workflow step ID if this occurrence was triggered as a workflow step. Null for standalone jobs.
+    /// </summary>
+    public Guid? WorkflowStepId { get; set; }
+
+    /// <summary>
+    /// Workflow step orchestration status (Pending, Running, Completed, Failed, Skipped, Cancelled, Delayed).
+    /// Null for standalone job occurrences.
+    /// </summary>
+    public WorkflowStepStatus? StepStatus { get; set; }
+
+    /// <summary>
+    /// Number of retry attempts for this workflow step within its run.
+    /// </summary>
+    public int StepRetryCount { get; set; } = 0;
+
+    /// <summary>
+    /// Scheduled dispatch time for delayed workflow steps.
+    /// </summary>
+    public DateTime? StepScheduledAt { get; set; }
+
+    /// <summary>
+    /// Navigation to the parent workflow run (only set for workflow step occurrences).
+    /// </summary>
+    public virtual WorkflowRun WorkflowRun { get; set; }
+
+    /// <summary>
+    /// Navigation to the workflow step definition (only set for workflow step occurrences).
+    /// </summary>
+    public virtual WorkflowStep WorkflowStep { get; set; }
+
     public static class Projections
     {
         public static Expression<Func<JobOccurrence, JobOccurrence>> AddFailedOccurrence { get; } = s => new JobOccurrence
@@ -174,6 +210,8 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
             CorrelationId = s.CorrelationId,
             JobId = s.JobId,
             JobName = s.JobName,
+            WorkflowRunId = s.WorkflowRunId,
+            StepStatus = s.StepStatus,
         };
 
         public static Expression<Func<JobOccurrence, JobOccurrence>> RecoverLostJob { get; } = s => new JobOccurrence

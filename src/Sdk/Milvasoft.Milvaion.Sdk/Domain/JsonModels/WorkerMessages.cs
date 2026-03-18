@@ -9,9 +9,10 @@ namespace Milvasoft.Milvaion.Sdk.Domain.JsonModels;
 public class WorkerLogMessage
 {
     /// <summary>
-    /// Correlation ID linking this log to a specific job occurrence.
+    /// Unique identifier for the specific job occurrence this log belongs to.
+    /// This is the Occurrence.Id from the database.
     /// </summary>
-    public Guid CorrelationId { get; set; }
+    public Guid OccurrenceId { get; set; }
 
     /// <summary>
     /// Worker identifier that generated this log.
@@ -58,9 +59,10 @@ public class WorkerLogBatchMessage
 public class JobStatusUpdateMessage
 {
     /// <summary>
-    /// Correlation ID for the job occurrence.
+    /// Unique identifier for the specific job occurrence.
+    /// This is the Occurrence.Id from the database.
     /// </summary>
-    public Guid CorrelationId { get; set; }
+    public Guid OccurrenceId { get; set; }
 
     /// <summary>
     /// Job ID (parent ScheduledJob).

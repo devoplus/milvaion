@@ -1,6 +1,7 @@
 ﻿using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 
 namespace SampleWorker;
 
@@ -15,7 +16,7 @@ public class TestJob : IAsyncJob
         context.LogInformation("TestJob started!");
         context.LogInformation($"Job ID: {context.Job.Id}");
         context.LogInformation($"Job Type: {context.Job.JobNameInWorker}");
-        context.LogInformation($"CorrelationId: {context.CorrelationId}");
+        context.LogInformation($"OccurrenceId: {context.OccurrenceId}");
         context.LogInformation($"WorkerId: {context.WorkerId}");
 
         // Simulate work
@@ -98,6 +99,41 @@ public class AlwaysFailingJob : IAsyncJob
 
         throw new InvalidOperationException("This job always fails for DLQ testing!");
     }
+}
+
+/// <summary>
+/// Always failing job for DLQ testing.
+/// </summary>
+public class HaveResultJob : IJobWithResult<SampleJobResultModel>
+{
+    public string Execute(IJobContext context)
+    {
+        context.LogInformation("Have result job starting...");
+
+        return JsonSerializer.Serialize(new SampleJobResultModel
+        {
+            Name = "Test Product",
+            Price = 99,
+            ComplexProp = new AnotherSampleJobResultModel
+            {
+                Title = "High Priority",
+                Priority = 1
+            }
+        });
+    }
+}
+
+public record SampleJobResultModel
+{
+    public int Price { get; set; }
+    public string Name { get; set; }
+    public AnotherSampleJobResultModel ComplexProp { get; set; }
+}
+
+public record AnotherSampleJobResultModel
+{
+    public string Title { get; set; }
+    public int Priority { get; set; }
 }
 
 /// <summary>

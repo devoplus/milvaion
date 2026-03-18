@@ -60,7 +60,6 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
         catch (Exception ex)
         {
             _logger?.Error(ex, "Failed to publish job registration for {ExternalJobId}", message.ExternalJobId);
-            throw;
         }
     }
 
@@ -86,7 +85,6 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
         catch (Exception ex)
         {
             _logger?.Error(ex, "Failed to publish occurrence event for {ExternalJobId}, CorrelationId: {CorrelationId}", message.ExternalJobId, message.CorrelationId);
-            throw;
         }
     }
 

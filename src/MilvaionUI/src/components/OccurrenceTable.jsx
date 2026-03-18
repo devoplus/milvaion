@@ -80,6 +80,7 @@ function OccurrenceTable({
       4: { icon: 'block', label: 'Cancelled', className: 'status-cancelled' },
       5: { icon: 'schedule', label: 'Timed Out', className: 'status-timeout' },
       6: { icon: 'help_outline', label: 'Unknown', className: 'status-unknown' },
+      7: { icon: 'skip_next', label: 'Skipped', className: 'status-skipped' },
     }
 
     const statusInfo = statusMap[status] || { icon: 'help', label: `Status ${status}`, className: 'status-unknown' }
@@ -269,6 +270,13 @@ function OccurrenceTable({
           >
             <Icon name="help_outline" size={16} />
             Unknown
+          </button>
+          <button
+            className={`status-chip skipped ${filterStatus === 7 ? 'active' : ''}`}
+            onClick={() => onFilterChange(filterStatus === 7 ? null : 7)}
+          >
+            <Icon name="skip_next" size={16} />
+            Skipped
           </button>
         </div>
 

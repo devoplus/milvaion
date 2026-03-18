@@ -81,14 +81,11 @@ public class ExternalJobPublisher(IOptions<WorkerOptions> workerOptions, ILogger
                                               body: body,
                                               cancellationToken: cancellationToken);
 
-            _logger?.Debug("Published occurrence event {EventType} for {ExternalJobId}, CorrelationId: {CorrelationId}",
-                message.EventType, message.ExternalJobId, message.CorrelationId);
+            _logger?.Debug("Published occurrence event {EventType} for {ExternalJobId}, CorrelationId: {CorrelationId}", message.EventType, message.ExternalJobId, message.CorrelationId);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to publish occurrence event for {ExternalJobId}, CorrelationId: {CorrelationId}",
-                message.ExternalJobId, message.CorrelationId);
-            // Don't throw - Milvaion integration should not affect Hangfire operation
+            _logger?.Error(ex, "Failed to publish occurrence event for {ExternalJobId}, CorrelationId: {CorrelationId}", message.ExternalJobId, message.CorrelationId);
         }
     }
 

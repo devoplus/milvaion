@@ -19,6 +19,10 @@ import UserList from './pages/UserManagement/UserList'
 import RoleList from './pages/UserManagement/RoleList'
 import ActivityLogList from './pages/UserManagement/ActivityLogList'
 import Profile from './pages/Profile/Profile'
+import WorkflowList from './pages/Workflows/WorkflowList'
+import WorkflowDetail from './pages/Workflows/WorkflowDetail'
+import WorkflowForm from './pages/Workflows/WorkflowForm'
+import WorkflowRunDetail from './pages/Workflows/WorkflowRunDetail'
 
 function App() {
   return (
@@ -53,6 +57,11 @@ function App() {
                     <Route path="/roles" element={<RoleList />} />
                     <Route path="/activity-logs" element={<ActivityLogList />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/workflows" element={<WorkflowList />} />
+                    <Route path="/workflows/new" element={<WorkflowForm />} />
+                    <Route path="/workflows/:id" element={<WorkflowDetail />} />
+                    <Route path="/workflows/:id/edit" element={<WorkflowForm />} />
+                    <Route path="/workflows/:id/runs/:runId" element={<WorkflowRunDetail />} />
 
                     {/* Catch all - redirect to dashboard */}
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />

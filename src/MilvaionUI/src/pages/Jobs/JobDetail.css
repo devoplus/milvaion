@@ -515,6 +515,12 @@
   color: #ff9800;
 }
 
+.status-chip.skipped.active {
+  background-color: rgba(96, 125, 139, 0.2);
+  border-color: #607d8b;
+  color: #607d8b;
+}
+
 .signalr-indicator {
   display: flex;
   align-items: center;

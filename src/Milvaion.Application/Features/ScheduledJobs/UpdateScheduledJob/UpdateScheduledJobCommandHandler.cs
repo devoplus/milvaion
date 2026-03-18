@@ -90,7 +90,6 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
         }
 
         // Check if job definition changed
-
         if (jobDefinitionChanged)
         {
             existingJob.JobVersions.Add(JsonSerializer.Serialize(existingJob));

@@ -297,6 +297,12 @@
     border: 1px solid rgba(156, 39, 176, 0.4);
   }
 
+  .occurrence-status.skipped {
+    background-color: rgba(96, 125, 139, 0.2);
+    color: #607d8b;
+    border: 1px solid rgba(96, 125, 139, 0.4);
+  }
+
 .job-link {
   color: #646cff;
   text-decoration: none;

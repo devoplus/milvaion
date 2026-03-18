@@ -157,6 +157,12 @@ const user = authService.getCurrentUser()
               {!isSidebarCollapsed && <span>Jobs</span>}
             </Link>
           </li>
+          <li className={isActive('/workflows') ? 'active' : ''}>
+            <Link to="/workflows" title="Workflows">
+              <Icon name="account_tree" size={20} />
+              {!isSidebarCollapsed && <span>Workflows</span>}
+            </Link>
+          </li>
           <li className={isActive('/executions') ? 'active' : ''}>
             <Link to="/executions" title="Executions">
               <Icon name="assignment" size={20} />
@@ -175,8 +181,6 @@ const user = authService.getCurrentUser()
               {!isSidebarCollapsed && <span>Tags</span>}
             </Link>
           </li>
-
-         
 
           {/* Admin Collapsible Menu - Normal Mode */}
           {!isSidebarCollapsed && (

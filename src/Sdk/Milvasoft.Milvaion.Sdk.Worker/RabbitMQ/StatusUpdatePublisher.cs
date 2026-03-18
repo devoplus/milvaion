@@ -17,7 +17,7 @@ public interface IStatusUpdatePublisher : IAsyncDisposable
     /// <summary>
     /// Publishes a status update to RabbitMQ.
     /// </summary>
-    Task PublishStatusAsync(Guid correlationId,
+    Task PublishStatusAsync(Guid occurrenceId,
                             Guid jobId,
                             string workerId,
                             string instanceId,
@@ -46,7 +46,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
     private IConnection _connection;
     private IChannel _channel;
 
-    public async Task PublishStatusAsync(Guid correlationId,
+    public async Task PublishStatusAsync(Guid occurrenceId,
                                          Guid jobId,
                                          string workerId,
                                          string instanceId,
@@ -64,7 +64,7 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
 
             var message = new JobStatusUpdateMessage
             {
-                CorrelationId = correlationId,
+                OccurrenceId = occurrenceId,
                 JobId = jobId,
                 WorkerId = workerId,
                 InstanceId = instanceId,
@@ -86,11 +86,11 @@ public class StatusUpdatePublisher(WorkerOptions options, ILoggerFactory loggerF
                                              body: body,
                                              cancellationToken: cancellationToken);
 
-            _logger?.Debug("Published status update: {Status} for CorrelationId: {CorrelationId}", status, correlationId);
+            _logger?.Debug("Published status update: {Status} for OccurrenceId: {OccurrenceId}", status, occurrenceId);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to publish status update for CorrelationId {CorrelationId}, Status: {Status}", correlationId, status);
+            _logger?.Error(ex, "Failed to publish status update for OccurrenceId {OccurrenceId}, Status: {Status}", occurrenceId, status);
             throw; // Re-throw so OutboxService can store locally
         }
     }

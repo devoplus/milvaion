@@ -343,10 +343,18 @@ function JobForm() {
         payload.executeAt = new Date(formData.executeAt).toISOString()
       }
 
-      if (isEditMode) {
-        await jobService.update(id, payload)
-      } else {
-        await jobService.create(payload)
+      const response = isEditMode
+        ? await jobService.update(id, payload)
+        : await jobService.create(payload)
+
+      if (response && response.isSuccess === false) {
+        const messages = response.messages
+        if (Array.isArray(messages) && messages.length > 0) {
+          setError(messages.map(m => m.message).join(' '))
+        } else {
+          setError('Failed to save job')
+        }
+        return
       }
 
       navigate(isEditMode ? `/jobs/${id}` : '/jobs')

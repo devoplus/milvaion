@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -51,7 +51,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             Logs =
             [
                 new() {
-                    CorrelationId = occurrence.CorrelationId,
+                    OccurrenceId = occurrence.CorrelationId,
                     WorkerId = "test-worker",
                     Log = new OccurrenceLog
                     {
@@ -151,7 +151,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
         {
             var logMessage = new WorkerLogMessage
             {
-                CorrelationId = occurrence.CorrelationId,
+                OccurrenceId = occurrence.CorrelationId,
                 WorkerId = "test-worker",
                 Log = new OccurrenceLog
                 {
@@ -243,7 +243,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             Logs = [
                 new WorkerLogMessage
                 {
-                    CorrelationId = occurrence1.CorrelationId,
+                    OccurrenceId = occurrence1.CorrelationId,
                     WorkerId = "worker-1",
                     Log = new OccurrenceLog
                     {
@@ -262,7 +262,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             Logs = [
                 new WorkerLogMessage
                 {
-                    CorrelationId = occurrence2.CorrelationId,
+                    OccurrenceId = occurrence2.CorrelationId,
                     WorkerId = "worker-2",
                     Log = new OccurrenceLog
                     {
@@ -347,7 +347,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
                 Logs = [
                     new WorkerLogMessage
                     {
-                        CorrelationId = occurrence.CorrelationId,
+                        OccurrenceId = occurrence.CorrelationId,
                         WorkerId = "test-worker",
                         Log = new OccurrenceLog
                         {
@@ -431,7 +431,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             Logs = [
                 new WorkerLogMessage
                 {
-                    CorrelationId = occurrence.CorrelationId,
+                    OccurrenceId = occurrence.CorrelationId,
                     WorkerId = "test-worker",
                     Log = new OccurrenceLog
                     {
@@ -513,7 +513,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
         {
             logBatch.Logs.Add(new WorkerLogMessage
             {
-                CorrelationId = occurrence.CorrelationId,
+                OccurrenceId = occurrence.CorrelationId,
                 WorkerId = "test-worker",
                 Log = new OccurrenceLog
                 {
@@ -597,7 +597,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             [
                 new()
                 {
-                    CorrelationId = occurrence.CorrelationId,
+                    OccurrenceId = occurrence.CorrelationId,
                     WorkerId = "test-worker",
                     Log = new OccurrenceLog
                     {
@@ -760,7 +760,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             [
                 new()
                 {
-                    CorrelationId = occurrence.CorrelationId,
+                    OccurrenceId = occurrence.CorrelationId,
                     WorkerId = "test-worker",
                     Log = new OccurrenceLog
                     {
@@ -839,7 +839,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             [
                 new()
                 {
-                    CorrelationId = occurrence.CorrelationId,
+                    OccurrenceId = occurrence.CorrelationId,
                     WorkerId = "test-worker",
                     Log = new OccurrenceLog
                     {
@@ -917,7 +917,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             [
                 new()
                 {
-                    CorrelationId = occurrence.CorrelationId,
+                    OccurrenceId = occurrence.CorrelationId,
                     WorkerId = "test-worker",
                     Log = new OccurrenceLog
                     {
@@ -978,7 +978,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
 
         await Task.Delay(3000, cts.Token);
 
-        // Publish log for non-existent occurrence (will trigger FK violation → pending queue)
+        // Publish log for non-existent occurrence (will trigger FK violation ? pending queue)
         await PublishLogMessageAsync(new WorkerLogBatchMessage
         {
             BatchTimestamp = DateTime.UtcNow,
@@ -986,7 +986,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             [
                 new()
                 {
-                    CorrelationId = futureCorrelationId,
+                    OccurrenceId = futureCorrelationId,
                     WorkerId = "test-worker",
                     Log = new OccurrenceLog
                     {
@@ -1008,7 +1008,6 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
         var occurrence = new JobOccurrence
         {
             Id = futureCorrelationId,
-            CorrelationId = futureCorrelationId,
             JobId = job.Id,
             JobName = job.JobNameInWorker,
             JobVersion = 1,
@@ -1081,7 +1080,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
             [
                 new()
                 {
-                    CorrelationId = occurrence.CorrelationId,
+                    OccurrenceId = occurrence.CorrelationId,
                     WorkerId = "test-worker",
                     Log = new OccurrenceLog
                     {
@@ -1152,7 +1151,7 @@ public class LogCollectorServiceTests(ServicesWebApplicationFactory factory, ITe
         // Publish as single WorkerLogMessage (not batch) - backward compatibility path
         var singleMessage = new WorkerLogMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.CorrelationId,
             WorkerId = "test-worker",
             Log = new OccurrenceLog
             {

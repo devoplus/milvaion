@@ -12,18 +12,18 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Persistence;
 public interface ILocalStateStore : IDisposable, IAsyncDisposable
 {
     Task InitializeAsync(CancellationToken cancellationToken = default);
-    Task StoreStatusUpdateAsync(Guid correlationId, Guid jobId, string workerId, string instanceId, JobOccurrenceStatus status, DateTime? startTime = null, DateTime? endTime = null, long? durationMs = null, string result = null, string exception = null, CancellationToken cancellationToken = default);
+    Task StoreStatusUpdateAsync(Guid occurrenceId, Guid jobId, string workerId, string instanceId, JobOccurrenceStatus status, DateTime? startTime = null, DateTime? endTime = null, long? durationMs = null, string result = null, string exception = null, CancellationToken cancellationToken = default);
     Task<List<StoredStatusUpdate>> GetPendingStatusUpdatesAsync(int maxCount = 100, CancellationToken cancellationToken = default);
     Task MarkStatusUpdateAsSyncedAsync(long id, CancellationToken cancellationToken = default);
     Task IncrementStatusUpdateRetryAsync(long id, CancellationToken cancellationToken = default);
-    Task StoreLogAsync(Guid correlationId, string workerId, OccurrenceLog log, CancellationToken cancellationToken = default);
+    Task StoreLogAsync(Guid occurrenceId, string workerId, OccurrenceLog log, CancellationToken cancellationToken = default);
     Task<List<StoredLog>> GetPendingLogsAsync(int maxCount = 1000, CancellationToken cancellationToken = default);
     Task MarkLogAsSyncedAsync(long id, CancellationToken cancellationToken = default);
     Task IncrementLogRetryAsync(long id, CancellationToken cancellationToken = default);
-    Task RecordJobStartAsync(Guid correlationId, Guid jobId, string jobType, string workerId, CancellationToken cancellationToken = default);
-    Task UpdateJobHeartbeatAsync(Guid correlationId, CancellationToken cancellationToken = default);
-    Task FinalizeJobAsync(Guid correlationId, JobOccurrenceStatus finalStatus, CancellationToken cancellationToken = default);
-    Task<bool> IsJobFinalizedAsync(Guid correlationId, CancellationToken cancellationToken = default);
+    Task RecordJobStartAsync(Guid occurrenceId, Guid jobId, string jobType, string workerId, CancellationToken cancellationToken = default);
+    Task UpdateJobHeartbeatAsync(Guid occurrenceId, CancellationToken cancellationToken = default);
+    Task FinalizeJobAsync(Guid occurrenceId, JobOccurrenceStatus finalStatus, CancellationToken cancellationToken = default);
+    Task<bool> IsJobFinalizedAsync(Guid occurrenceId, CancellationToken cancellationToken = default);
     Task<LocalStoreStats> GetStatsAsync(CancellationToken cancellationToken = default);
     Task CleanupSyncedRecordsAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default);
 }
@@ -112,7 +112,7 @@ public class LocalStateStore : ILocalStateStore
     /// <summary>
     /// Store status update locally (will be synced when connection is available).
     /// </summary>
-    public async Task StoreStatusUpdateAsync(Guid correlationId,
+    public async Task StoreStatusUpdateAsync(Guid occurrenceId,
                                              Guid jobId,
                                              string workerId,
                                              string instanceId,
@@ -134,7 +134,7 @@ public class LocalStateStore : ILocalStateStore
             await using var cmd = connection.CreateCommand();
             cmd.CommandText = SqlQueries.InsertStatusUpdate;
 
-            cmd.Parameters.AddWithValue("@CorrelationId", correlationId.ToString());
+            cmd.Parameters.AddWithValue("@OccurrenceId", occurrenceId.ToString());
             cmd.Parameters.AddWithValue("@JobId", jobId.ToString());
             cmd.Parameters.AddWithValue("@WorkerId", workerId);
             cmd.Parameters.AddWithValue("@InstanceId", instanceId);
@@ -151,7 +151,7 @@ public class LocalStateStore : ILocalStateStore
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Shutdown in progress - log but don't throw
-            _logger?.Information($"StoreStatusUpdate cancelled during shutdown (CorrelationId: {correlationId})");
+            _logger?.Information($"StoreStatusUpdate cancelled during shutdown (OccurrenceId: {occurrenceId})");
         }
     }
 
@@ -182,7 +182,7 @@ public class LocalStateStore : ILocalStateStore
             updates.Add(new StoredStatusUpdate
             {
                 Id = reader.GetInt64(0),
-                CorrelationId = Guid.Parse(reader.GetString(1)),
+                OccurrenceId = Guid.Parse(reader.GetString(1)),
                 JobId = Guid.Parse(reader.GetString(2)),
                 WorkerId = reader.GetString(3),
                 InstanceId = reader.IsDBNull(4) ? null : reader.GetString(4),
@@ -247,7 +247,7 @@ public class LocalStateStore : ILocalStateStore
     /// <summary>
     /// Store log entry locally (will be synced when connection is available).
     /// </summary>
-    public async Task StoreLogAsync(Guid correlationId, string workerId, OccurrenceLog log, CancellationToken cancellationToken = default)
+    public async Task StoreLogAsync(Guid occurrenceId, string workerId, OccurrenceLog log, CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken);
 
@@ -259,7 +259,7 @@ public class LocalStateStore : ILocalStateStore
             await using var cmd = connection.CreateCommand();
             cmd.CommandText = SqlQueries.InsertLog;
 
-            cmd.Parameters.AddWithValue("@CorrelationId", correlationId.ToString());
+            cmd.Parameters.AddWithValue("@OccurrenceId", occurrenceId.ToString());
             cmd.Parameters.AddWithValue("@WorkerId", workerId);
             cmd.Parameters.AddWithValue("@Timestamp", log.Timestamp.ToString("O"));
             cmd.Parameters.AddWithValue("@Level", log.Level);
@@ -274,7 +274,7 @@ public class LocalStateStore : ILocalStateStore
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Shutdown in progress - log but don't throw
-            _logger?.Information($"StoreLog cancelled during shutdown (CorrelationId: {correlationId})");
+            _logger?.Information($"StoreLog cancelled during shutdown (OccurrenceId: {occurrenceId})");
         }
     }
 
@@ -322,7 +322,7 @@ public class LocalStateStore : ILocalStateStore
             logs.Add(new StoredLog
             {
                 Id = reader.GetInt64(0),
-                CorrelationId = Guid.Parse(reader.GetString(1)),
+                OccurrenceId = Guid.Parse(reader.GetString(1)),
                 WorkerId = reader.GetString(2),
                 Log = new OccurrenceLog
                 {
@@ -388,7 +388,7 @@ public class LocalStateStore : ILocalStateStore
     /// <summary>
     /// Record job execution start (for recovery scenarios).
     /// </summary>
-    public async Task RecordJobStartAsync(Guid correlationId, Guid jobId, string jobType, string workerId, CancellationToken cancellationToken = default)
+    public async Task RecordJobStartAsync(Guid occurrenceId, Guid jobId, string jobType, string workerId, CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken);
 
@@ -400,7 +400,7 @@ public class LocalStateStore : ILocalStateStore
 
         cmd.CommandText = SqlQueries.InsertJobExecution;
 
-        cmd.Parameters.AddWithValue("@CorrelationId", correlationId.ToString());
+        cmd.Parameters.AddWithValue("@OccurrenceId", occurrenceId.ToString());
         cmd.Parameters.AddWithValue("@JobId", jobId.ToString());
         cmd.Parameters.AddWithValue("@JobType", jobType);
         cmd.Parameters.AddWithValue("@WorkerId", workerId);
@@ -413,7 +413,7 @@ public class LocalStateStore : ILocalStateStore
     /// <summary>
     /// Update job heartbeat (indicates job is still running).
     /// </summary>
-    public async Task UpdateJobHeartbeatAsync(Guid correlationId, CancellationToken cancellationToken = default)
+    public async Task UpdateJobHeartbeatAsync(Guid occurrenceId, CancellationToken cancellationToken = default)
     {
         await using var connection = new SqliteConnection(_connectionString);
 
@@ -423,7 +423,7 @@ public class LocalStateStore : ILocalStateStore
 
         cmd.CommandText = SqlQueries.UpdateJobHeartbeat;
 
-        cmd.Parameters.AddWithValue("@CorrelationId", correlationId.ToString());
+        cmd.Parameters.AddWithValue("@OccurrenceId", occurrenceId.ToString());
         cmd.Parameters.AddWithValue("@LastHeartbeatAt", DateTime.UtcNow.ToString("O"));
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
@@ -434,7 +434,7 @@ public class LocalStateStore : ILocalStateStore
     /// When a job is finalized, we can safely delete any remaining synced status updates and logs
     /// for that job to prevent accumulation.
     /// </summary>
-    public async Task FinalizeJobAsync(Guid correlationId, JobOccurrenceStatus finalStatus, CancellationToken cancellationToken = default)
+    public async Task FinalizeJobAsync(Guid occurrenceId, JobOccurrenceStatus finalStatus, CancellationToken cancellationToken = default)
     {
         await using var connection = new SqliteConnection(_connectionString);
 
@@ -445,7 +445,7 @@ public class LocalStateStore : ILocalStateStore
         {
             cmd.CommandText = SqlQueries.SetJobFinalized;
 
-            cmd.Parameters.AddWithValue("@CorrelationId", correlationId.ToString());
+            cmd.Parameters.AddWithValue("@OccurrenceId", occurrenceId.ToString());
             cmd.Parameters.AddWithValue("@CompletedAt", DateTime.UtcNow.ToString("O"));
             cmd.Parameters.AddWithValue("@FinalStatus", (int)finalStatus);
 
@@ -457,11 +457,11 @@ public class LocalStateStore : ILocalStateStore
         await using (var cmd = connection.CreateCommand())
         {
             cmd.CommandText = @"
-                DELETE FROM StatusUpdates WHERE CorrelationId = @CorrelationId AND IsSynced = 1;
-                DELETE FROM Logs WHERE CorrelationId = @CorrelationId AND IsSynced = 1;
+                DELETE FROM StatusUpdates WHERE OccurrenceId = @OccurrenceId AND IsSynced = 1;
+                DELETE FROM Logs WHERE OccurrenceId = @OccurrenceId AND IsSynced = 1;
             ";
 
-            cmd.Parameters.AddWithValue("@CorrelationId", correlationId.ToString());
+            cmd.Parameters.AddWithValue("@OccurrenceId", occurrenceId.ToString());
 
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
@@ -470,7 +470,7 @@ public class LocalStateStore : ILocalStateStore
     /// <summary>
     /// Check if a job has been finalized (to prevent redelivery from re-executing).
     /// </summary>
-    public async Task<bool> IsJobFinalizedAsync(Guid correlationId, CancellationToken cancellationToken = default)
+    public async Task<bool> IsJobFinalizedAsync(Guid occurrenceId, CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken);
 
@@ -482,7 +482,7 @@ public class LocalStateStore : ILocalStateStore
 
         cmd.CommandText = SqlQueries.IsJobFinalized;
 
-        cmd.Parameters.AddWithValue("@CorrelationId", correlationId.ToString());
+        cmd.Parameters.AddWithValue("@OccurrenceId", occurrenceId.ToString());
 
         var result = await cmd.ExecuteScalarAsync(cancellationToken);
 
@@ -668,7 +668,7 @@ public class LocalStateStore : ILocalStateStore
 public class StoredStatusUpdate
 {
     public long Id { get; set; }
-    public Guid CorrelationId { get; set; }
+    public Guid OccurrenceId { get; set; }
     public Guid JobId { get; set; }
     public string WorkerId { get; set; }
     public string InstanceId { get; set; }
@@ -688,7 +688,7 @@ public class StoredStatusUpdate
 public class StoredLog
 {
     public long Id { get; set; }
-    public Guid CorrelationId { get; set; }
+    public Guid OccurrenceId { get; set; }
     public string WorkerId { get; set; }
     public OccurrenceLog Log { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -714,7 +714,7 @@ public static class SqlQueries
     public const string CreateStatusUpdatesTable = @"
         CREATE TABLE IF NOT EXISTS StatusUpdates (
             Id INTEGER PRIMARY KEY AUTOINCREMENT,
-            CorrelationId TEXT NOT NULL,
+            OccurrenceId TEXT NOT NULL,
             JobId TEXT NOT NULL,
             WorkerId TEXT NOT NULL,
             InstanceId TEXT,
@@ -731,13 +731,13 @@ public static class SqlQueries
             SyncedAt TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_status_synced ON StatusUpdates(IsSynced, CreatedAt);
-        CREATE INDEX IF NOT EXISTS idx_status_correlation ON StatusUpdates(CorrelationId);
+        CREATE INDEX IF NOT EXISTS idx_status_occurrence ON StatusUpdates(OccurrenceId);
     ";
 
     public const string CreateLogsTable = @"
         CREATE TABLE IF NOT EXISTS Logs (
             Id INTEGER PRIMARY KEY AUTOINCREMENT,
-            CorrelationId TEXT NOT NULL,
+            OccurrenceId TEXT NOT NULL,
             WorkerId TEXT NOT NULL,
             Timestamp TEXT NOT NULL,
             Level TEXT NOT NULL,
@@ -752,12 +752,12 @@ public static class SqlQueries
             SyncedAt TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_logs_synced ON Logs(IsSynced, CreatedAt);
-        CREATE INDEX IF NOT EXISTS idx_logs_correlation ON Logs(CorrelationId);
+        CREATE INDEX IF NOT EXISTS idx_logs_occurrence ON Logs(OccurrenceId);
     ";
 
     public const string CreateJobExecutionsTable = @"
         CREATE TABLE IF NOT EXISTS JobExecutions (
-            CorrelationId TEXT PRIMARY KEY,
+            OccurrenceId TEXT PRIMARY KEY,
             JobId TEXT NOT NULL,
             JobType TEXT NOT NULL,
             WorkerId TEXT NOT NULL,
@@ -772,20 +772,20 @@ public static class SqlQueries
 
     public const string InsertStatusUpdate = @"
         INSERT INTO StatusUpdates (
-            CorrelationId, JobId, WorkerId, InstanceId, Status, StartTime, EndTime, 
+            OccurrenceId, JobId, WorkerId, InstanceId, Status, StartTime, EndTime, 
             DurationMs, Result, Exception, CreatedAt
         ) VALUES (
-            @CorrelationId, @JobId, @WorkerId, @InstanceId, @Status, @StartTime, @EndTime,
+            @OccurrenceId, @JobId, @WorkerId, @InstanceId, @Status, @StartTime, @EndTime,
             @DurationMs, @Result, @Exception, @CreatedAt
         );
     ";
 
     public const string GetNotSyncedStatusUpdates = @"
             SELECT 
-                s.Id, s.CorrelationId, s.JobId, s.WorkerId, s.InstanceId, s.Status, s.StartTime, s.EndTime,
+                s.Id, s.OccurrenceId, s.JobId, s.WorkerId, s.InstanceId, s.Status, s.StartTime, s.EndTime,
                 s.DurationMs, s.Result, s.Exception, s.CreatedAt, s.RetryCount
             FROM StatusUpdates s
-            LEFT JOIN JobExecutions j ON s.CorrelationId = j.CorrelationId
+            LEFT JOIN JobExecutions j ON s.OccurrenceId = j.OccurrenceId
             WHERE s.IsSynced = 0
             AND (j.IsFinalized IS NULL OR j.IsFinalized = 0)
             ORDER BY s.CreatedAt ASC
@@ -800,20 +800,20 @@ public static class SqlQueries
 
     public const string InsertLog = @"
             INSERT INTO Logs (
-                CorrelationId, WorkerId, Timestamp, Level, Message, 
+                OccurrenceId, WorkerId, Timestamp, Level, Message, 
                 Category, ExceptionType, Data, CreatedAt
             ) VALUES (
-                @CorrelationId, @WorkerId, @Timestamp, @Level, @Message,
+                @OccurrenceId, @WorkerId, @Timestamp, @Level, @Message,
                 @Category, @ExceptionType, @Data, @CreatedAt
             )
     ";
 
     public const string GetPendingLogs = @"
             SELECT 
-                l.Id, l.CorrelationId, l.WorkerId, l.Timestamp, l.Level, l.Message, 
+                l.Id, l.OccurrenceId, l.WorkerId, l.Timestamp, l.Level, l.Message, 
                 l.Category, l.ExceptionType, l.Data, l.CreatedAt, l.RetryCount
             FROM Logs l
-            LEFT JOIN JobExecutions j ON l.CorrelationId = j.CorrelationId
+            LEFT JOIN JobExecutions j ON l.OccurrenceId = j.OccurrenceId
             WHERE l.IsSynced = 0 
             AND (j.IsFinalized IS NULL OR j.IsFinalized = 0)
             ORDER BY l.CreatedAt ASC
@@ -828,28 +828,28 @@ public static class SqlQueries
 
     public const string InsertJobExecution = @"
             INSERT OR REPLACE INTO JobExecutions (
-                CorrelationId, JobId, JobType, WorkerId, StartedAt, LastHeartbeatAt
+                OccurrenceId, JobId, JobType, WorkerId, StartedAt, LastHeartbeatAt
             ) VALUES (
-                @CorrelationId, @JobId, @JobType, @WorkerId, @StartedAt, @LastHeartbeatAt
+                @OccurrenceId, @JobId, @JobType, @WorkerId, @StartedAt, @LastHeartbeatAt
             )
     ";
 
     public const string UpdateJobHeartbeat = @"
             UPDATE JobExecutions
             SET LastHeartbeatAt = @LastHeartbeatAt
-            WHERE CorrelationId = @CorrelationId
+            WHERE OccurrenceId = @OccurrenceId
     ";
 
     public const string SetJobFinalized = @"
             UPDATE JobExecutions
             SET CompletedAt = @CompletedAt, FinalStatus = @FinalStatus, IsFinalized = 1
-            WHERE CorrelationId = @CorrelationId
+            WHERE OccurrenceId = @OccurrenceId
     ";
 
     public const string IsJobFinalized = @"
             SELECT IsFinalized 
             FROM JobExecutions 
-            WHERE CorrelationId = @CorrelationId 
+            WHERE OccurrenceId = @OccurrenceId 
             AND IsFinalized = 1
             LIMIT 1
     ";

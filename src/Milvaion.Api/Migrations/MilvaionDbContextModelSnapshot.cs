@@ -20,7 +20,7 @@ namespace Milvaion.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.2")
+                .HasAnnotation("ProductVersion", "10.0.3")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -913,9 +913,24 @@ namespace Milvaion.Api.Migrations
                     b.Property<List<OccurrenceStatusChangeLog>>("StatusChangeLogs")
                         .HasColumnType("jsonb");
 
+                    b.Property<int>("StepRetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StepScheduledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("StepStatus")
+                        .HasColumnType("integer");
+
                     b.Property<string>("WorkerId")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("WorkflowRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WorkflowStepId")
+                        .HasColumnType("uuid");
 
                     b.Property<int?>("ZombieTimeoutMinutes")
                         .HasColumnType("integer");
@@ -923,6 +938,10 @@ namespace Milvaion.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("JobId");
+
+                    b.HasIndex("WorkflowRunId");
+
+                    b.HasIndex("WorkflowStepId");
 
                     b.ToTable("JobOccurrences");
                 });
@@ -1039,6 +1058,172 @@ namespace Milvaion.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ScheduledJobs");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.Workflow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatorUserName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CronExpression")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("FailureStrategy")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModificationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastModifierUserName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastScheduledRunAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MaxStepRetries")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Tags")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("TimeoutSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<List<WorkflowSnapshot>>("Versions")
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Workflows");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatorUserName")
+                        .HasColumnType("text");
+
+                    b.Property<long?>("DurationMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("StartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TriggerReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("WorkflowVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowId");
+
+                    b.ToTable("WorkflowRuns");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Condition")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatorUserName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DataMappings")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("DelaySeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DependsOnStepIds")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("JobDataOverride")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("PositionX")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("PositionY")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("StepName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobId");
+
+                    b.HasIndex("WorkflowId");
+
+                    b.ToTable("WorkflowSteps");
                 });
 
             modelBuilder.Entity("Milvaion.Domain.ContentManagement.Content", b =>
@@ -1186,7 +1371,19 @@ namespace Milvaion.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.WorkflowRun", "WorkflowRun")
+                        .WithMany("StepOccurrences")
+                        .HasForeignKey("WorkflowRunId");
+
+                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.WorkflowStep", "WorkflowStep")
+                        .WithMany()
+                        .HasForeignKey("WorkflowStepId");
+
                     b.Navigation("Job");
+
+                    b.Navigation("WorkflowRun");
+
+                    b.Navigation("WorkflowStep");
                 });
 
             modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog", b =>
@@ -1198,6 +1395,36 @@ namespace Milvaion.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Occurrence");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowRun", b =>
+                {
+                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.Workflow", "Workflow")
+                        .WithMany("Runs")
+                        .HasForeignKey("WorkflowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Workflow");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowStep", b =>
+                {
+                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.ScheduledJob", "Job")
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.Workflow", "Workflow")
+                        .WithMany("Steps")
+                        .HasForeignKey("WorkflowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Job");
+
+                    b.Navigation("Workflow");
                 });
 
             modelBuilder.Entity("Milvaion.Domain.ContentManagement.Content", b =>
@@ -1261,6 +1488,18 @@ namespace Milvaion.Api.Migrations
                     b.Navigation("FailedOccurrences");
 
                     b.Navigation("Occurrences");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.Workflow", b =>
+                {
+                    b.Navigation("Runs");
+
+                    b.Navigation("Steps");
+                });
+
+            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowRun", b =>
+                {
+                    b.Navigation("StepOccurrences");
                 });
 #pragma warning restore 612, 618
         }

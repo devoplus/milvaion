@@ -18,7 +18,7 @@ public interface ILogPublisher : IAsyncDisposable
     /// <summary>
     /// Publishes a log entry to RabbitMQ.
     /// </summary>
-    Task PublishLogAsync(Guid correlationId,
+    Task PublishLogAsync(Guid occurrenceId,
                          string workerId,
                          OccurrenceLog log,
                          CancellationToken cancellationToken = default);
@@ -49,7 +49,7 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
     private Timer _flushTimer;
     private DateTime _lastFlushTime = DateTime.UtcNow;
 
-    public async Task PublishLogAsync(Guid correlationId,
+    public async Task PublishLogAsync(Guid occurrenceId,
                                       string workerId,
                                       OccurrenceLog log,
                                       CancellationToken cancellationToken = default)
@@ -58,7 +58,7 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
         {
             var message = new WorkerLogMessage
             {
-                CorrelationId = correlationId,
+                OccurrenceId = occurrenceId,
                 WorkerId = workerId,
                 Log = log,
                 MessageTimestamp = DateTime.UtcNow
@@ -97,11 +97,11 @@ public class LogPublisher(WorkerOptions options, ILoggerFactory loggerFactory) :
                 }, cancellationToken);
             }
 
-            _logger.Debug("Log buffered for CorrelationId: {CorrelationId} (Buffer: {Count}/{BatchSize})", correlationId, _logBuffer.Count, _batchSize);
+            _logger.Debug("Log buffered for OccurrenceId: {OccurrenceId} (Buffer: {Count}/{BatchSize})", occurrenceId, _logBuffer.Count, _batchSize);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to buffer log for CorrelationId: {CorrelationId}", correlationId);
+            _logger?.Error(ex, "Failed to buffer log for OccurrenceId: {OccurrenceId}", occurrenceId);
         }
     }
 

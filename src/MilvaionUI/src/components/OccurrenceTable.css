@@ -98,6 +98,12 @@
   color: #9c27b0;
 }
 
+.status-chip.skipped.active {
+  background-color: rgba(96, 125, 139, 0.2);
+  border-color: #607d8b;
+  color: #607d8b;
+}
+
 .occurrence-table {
   width: 100%;
   border-collapse: collapse;
@@ -238,6 +244,10 @@
   color: #9c27b0;
 }
 
+.occurrence-status.status-skipped {
+  background-color: rgba(96, 125, 139, 0.2);
+  color: #607d8b;
+}
 .bulk-delete-btn {
   padding: 0.5rem 1rem;
   border-radius: 8px;

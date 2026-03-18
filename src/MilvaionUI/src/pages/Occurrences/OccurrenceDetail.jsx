@@ -397,6 +397,7 @@ const { modalProps, showModal } = useModal()
       4: { icon: 'block', label: 'Cancelled', className: 'cancelled' },
       5: { icon: 'schedule', label: 'Timed Out', className: 'timeout' },
       6: { icon: 'help_outline', label: 'Unknown', className: 'unknown' },
+      7: { icon: 'skip_next', label: 'Skipped', className: 'skipped' },
     }
 
     const statusInfo = statusMap[status] || { icon: 'help', label: `Status ${status}`, className: 'default' }

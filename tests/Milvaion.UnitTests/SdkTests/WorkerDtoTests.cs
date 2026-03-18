@@ -111,7 +111,7 @@ public class JobStatusUpdateMessageTests
         var message = new JobStatusUpdateMessage();
 
         // Assert
-        message.CorrelationId.Should().Be(Guid.Empty);
+        message.OccurrenceId.Should().Be(Guid.Empty);
         message.JobId.Should().Be(Guid.Empty);
         message.WorkerId.Should().BeNull();
         message.Status.Should().Be(JobOccurrenceStatus.Queued);
@@ -134,7 +134,7 @@ public class JobStatusUpdateMessageTests
         // Act
         var message = new JobStatusUpdateMessage
         {
-            CorrelationId = correlationId,
+            OccurrenceId = correlationId,
             JobId = jobId,
             WorkerId = "worker-01",
             Status = JobOccurrenceStatus.Running,
@@ -143,7 +143,7 @@ public class JobStatusUpdateMessageTests
         };
 
         // Assert
-        message.CorrelationId.Should().Be(correlationId);
+        message.OccurrenceId.Should().Be(correlationId);
         message.JobId.Should().Be(jobId);
         message.WorkerId.Should().Be("worker-01");
         message.Status.Should().Be(JobOccurrenceStatus.Running);
@@ -161,7 +161,7 @@ public class JobStatusUpdateMessageTests
         // Act
         var message = new JobStatusUpdateMessage
         {
-            CorrelationId = correlationId,
+            OccurrenceId = correlationId,
             JobId = jobId,
             WorkerId = "worker-01",
             Status = JobOccurrenceStatus.Completed,
@@ -207,7 +207,7 @@ public class WorkerLogMessageTests
         var message = new WorkerLogMessage();
 
         // Assert
-        message.CorrelationId.Should().Be(Guid.Empty);
+        message.OccurrenceId.Should().Be(Guid.Empty);
         message.WorkerId.Should().BeNull();
         message.Log.Should().BeNull();
         message.MessageTimestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
@@ -230,14 +230,14 @@ public class WorkerLogMessageTests
         // Act
         var message = new WorkerLogMessage
         {
-            CorrelationId = correlationId,
+            OccurrenceId = correlationId,
             WorkerId = "order-worker-01",
             Log = log,
             MessageTimestamp = now
         };
 
         // Assert
-        message.CorrelationId.Should().Be(correlationId);
+        message.OccurrenceId.Should().Be(correlationId);
         message.WorkerId.Should().Be("order-worker-01");
         message.Log.Should().NotBeNull();
         message.Log.Message.Should().Be("Processing order #12345");

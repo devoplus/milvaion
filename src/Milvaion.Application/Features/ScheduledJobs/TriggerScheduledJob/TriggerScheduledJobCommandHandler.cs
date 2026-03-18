@@ -59,16 +59,16 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
         }
 
         // 3. Create a new occurrence for manual execution
-        var correlationId = Guid.CreateVersion7();
+        var occurrenceId = Guid.CreateVersion7();
 
         var occurrence = new JobOccurrence
         {
-            Id = correlationId,
+            Id = occurrenceId,
             JobId = job.Id,
             JobName = job.JobNameInWorker,
             ZombieTimeoutMinutes = job.ZombieTimeoutMinutes,
             JobVersion = job.Version,
-            CorrelationId = correlationId,
+            CorrelationId = occurrenceId, // For manual triggers, same as occurrence ID
             Status = JobOccurrenceStatus.Queued,
             CreatedAt = DateTime.UtcNow,
             Logs =
@@ -123,7 +123,7 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
         await _eventPublisher.PublishOccurrenceCreatedAsync([occurrence], _logger, cancellationToken);
 
         // 4. Publish to RabbitMQ immediately (bypass ExecuteAt check)
-        var published = await _rabbitMQPublisher.PublishJobAsync(job, correlationId, cancellationToken);
+        var published = await _rabbitMQPublisher.PublishJobAsync(job, occurrenceId, cancellationToken);
 
         if (!published)
         {
@@ -143,6 +143,6 @@ public record TriggerScheduledJobCommandHandler(IMilvaionRepositoryBase<Schedule
             return Response<Guid>.Error(default, "Failed to publish job to RabbitMQ");
         }
 
-        return Response<Guid>.Success(correlationId, "Job triggered successfully");
+        return Response<Guid>.Success(occurrenceId, "Job triggered successfully");
     }
 }
