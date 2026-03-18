@@ -460,6 +460,7 @@ function WorkflowBuilderInner() {
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
+          proOptions={{ hideAttribution: true }}
           fitView
           fitViewOptions={{ padding: 0.2 }}
           deleteKeyCode="Delete"
