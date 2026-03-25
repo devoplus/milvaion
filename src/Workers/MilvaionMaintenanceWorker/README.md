@@ -115,6 +115,24 @@ Deletes old seen/unseen notifications.
 }
 ```
 
+### 8. WorkflowRunRetentionJob
+Deletes old workflow runs based on retention policy.
+
+**Schedule:** Daily at 2:30 AM
+
+**Configuration:**
+```json
+"WorkflowRunRetention": {
+  "CompletedRetentionDays": 30,
+  "FailedRetentionDays": 90,
+  "CancelledRetentionDays": 30,
+  "PartiallyCompletedRetentionDays": 60,
+  "BatchSize": 1000,
+  "VacuumAfterCleanup": true,
+  "VacuumThreshold": 1000
+}
+```
+
 ## Running
 
 ### Docker

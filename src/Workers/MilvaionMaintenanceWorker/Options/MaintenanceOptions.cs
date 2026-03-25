@@ -51,6 +51,11 @@ public class MaintenanceOptions
     /// Notification retention settings.
     /// </summary>
     public NotificationRetentionSettings NotificationRetention { get; set; } = new();
+
+    /// <summary>
+    /// Workflow run retention settings.
+    /// </summary>
+    public WorkflowRunRetentionSettings WorkflowRunRetention { get; set; } = new();
 }
 
 /// <summary>
@@ -237,5 +242,46 @@ public class NotificationRetentionSettings
     /// Days to keep unseen notifications.
     /// </summary>
     public int UnseenRetentionDays { get; set; } = 60;
+}
+
+/// <summary>
+/// Workflow run retention configuration.
+/// </summary>
+public class WorkflowRunRetentionSettings
+{
+    /// <summary>
+    /// Days to keep completed workflow runs.
+    /// </summary>
+    public int CompletedRetentionDays { get; set; } = 30;
+
+    /// <summary>
+    /// Days to keep failed workflow runs.
+    /// </summary>
+    public int FailedRetentionDays { get; set; } = 90;
+
+    /// <summary>
+    /// Days to keep cancelled workflow runs.
+    /// </summary>
+    public int CancelledRetentionDays { get; set; } = 30;
+
+    /// <summary>
+    /// Days to keep partially completed workflow runs.
+    /// </summary>
+    public int PartiallyCompletedRetentionDays { get; set; } = 60;
+
+    /// <summary>
+    /// Batch size for deletion to avoid long locks.
+    /// </summary>
+    public int BatchSize { get; set; } = 1000;
+
+    /// <summary>
+    /// Whether to run VACUUM after cleanup (reclaim disk space immediately).
+    /// </summary>
+    public bool VacuumAfterCleanup { get; set; } = true;
+
+    /// <summary>
+    /// Minimum number of deleted rows to trigger VACUUM.
+    /// </summary>
+    public int VacuumThreshold { get; set; } = 1000;
 }
 
