@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
+import PropTypes from 'prop-types'
 import Icon from './Icon'
 import NotificationPanel from './NotificationPanel'
 import authService from '../services/authService'
@@ -10,7 +11,7 @@ import './Layout.css'
 function Layout({ children }) {
 const location = useLocation()
 const navigate = useNavigate()
-const { theme, toggleTheme, isDark } = useTheme()
+const { toggleTheme, isDark } = useTheme()
 const [showUserMenu, setShowUserMenu] = useState(false)
 const [showAdminMenu, setShowAdminMenu] = useState(true)
 const [showUserMgmtMenu, setShowUserMgmtMenu] = useState(true)
@@ -20,12 +21,10 @@ const [isNotificationOpen, setIsNotificationOpen] = useState(false)
 const [unseenCount, setUnseenCount] = useState(0)
 const user = authService.getCurrentUser()
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setIsMobileMenuOpen(false)
   }, [location.pathname])
 
-  // Close mobile menu on escape key
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && isMobileMenuOpen) {
@@ -37,7 +36,6 @@ const user = authService.getCurrentUser()
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isMobileMenuOpen])
 
-  // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden'
@@ -50,7 +48,6 @@ const user = authService.getCurrentUser()
     }
   }, [isMobileMenuOpen])
 
-  // Fetch unseen notification count periodically
   const fetchUnseenCount = useCallback(async () => {
     try {
       const response = await notificationService.getNotifications({ pageIndex: 0, itemCount: 100 })
@@ -58,8 +55,9 @@ const user = authService.getCurrentUser()
         const items = response.data ?? []
         setUnseenCount(items.filter(n => !n.seenDate).length)
       }
-    } catch {
-      // silently ignore
+    } catch (error) {
+      // Ignore fetch errors for notification badge
+      console.debug('Failed to fetch notification count:', error)
     }
   }, [])
 
@@ -82,8 +80,8 @@ const user = authService.getCurrentUser()
     return location.pathname === path
   }
 
-  const handleLogout = () => {
-    authService.logout()
+  const handleLogout = async () => {
+    await authService.logout()
     navigate('/login')
   }
 
@@ -97,7 +95,6 @@ const user = authService.getCurrentUser()
 
   return (
     <div className="layout">
-      {/* Mobile Menu Toggle Button */}
       <button
         className="mobile-menu-toggle"
         onClick={toggleMobileMenu}
@@ -106,7 +103,6 @@ const user = authService.getCurrentUser()
         <Icon name={isMobileMenuOpen ? 'close' : 'menu'} size={24} />
       </button>
 
-      {/* Mobile Backdrop */}
       <div
         className={`sidebar-backdrop ${isMobileMenuOpen ? 'visible' : ''}`}
         onClick={() => setIsMobileMenuOpen(false)}
@@ -182,7 +178,6 @@ const user = authService.getCurrentUser()
             </Link>
           </li>
 
-          {/* Admin Collapsible Menu - Normal Mode */}
           {!isSidebarCollapsed && (
             <li className="nav-group">
               <button
@@ -220,7 +215,6 @@ const user = authService.getCurrentUser()
               )}
             </li>
           )}
-          {/* User Management Collapsible Menu - Normal Mode */}
           {!isSidebarCollapsed && (
             <li className="nav-group">
               <button
@@ -258,7 +252,6 @@ const user = authService.getCurrentUser()
               )}
             </li>
           )}
-          {/* Admin Menu Items - Collapsed Mode (Show children directly) */}
           {isSidebarCollapsed && (
             <>
               <li className={isActive('/workers') ? 'active' : ''}>
@@ -278,30 +271,26 @@ const user = authService.getCurrentUser()
               </li>
             </>
           )}
+          {isSidebarCollapsed && (
+            <>
+              <li className={isActive('/users') ? 'active' : ''}>
+                <Link to="/users" title="Users">
+                  <Icon name="group" size={20} />
+                </Link>
+              </li>
+              <li className={isActive('/roles') ? 'active' : ''}>
+                <Link to="/roles" title="Roles">
+                  <Icon name="shield" size={20} />
+                </Link>
+              </li>
+              <li className={isActive('/activity-logs') ? 'active' : ''}>
+                <Link to="/activity-logs" title="Activity Logs">
+                  <Icon name="history" size={20} />
+                </Link>
+              </li>
+            </>
+          )}
         </ul>
-
-
-
-        {/* User Management Menu Items - Collapsed Mode */}
-        {isSidebarCollapsed && (
-          <>
-            <li className={isActive('/users') ? 'active' : ''}>
-              <Link to="/users" title="Users">
-                <Icon name="group" size={20} />
-              </Link>
-            </li>
-            <li className={isActive('/roles') ? 'active' : ''}>
-              <Link to="/roles" title="Roles">
-                <Icon name="shield" size={20} />
-              </Link>
-            </li>
-            <li className={isActive('/activity-logs') ? 'active' : ''}>
-              <Link to="/activity-logs" title="Activity Logs">
-                <Icon name="history" size={20} />
-              </Link>
-            </li>
-          </>
-        )}
 
 
         {/* User Menu at Bottom */}
@@ -401,6 +390,10 @@ const user = authService.getCurrentUser()
       <NotificationPanel isOpen={isNotificationOpen} onClose={handleNotificationClose} />
     </div>
   )
+}
+
+Layout.propTypes = {
+  children: PropTypes.node.isRequired
 }
 
 export default Layout

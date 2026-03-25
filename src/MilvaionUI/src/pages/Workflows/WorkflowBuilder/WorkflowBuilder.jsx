@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ReactFlow,
@@ -15,15 +15,21 @@ import {
 import 'reactflow/dist/style.css'
 import workflowService from '../../../services/workflowService'
 import jobService from '../../../services/jobService'
+import workerService from '../../../services/workerService'
+import { parseSchemaFields } from '../DataMappingEditor'
 import Icon from '../../../components/Icon'
 import Modal from '../../../components/Modal'
 import { useModal } from '../../../hooks/useModal'
 import CronExpressionInput from '../../../components/CronExpressionInput'
 import StepNode from './StepNode'
+import ConditionNode from './ConditionNode'
+import MergeNode from './MergeNode'
+import CustomEdge from './CustomEdge'
 import StepConfigPanel from './StepConfigPanel'
 import './WorkflowBuilder.css'
 
-const nodeTypes = { stepNode: StepNode }
+const nodeTypes = { stepNode: StepNode, conditionNode: ConditionNode, mergeNode: MergeNode }
+const edgeTypes = { custom: CustomEdge }
 
 const failureStrategies = [
   { value: 0, label: 'Stop on First Failure' },
@@ -40,29 +46,19 @@ let _tempIdSeq = 1
 const newTempId = () => `step-${_tempIdSeq++}`
 
 function stepsToNodes(steps, jobsMap, onDelete) {
-  return steps.map((s, idx) => ({
-    id: s.tempId,
-    type: 'stepNode',
-    position: { x: s.positionX ?? idx * 240 + 40, y: s.positionY ?? 100 },
-    data: { step: s, jobsMap, onDelete },
-    connectable: true,
-  }))
-}
+  return steps.map((s, idx) => {
+    let nodeType = 'stepNode'
+    if (s.nodeType === 1) nodeType = 'conditionNode'
+    else if (s.nodeType === 2) nodeType = 'mergeNode'
 
-function stepsToEdges(steps) {
-  const edges = []
-  for (const s of steps) {
-    if (!s.dependsOnTempIds) continue
-    for (const depId of s.dependsOnTempIds.split(',').map(d => d.trim()).filter(Boolean)) {
-      edges.push({
-        id: `e-${depId}-${s.tempId}`,
-        source: depId,
-        target: s.tempId,
-        ...defaultEdgeOptions,
-      })
+    return {
+      id: s.tempId,
+      type: nodeType,
+      position: { x: s.positionX ?? idx * 240 + 40, y: s.positionY ?? 100 },
+      data: { step: s, jobsMap, onDelete },
+      connectable: true,
     }
-  }
-  return edges
+  })
 }
 
 function serializeMappings(mappings) {
@@ -95,10 +91,13 @@ function WorkflowBuilderInner() {
   const { fitView } = useReactFlow()
 
   const [jobs, setJobs] = useState([])
+  const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [selectedStepId, setSelectedStepId] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const addMenuRef = useRef(null)
   const [tagInput, setTagInput] = useState('')
 
   const [form, setForm] = useState({
@@ -115,6 +114,9 @@ function WorkflowBuilderInner() {
   const [steps, setSteps] = useState([])
   const [nodes, setNodes] = useState([])
   const [edges, setEdges] = useState([])
+  const [copiedNode, setCopiedNode] = useState(null)
+  const [history, setHistory] = useState([{ steps: [], edges: [] }])
+  const [historyIndex, setHistoryIndex] = useState(0)
 
   const onNodesChange = useCallback((changes) => {
     setNodes(prev => applyNodeChanges(changes, prev))
@@ -124,32 +126,88 @@ function WorkflowBuilderInner() {
     setEdges(prev => applyEdgeChanges(changes, prev))
   }, [])
 
+  const onEdgesDelete = useCallback((deletedEdges) => {
+    const edgeIds = deletedEdges.map(e => e.id)
+    setEdges(prev => prev.filter(e => !edgeIds.includes(e.id)))
+  }, [])
+
+  const handleDeleteEdge = useCallback((edgeId) => {
+    setEdges(prev => prev.filter(e => e.id !== edgeId))
+  }, [])
+
   const jobsMap = useMemo(() => Object.fromEntries(jobs.map(j => [j.id, j])), [jobs])
+
+  // jobNameInWorker → { resultFields, dataFields } — worker schema'larından oluşturulur
+  const schemasMap = useMemo(() => {
+    const map = {}
+    for (const worker of workers) {
+      for (const jobName of (worker.jobNames || [])) {
+        const dataSchemaJson = worker.jobDataDefinitions?.[jobName]
+        const resultSchemaJson = worker.jobResultDefinitions?.[jobName]
+        map[jobName] = {
+          dataFields: parseSchemaFields(dataSchemaJson),
+          resultFields: parseSchemaFields(resultSchemaJson),
+        }
+      }
+    }
+    return map
+  }, [workers])
+
+  // ── Close add-menu on outside click ─────────────────────────────────────────
+  useEffect(() => {
+    if (!addMenuOpen) return
+    const handleOutside = (e) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target))
+        setAddMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [addMenuOpen])
+
+  // ── Undo/Redo History ────────────────────────────────────────────────────────
+  const pushHistory = useCallback((newSteps, newEdges) => {
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), { steps: newSteps, edges: newEdges }])
+    setHistoryIndex(prev => prev + 1)
+  }, [historyIndex])
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      const prevState = history[historyIndex - 1]
+      setSteps(prevState.steps)
+      setEdges(prevState.edges)
+      setHistoryIndex(prev => prev - 1)
+    }
+  }, [history, historyIndex])
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const nextState = history[historyIndex + 1]
+      setSteps(nextState.steps)
+      setEdges(nextState.edges)
+      setHistoryIndex(prev => prev + 1)
+    }
+  }, [history, historyIndex])
 
   // ── Delete step ─────────────────────────────────────────────────────────────
   const handleDeleteStep = useCallback((tempId) => {
-    setSteps(prev =>
-      prev.filter(s => s.tempId !== tempId).map(s => ({
-        ...s,
-        dependsOnTempIds: s.dependsOnTempIds
-          ? s.dependsOnTempIds.split(',').map(d => d.trim()).filter(d => d !== tempId).join(',')
-          : '',
-      }))
-    )
+    const newSteps = steps.filter(s => s.tempId !== tempId)
+    const newEdges = edges.filter(e => e.source !== tempId && e.target !== tempId)
+    pushHistory(newSteps, newEdges)
+    setSteps(newSteps)
+    setEdges(newEdges)
     setSelectedStepId(prev => prev === tempId ? null : prev)
-  }, [])
+  }, [steps, edges, pushHistory])
 
-  // ── Sync steps → nodes + edges ────────────────────────────────────────────────
+  // ── Sync steps → nodes ────────────────────────────────────────────────
   useEffect(() => {
     const newNodes = stepsToNodes(steps, jobsMap, handleDeleteStep)
-    const newEdges = stepsToEdges(steps)
     setNodes(newNodes)
-    setEdges(newEdges)
   }, [steps, jobsMap, handleDeleteStep])
 
   // ── Load jobs ────────────────────────────────────────────────────────────────
   useEffect(() => {
     jobService.getAll().then(r => setJobs(r?.data || [])).catch(() => {})
+    workerService.getAll().then(r => setWorkers(r?.data || [])).catch(() => {})
   }, [])
 
   // ── Load workflow (edit mode) ─────────────────────────────────────────────────
@@ -170,19 +228,37 @@ function WorkflowBuilderInner() {
           cronExpression: d.cronExpression || '',
         })
         if (d.steps?.length > 0) {
-          setSteps(d.steps.map(s => ({
+          const loadedSteps = d.steps.map(s => ({
             tempId: s.id?.toString() ?? newTempId(),
+            nodeType: s.nodeType ?? 0,
             jobId: s.jobId || '',
             stepName: s.stepName || '',
             order: s.order || 0,
-            dependsOnTempIds: s.dependsOnStepIds || '',
-            condition: s.condition || '',
+            nodeConfigJson: s.nodeConfigJson || '',
             delaySeconds: s.delaySeconds || 0,
             jobDataOverride: s.jobDataOverride || '',
             dataMappings: deserializeMappings(s.dataMappings),
             positionX: s.positionX,
             positionY: s.positionY,
-          })))
+          }))
+
+          const loadedEdges = d.edges?.length > 0 ? d.edges.map(e => ({
+            id: e.id?.toString() || `e-${e.sourceStepId}-${e.targetStepId}`,
+            source: e.sourceStepId?.toString(),
+            target: e.targetStepId?.toString(),
+            sourceHandle: e.sourcePort || null,
+            targetHandle: e.targetPort || null,
+            label: e.label || '',
+            type: 'custom',
+            data: { onDelete: handleDeleteEdge },
+            ...defaultEdgeOptions,
+          })) : []
+
+          setSteps(loadedSteps)
+          setEdges(loadedEdges)
+          setHistory([{ steps: loadedSteps, edges: loadedEdges }])
+          setHistoryIndex(0)
+
           setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 150)
         }
       })
@@ -196,13 +272,50 @@ function WorkflowBuilderInner() {
     const tempId = newTempId()
     const col = steps.length % 4
     const row = Math.floor(steps.length / 4)
-    setSteps(prev => [...prev, {
-      tempId, jobId: '', stepName: '', order: prev.length + 1,
-      dependsOnTempIds: '', condition: '', delaySeconds: 0,
+    const newStep = {
+      tempId, nodeType: 0, jobId: '', stepName: '', order: steps.length + 1,
+      nodeConfigJson: '', delaySeconds: 0,
       jobDataOverride: '', dataMappings: [],
       positionX: 40 + col * 260,
       positionY: 80 + row * 180,
-    }])
+    }
+    const newSteps = [...steps, newStep]
+    pushHistory(newSteps, edges)
+    setSteps(newSteps)
+    setSelectedStepId(tempId)
+  }
+
+  const addCondition = () => {
+    const tempId = newTempId()
+    const col = steps.length % 4
+    const row = Math.floor(steps.length / 4)
+    const newStep = {
+      tempId, nodeType: 1, jobId: null, stepName: 'Condition', order: steps.length + 1,
+      nodeConfigJson: JSON.stringify({ expression: '' }), delaySeconds: 0,
+      jobDataOverride: '', dataMappings: [],
+      positionX: 40 + col * 260,
+      positionY: 80 + row * 180,
+    }
+    const newSteps = [...steps, newStep]
+    pushHistory(newSteps, edges)
+    setSteps(newSteps)
+    setSelectedStepId(tempId)
+  }
+
+  const addMerge = () => {
+    const tempId = newTempId()
+    const col = steps.length % 4
+    const row = Math.floor(steps.length / 4)
+    const newStep = {
+      tempId, nodeType: 2, jobId: null, stepName: 'Merge', order: steps.length + 1,
+      nodeConfigJson: '', delaySeconds: 0,
+      jobDataOverride: '', dataMappings: [],
+      positionX: 40 + col * 260,
+      positionY: 80 + row * 180,
+    }
+    const newSteps = [...steps, newStep]
+    pushHistory(newSteps, edges)
+    setSteps(newSteps)
     setSelectedStepId(tempId)
   }
 
@@ -221,34 +334,82 @@ function WorkflowBuilderInner() {
     if (!params.source || !params.target) return
     if (params.source === params.target) return
 
-    // steps state'ini güncelle - useEffect edges'i otomatik oluşturacak
-    setSteps(prev => {
-      return prev.map(s => {
-        if (s.tempId !== params.target) return s
-        const cur = s.dependsOnTempIds ? s.dependsOnTempIds.split(',').filter(Boolean) : []
-        if (cur.includes(params.source)) return s
-        return { ...s, dependsOnTempIds: [...cur, params.source].join(',') }
-      })
-    })
-  }, [])
-
-  // ── Delete edge → remove dependency
-  const onEdgesDelete = useCallback((deleted) => {
-    setSteps(prev =>
-      prev.map(s => {
-        const toRemove = deleted.filter(e => e.target === s.tempId).map(e => e.source)
-        if (!toRemove.length) return s
-        const cur = s.dependsOnTempIds ? s.dependsOnTempIds.split(',').map(d => d.trim()).filter(Boolean) : []
-        return { ...s, dependsOnTempIds: cur.filter(d => !toRemove.includes(d)).join(',') }
-      })
-    )
-  }, [])
+    const newEdge = {
+      id: `e-${params.source}-${params.target}-${Date.now()}`,
+      source: params.source,
+      target: params.target,
+      sourceHandle: params.sourceHandle || null,
+      targetHandle: params.targetHandle || null,
+      type: 'custom',
+      data: { onDelete: handleDeleteEdge },
+      ...defaultEdgeOptions,
+    }
+    const newEdges = [...edges, newEdge]
+    pushHistory(steps, newEdges)
+    setEdges(newEdges)
+  }, [steps, edges, handleDeleteEdge, pushHistory])
 
   const onNodeClick = useCallback((_, node) => {
     setSelectedStepId(prev => prev === node.id ? null : node.id)
   }, [])
 
   const onPaneClick = useCallback(() => setSelectedStepId(null), [])
+
+  // ── Copy/Paste ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+Z or Cmd+Z - Undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+      }
+
+      // Ctrl+Shift+Z or Cmd+Shift+Z or Ctrl+Y - Redo
+      if (((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) {
+        e.preventDefault()
+        redo()
+      }
+
+      const activeTag = document.activeElement?.tagName?.toLowerCase()
+      const isInputFocused = activeTag === 'input' || activeTag === 'textarea'
+
+      // Delete or Backspace - Delete selected node (when no input focused)
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedStepId && !isInputFocused) {
+        e.preventDefault()
+        handleDeleteStep(selectedStepId)
+      }
+
+      // Ctrl+C or Cmd+C - Copy
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedStepId && !isInputFocused) {
+        e.preventDefault()
+        const stepToCopy = steps.find(s => s.tempId === selectedStepId)
+        if (stepToCopy) {
+          setCopiedNode({ ...stepToCopy })
+        }
+      }
+
+      // Ctrl+V or Cmd+V - Paste
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedNode && !isInputFocused) {
+        e.preventDefault()
+        const tempId = newTempId()
+        const pastedNode = {
+          ...copiedNode,
+          tempId,
+          stepName: `${copiedNode.stepName} (Copy)`,
+          order: steps.length + 1,
+          positionX: (copiedNode.positionX || 0) + 60,
+          positionY: (copiedNode.positionY || 0) + 60,
+        }
+        const newSteps = [...steps, pastedNode]
+        pushHistory(newSteps, edges)
+        setSteps(newSteps)
+        setSelectedStepId(tempId)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedStepId, steps, edges, copiedNode, undo, redo, pushHistory, handleDeleteStep])
 
   const updateSelectedStep = (updated) =>
     setSteps(prev => prev.map(s => s.tempId === updated.tempId ? { ...s, ...updated } : s))
@@ -269,6 +430,21 @@ function WorkflowBuilderInner() {
     if (!form.name.trim()) { showError('Workflow name is required'); return }
     if (steps.length === 0) { showError('At least one step is required'); return }
 
+    // Validate condition nodes have proper port assignments
+    const conditionSteps = steps.filter(s => s.nodeType === 1)
+    for (const condStep of conditionSteps) {
+      const outgoingEdges = edges.filter(e => e.source === condStep.tempId)
+      if (outgoingEdges.length === 0) continue
+
+      const hasTruePort = outgoingEdges.some(e => e.sourceHandle === 'true')
+      const hasFalsePort = outgoingEdges.some(e => e.sourceHandle === 'false')
+
+      if (outgoingEdges.length > 0 && (!hasTruePort && !hasFalsePort)) {
+        showError(`Condition node "${condStep.stepName}" must use TRUE or FALSE ports`)
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const payload = {
@@ -282,16 +458,26 @@ function WorkflowBuilderInner() {
         cronExpression: form.cronExpression || null,
         steps: steps.map((s, idx) => ({
           tempId: s.tempId,
-          jobId: s.jobId,
+          nodeType: s.nodeType ?? 0,
+          jobId: (s.jobId && s.jobId !== '') ? s.jobId : null,
           stepName: s.stepName,
           order: idx + 1,
-          dependsOnTempIds: s.dependsOnTempIds || '',
-          condition: s.condition || '',
+          nodeConfigJson: s.nodeConfigJson || null,
           delaySeconds: Number(s.delaySeconds) || 0,
           jobDataOverride: s.jobDataOverride || null,
           dataMappings: serializeMappings(s.dataMappings),
           positionX: s.positionX,
           positionY: s.positionY,
+        })),
+        edges: edges.map((e, idx) => ({
+          tempId: e.id,
+          sourceTempId: e.source,
+          targetTempId: e.target,
+          sourcePort: e.sourceHandle || null,
+          targetPort: e.targetHandle || null,
+          label: e.label || null,
+          order: idx + 1,
+          edgeConfigJson: null,
         })),
       }
 
@@ -304,7 +490,10 @@ function WorkflowBuilderInner() {
         navigate(`/workflows/${res.data}/builder`)
       }
     } catch (err) {
-      showError('Failed to save workflow')
+      const errorMsg = err.isValidationError
+        ? err.message
+        : 'Failed to save workflow'
+      showError(errorMsg)
       console.error(err)
     } finally {
       setSaving(false)
@@ -329,12 +518,6 @@ function WorkflowBuilderInner() {
           <Link to={isEdit ? `/workflows/${id}` : '/workflows'} className="wfb-back-btn" title="Back">
             <Icon name="arrow_back" size={22} />
           </Link>
-          <input
-            className="wfb-name-input"
-            value={form.name}
-            onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-            placeholder="Workflow name..."
-          />
           <label className="wfb-active-toggle">
             <input
               type="checkbox"
@@ -345,6 +528,13 @@ function WorkflowBuilderInner() {
               {form.isActive ? 'Active' : 'Inactive'}
             </span>
           </label>
+          |
+          <input
+            className="wfb-name-input"
+            value={form.name}
+            onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+            placeholder="Workflow name..."
+          />
         </div>
 
         <div className="wfb-toolbar-right">
@@ -355,9 +545,40 @@ function WorkflowBuilderInner() {
           >
             <Icon name="settings" size={17} /> Settings
           </button>
-          <button className="wfb-toolbar-btn wfb-toolbar-btn--add" onClick={addStep}>
-            <Icon name="add" size={17} /> Add Step
-          </button>
+          <div className="wfb-add-menu" ref={addMenuRef}>
+            <button
+              className="wfb-toolbar-btn wfb-toolbar-btn--add"
+              onClick={() => setAddMenuOpen(p => !p)}
+            >
+              <Icon name="add" size={17} /> Add Step
+              <Icon name={addMenuOpen ? 'expand_less' : 'expand_more'} size={15} />
+            </button>
+            {addMenuOpen && (
+              <div className="wfb-add-menu-dropdown">
+                <button className="wfb-add-menu-item" onClick={() => { addStep(); setAddMenuOpen(false) }}>
+                  <Icon name="smart_button" size={15} />
+                  <div>
+                    <span className="wfb-add-menu-item-label">Task Step</span>
+                    <span className="wfb-add-menu-item-desc">Runs a scheduled job</span>
+                  </div>
+                </button>
+                <button className="wfb-add-menu-item" onClick={() => { addCondition(); setAddMenuOpen(false) }}>
+                  <Icon name="alt_route" size={15} />
+                  <div>
+                    <span className="wfb-add-menu-item-label">Condition</span>
+                    <span className="wfb-add-menu-item-desc">Branches on true / false</span>
+                  </div>
+                </button>
+                <button className="wfb-add-menu-item" onClick={() => { addMerge(); setAddMenuOpen(false) }}>
+                  <Icon name="call_merge" size={15} />
+                  <div>
+                    <span className="wfb-add-menu-item-label">Merge</span>
+                    <span className="wfb-add-menu-item-desc">Joins parallel branches</span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
           <button className="wfb-toolbar-btn wfb-toolbar-btn--save" onClick={handleSave} disabled={saving}>
             <Icon name={saving ? 'hourglass_empty' : 'save'} size={17} />
             {saving ? 'Saving…' : 'Save'}
@@ -453,17 +674,19 @@ function WorkflowBuilderInner() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
           onEdgesDelete={onEdgesDelete}
+          onConnect={onConnect}
           onNodeDragStop={onNodeDragStop}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
           proOptions={{ hideAttribution: true }}
           fitView
           fitViewOptions={{ padding: 0.2 }}
-          deleteKeyCode="Delete"
+          deleteKeyCode={['Backspace', 'Delete']}
+          edgesReconnectable={true}
           className="wfb-reactflow"
           style={{ width: '100%', height: '100%' }}
         >
@@ -491,6 +714,7 @@ function WorkflowBuilderInner() {
             step={selectedStep}
             jobs={jobs}
             allSteps={steps}
+            schemasMap={schemasMap}
             onChange={updateSelectedStep}
             onClose={() => setSelectedStepId(null)}
           />

@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom'
+import PropTypes from 'prop-types'
 import authService from '../services/authService'
 
 function ProtectedRoute({ children }) {
@@ -6,11 +7,14 @@ function ProtectedRoute({ children }) {
   const isAuthenticated = authService.isAuthenticated()
 
   if (!isAuthenticated) {
-    // Redirect to login page but save the attempted location
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   return children
+}
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired
 }
 
 export default ProtectedRoute

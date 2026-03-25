@@ -388,7 +388,7 @@ const { modalProps, showModal } = useModal()
     })
   }
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, noAnimate = false) => {
     const statusMap = {
       0: { icon: 'schedule', label: 'Queued', className: 'queued' },
       1: { icon: 'sync', label: 'Running', className: 'running' },
@@ -402,7 +402,7 @@ const { modalProps, showModal } = useModal()
 
     const statusInfo = statusMap[status] || { icon: 'help', label: `Status ${status}`, className: 'default' }
     return (
-      <span className={`occurrence-status ${statusInfo.className}`}>
+      <span className={`occurrence-status ${statusInfo.className}${noAnimate ? ' no-animate' : ''}`}>
         <Icon name={statusInfo.icon} size={20} />
         {statusInfo.label}
       </span>
@@ -513,7 +513,7 @@ const { modalProps, showModal } = useModal()
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="btn btn-danger"
+              className="btn btn-secondary"
               title="Delete Occurrence"
             >
               <Icon name="delete" size={18} className="me-1" style={{ color: '#fff' }} />
@@ -665,9 +665,9 @@ const { modalProps, showModal } = useModal()
                     {formatDateTime(change.timestamp)}
                   </div>
                   <div className="status-change-flow">
-                    {getStatusBadge(change.from)}
+                    {getStatusBadge(change.from, true)}
                     <Icon name="arrow_forward" size={20} className="status-arrow" />
-                    {getStatusBadge(change.to)}
+                    {getStatusBadge(change.to, true)}
                   </div>
                 </div>
               ))}

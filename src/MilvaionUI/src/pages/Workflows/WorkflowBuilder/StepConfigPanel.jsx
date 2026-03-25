@@ -1,36 +1,42 @@
+import { useState } from 'react'
 import Icon from '../../../components/Icon'
+import DataMappingEditor from '../DataMappingEditor'
 
-function StepConfigPanel({ step, jobs, allSteps, onChange, onClose }) {
+/* eslint-disable react/prop-types */
+
+function SchemaSection({ label, icon, fields, color }) {
+  const [open, setOpen] = useState(false)
+  if (!fields?.length) return null
+  return (
+    <div className="wfb-schema-section" style={{ '--schema-color': color }}>
+      <button type="button" className="wfb-schema-toggle" onClick={() => setOpen(p => !p)}>
+        <Icon name={icon} size={13} />
+        <span>{label}</span>
+        <span className="wfb-schema-count">{fields.length} field{fields.length !== 1 ? 's' : ''}</span>
+        <Icon name={open ? 'expand_less' : 'expand_more'} size={14} className="wfb-schema-chevron" />
+      </button>
+      {open && (
+        <div className="wfb-schema-fields">
+          {fields.map(f => (
+            <div key={f.name} className="wfb-schema-field" style={f.depth > 0 ? { paddingLeft: `${f.depth * 12 + 8}px` } : undefined}>
+              <span className="wfb-schema-field-name">$.{f.name}</span>
+              <span className={`wfb-schema-field-type wfb-schema-type--${f.type}`}>{f.format || f.type}</span>
+              {f.description && <span className="wfb-schema-field-desc" title={f.description}>{f.description}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StepConfigPanel({ step, jobs, allSteps, schemasMap = {}, onChange, onClose }) {
   if (!step) return null
 
   const update = (field, value) => onChange({ ...step, [field]: value })
 
-  const toggleDep = (depTempId) => {
-    const current = step.dependsOnTempIds
-      ? step.dependsOnTempIds.split(',').map(d => d.trim()).filter(Boolean)
-      : []
-    const idx = current.indexOf(depTempId)
-    if (idx >= 0) current.splice(idx, 1)
-    else current.push(depTempId)
-    update('dependsOnTempIds', current.join(','))
-  }
-
-  const currentDeps = step.dependsOnTempIds
-    ? step.dependsOnTempIds.split(',').map(d => d.trim()).filter(Boolean)
-    : []
-
-  const availableParents = allSteps.filter(s => s.tempId !== step.tempId)
-
-  const addMapping = () =>
-    update('dataMappings', [...(step.dataMappings || []), { sourceStepTempId: '', sourcePath: '', targetPath: '' }])
-
-  const updateMapping = (i, field, value) => {
-    const updated = (step.dataMappings || []).map((m, mi) => (mi === i ? { ...m, [field]: value } : m))
-    update('dataMappings', updated)
-  }
-
-  const removeMapping = (i) =>
-    update('dataMappings', (step.dataMappings || []).filter((_, mi) => mi !== i))
+  const selectedJob = step.jobId ? jobs.find(j => j.id === step.jobId) : null
+  const jobSchema = selectedJob ? (schemasMap[selectedJob.jobType] || { dataFields: [], resultFields: [] }) : null
 
   return (
     <div className="wfb-config-panel">
@@ -42,6 +48,16 @@ function StepConfigPanel({ step, jobs, allSteps, onChange, onClose }) {
       </div>
 
       <div className="wfb-config-body">
+        {/* Node Type */}
+        <div className="wfb-field">
+          <label>Node Type</label>
+          <select className="wfb-select" value={step.nodeType ?? 0} onChange={e => update('nodeType', Number(e.target.value))}>
+            <option value={0}>Task</option>
+            <option value={1}>Condition</option>
+            <option value={2}>Merge</option>
+          </select>
+        </div>
+
         {/* Step Name */}
         <div className="wfb-field">
           <label>Step Name</label>
@@ -53,115 +69,114 @@ function StepConfigPanel({ step, jobs, allSteps, onChange, onClose }) {
           />
         </div>
 
-        {/* Job */}
-        <div className="wfb-field">
-          <label>Job</label>
-          <select className="wfb-select" value={step.jobId} onChange={e => update('jobId', e.target.value)}>
-            <option value="">— Select Job —</option>
-            {jobs.map(j => (
-              <option key={j.id} value={j.id}>{j.displayName || j.jobNameInWorker}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Delay */}
-        <div className="wfb-field">
-          <label>Delay (seconds)</label>
-          <input
-            className="wfb-input"
-            type="number"
-            min={0}
-            value={step.delaySeconds}
-            onChange={e => update('delaySeconds', Number(e.target.value) || 0)}
-          />
-        </div>
-
-        {/* Condition */}
-        <div className="wfb-field">
-          <label>Condition</label>
-          <input
-            className="wfb-input"
-            value={step.condition}
-            onChange={e => update('condition', e.target.value)}
-            placeholder="@status == 'Completed'"
-          />
-          <span className="wfb-hint">Leave empty to always execute</span>
-        </div>
-
-        {/* Dependencies */}
-        {availableParents.length > 0 && (
+        {/* Job (only for Task nodes) */}
+        {(step.nodeType === 0 || step.nodeType === undefined) && (
           <div className="wfb-field">
-            <label>Depends On</label>
-            <div className="wfb-deps-list">
-              {availableParents.map(p => (
-                <label key={p.tempId} className="wfb-dep-item">
-                  <input
-                    type="checkbox"
-                    checked={currentDeps.includes(p.tempId)}
-                    onChange={() => toggleDep(p.tempId)}
-                  />
-                  <span>{p.stepName || 'Unnamed Step'}</span>
-                </label>
+            <label>Job</label>
+            <select className="wfb-select" value={step.jobId} onChange={e => update('jobId', e.target.value)}>
+              <option value="">— Select Job —</option>
+              {jobs.map(j => (
+                <option key={j.id} value={j.id}>{j.displayName || j.jobNameInWorker}</option>
               ))}
-            </div>
-            <span className="wfb-hint">Or draw arrows on the canvas</span>
+            </select>
           </div>
         )}
 
-        {/* Job Data Override */}
-        <div className="wfb-field">
-          <label>Job Data Override</label>
-          <textarea
-            className="wfb-textarea"
-            rows={4}
-            value={step.jobDataOverride}
-            onChange={e => update('jobDataOverride', e.target.value)}
-            placeholder={'{"key": "value"}'}
-          />
-        </div>
-
-        {/* Data Mappings */}
-        <div className="wfb-field">
-          <div className="wfb-field-header">
-            <label>Data Mappings</label>
-            <button className="wfb-btn-xs" onClick={addMapping}>
-              <Icon name="add" size={14} /> Add
-            </button>
+        {/* Job Schema Preview */}
+        {jobSchema && (jobSchema.dataFields?.length > 0 || jobSchema.resultFields?.length > 0) && (
+          <div className="wfb-schema-preview">
+            <SchemaSection
+              label="Input Schema"
+              icon="input"
+              fields={jobSchema.dataFields}
+              color="var(--accent-color)"
+            />
+            <SchemaSection
+              label="Output Schema"
+              icon="output"
+              fields={jobSchema.resultFields}
+              color="#10b981"
+            />
           </div>
-          {(step.dataMappings || []).length === 0 && (
-            <span className="wfb-hint">No mappings defined</span>
-          )}
-          {(step.dataMappings || []).map((m, i) => (
-            <div key={i} className="wfb-mapping-row">
-              <select
-                className="wfb-input-sm"
-                value={m.sourceStepTempId}
-                onChange={e => updateMapping(i, 'sourceStepTempId', e.target.value)}
-              >
-                <option value="">Step</option>
-                {availableParents.map(p => (
-                  <option key={p.tempId} value={p.tempId}>{p.stepName || p.tempId}</option>
-                ))}
-              </select>
-              <input
-                className="wfb-input-sm"
-                value={m.sourcePath}
-                onChange={e => updateMapping(i, 'sourcePath', e.target.value)}
-                placeholder="$.field"
-              />
-              <Icon name="arrow_forward" size={14} />
-              <input
-                className="wfb-input-sm"
-                value={m.targetPath}
-                onChange={e => updateMapping(i, 'targetPath', e.target.value)}
-                placeholder="$.target"
-              />
-              <button className="wfb-btn-delete-sm" onClick={() => removeMapping(i)}>
-                <Icon name="delete" size={14} />
-              </button>
+        )}
+
+        {/* Delay (only for Task nodes — virtual nodes don't support delay yet) */}
+        {(step.nodeType === 0 || step.nodeType === undefined) && (
+          <div className="wfb-field">
+            <label>Delay (seconds)</label>
+            <input
+              className="wfb-input"
+              type="number"
+              min={0}
+              value={step.delaySeconds}
+              onChange={e => update('delaySeconds', Number(e.target.value) || 0)}
+            />
+          </div>
+        )}
+
+        {/* Node Config (for Condition nodes) */}
+        {step.nodeType === 1 && (
+          <div className="wfb-field">
+            <label>Condition Expression</label>
+            <input
+              className="wfb-input"
+              value={step.nodeConfigJson ? JSON.parse(step.nodeConfigJson || '{}').expression || '' : ''}
+              onChange={e => {
+                try {
+                  const config = { expression: e.target.value }
+                  update('nodeConfigJson', JSON.stringify(config))
+                } catch {
+                  // Ignore
+                }
+              }}
+              placeholder="@status == 'Completed' || $.count > 0"
+            />
+            <span className="wfb-hint">Evaluated on parent node results</span>
+          </div>
+        )}
+
+        {/* Job Data Override (only for Task nodes) */}
+        {(step.nodeType === 0 || step.nodeType === undefined) && (
+          <div className="wfb-field">
+            <div className="wfb-field-header">
+              <label>Job Data Override</label>
+              {step.dataMappings?.length > 0 && (
+                <span className="wfb-badge wfb-badge--warn">
+                  <Icon name="swap_horiz" size={11} /> Overridden by mappings
+                </span>
+              )}
             </div>
-          ))}
-        </div>
+            <textarea
+              className="wfb-textarea"
+              rows={4}
+              value={step.dataMappings?.length > 0 ? '' : (step.jobDataOverride || '')}
+              disabled={step.dataMappings?.length > 0}
+              onChange={e => update('jobDataOverride', e.target.value)}
+              placeholder={step.dataMappings?.length > 0 ? 'Disabled — data mappings are active' : '{"key": "value"}'}
+            />
+          </div>
+        )}
+
+        {/* Data Mappings (only for Task nodes) */}
+        {(step.nodeType === 0 || step.nodeType === undefined) && (
+          <div className="wfb-field">
+            <DataMappingEditor
+              mappings={step.dataMappings || []}
+              onChange={(newMappings) => {
+                const hadMappings = (step.dataMappings?.length || 0) > 0
+                const hasMappings = newMappings.length > 0
+                update('dataMappings', newMappings)
+                if (!hadMappings && hasMappings && step.jobDataOverride)
+                  onChange({ ...step, dataMappings: newMappings, jobDataOverride: '' })
+              }}
+              steps={allSteps}
+              currentStepTempId={step.tempId}
+              jobs={jobs}
+              currentStepJobId={step.jobId}
+              schemasMap={schemasMap}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

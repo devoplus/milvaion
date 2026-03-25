@@ -23,7 +23,7 @@ public class GetWorkflowDetailQueryHandler(IMilvaionRepositoryBase<Workflow> wor
             return Response<WorkflowDetailDto>.Success(null, "Workflow not found");
 
         // Get job names for steps
-        var jobIds = workflow.Steps.Select(s => s.JobId).Distinct().ToList();
+        var jobIds = workflow.Definition?.Steps?.Where(s => s.JobId.HasValue).Select(s => s.JobId.Value).Distinct().ToList() ?? [];
         var jobNames = new Dictionary<Guid, string>();
 
         var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id), cancellationToken: cancellationToken);
@@ -50,21 +50,31 @@ public class GetWorkflowDetailQueryHandler(IMilvaionRepositoryBase<Workflow> wor
             CronExpression = workflow.CronExpression,
             LastScheduledRunAt = workflow.LastScheduledRunAt,
             WorkflowVersions = workflow.Versions?.OrderByDescending(i => i.Version).ToList(),
-            Steps = workflow.Steps?.Select(s => new WorkflowStepDto
+            Steps = workflow.Definition?.Steps?.Select(s => new WorkflowStepDto
             {
                 Id = s.Id,
+                NodeType = s.NodeType,
                 JobId = s.JobId,
-                JobDisplayName = jobNames.GetValueOrDefault(s.JobId, "Unknown"),
+                JobDisplayName = s.JobId.HasValue ? jobNames.GetValueOrDefault(s.JobId.Value, "Unknown") : null,
                 StepName = s.StepName,
                 Order = s.Order,
-                DependsOnStepIds = s.DependsOnStepIds,
-                Condition = s.Condition,
+                NodeConfigJson = s.NodeConfigJson,
                 DataMappings = s.DataMappings,
                 DelaySeconds = s.DelaySeconds,
                 JobDataOverride = s.JobDataOverride,
                 PositionX = s.PositionX,
                 PositionY = s.PositionY,
-            }).OrderBy(s => s.Order).ToList()
+            }).OrderBy(s => s.Order).ToList(),
+            Edges = workflow.Definition?.Edges?.Select(e => new WorkflowEdgeDto
+            {
+                SourceStepId = e.SourceStepId,
+                TargetStepId = e.TargetStepId,
+                SourcePort = e.SourcePort,
+                TargetPort = e.TargetPort,
+                Label = e.Label,
+                Order = e.Order,
+                EdgeConfigJson = e.EdgeConfigJson,
+            }).OrderBy(e => e.Order).ToList() ?? []
         };
 
         return Response<WorkflowDetailDto>.Success(dto);

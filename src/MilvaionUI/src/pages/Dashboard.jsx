@@ -181,7 +181,6 @@ function Dashboard() {
 
   return (
     <div className="dashboard">
-      {/* Quick Stats Overview */}
       <div className="quick-stats">
         <div className="quick-stat-card primary">
           <div className="quick-stat-icon">
@@ -221,9 +220,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Main Content Grid */}
       <div className="dashboard-grid">
-        {/* Job Status Card */}
         <div className="dashboard-card job-status-card">
           <div className="card-header">
             <h3>
@@ -284,7 +281,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Worker Capacity Card */}
         <div className="dashboard-card worker-capacity-card">
           <div className="card-header">
             <h3>
@@ -327,7 +323,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Throughput Metrics Card */}
         <div className="dashboard-card throughput-card">
           <div className="card-header">
             <h3>
@@ -369,7 +364,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* System Health Card */}
         <div className="dashboard-card health-card">
           <div className="card-header">
             <h3>

@@ -74,11 +74,11 @@
   line-height: 1.2;
 }
 
-.memory-stat-value.primary { color: #646cff; }
-.memory-stat-value.success { color: #4caf50; }
-.memory-stat-value.warning { color: #ff9800; }
-.memory-stat-value.error { color: #f44336; }
-.memory-stat-value.info { color: #2196f3; }
+.memory-stat-value.primary { color: #6366f1; }
+.memory-stat-value.success { color: #10b981; }
+.memory-stat-value.warning { color: #f59e0b; }
+.memory-stat-value.error { color: #ef4444; }
+.memory-stat-value.info { color: #3b82f6; }
 .memory-stat-value.secondary { color: #999; }
 
 .memory-stat-label {
@@ -105,7 +105,7 @@ gap: 0.5rem;
   display: inline-block;
   width: 4px;
   height: 16px;
-  background: linear-gradient(135deg, #646cff 0%, #535bf2 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   border-radius: 2px;
 }
 
@@ -171,7 +171,7 @@ gap: 0.5rem;
 }
 
 .status-dot.running {
-  background-color: #4caf50;
+  background-color: #10b981;
   box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
 }
 
@@ -223,11 +223,11 @@ gap: 0.5rem;
 }
 
 .service-stat-item .stat-value.growth-positive {
-  color: #f44336;
+  color: #ef4444;
 }
 
 .service-stat-item .stat-value.growth-negative {
-  color: #4caf50;
+  color: #10b981;
 }
 
 .service-stat-item .stat-value.growth-neutral {
@@ -261,23 +261,23 @@ gap: 0.5rem;
   height: 100%;
   border-radius: 4px;
   transition: width 0.5s ease;
-  background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
+  background: linear-gradient(90deg, #10b981 0%, #8bc34a 100%);
 }
 
 .memory-bar-fill.warning {
-  background: linear-gradient(90deg, #ff9800 0%, #ffc107 100%);
+  background: linear-gradient(90deg, #f59e0b 0%, #f59e0b 100%);
 }
 
 .memory-bar-fill.error {
-  background: linear-gradient(90deg, #f44336 0%, #e91e63 100%);
+  background: linear-gradient(90deg, #ef4444 0%, #e91e63 100%);
 }
 
 /* GC Stats */
 .gc-stats {
   margin-top: 1rem;
   padding: 0.75rem;
-  background: rgba(100, 108, 255, 0.05);
-  border: 1px solid rgba(100, 108, 255, 0.1);
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.1);
   border-radius: 6px;
 }
 
@@ -303,7 +303,7 @@ gap: 0.5rem;
 .gc-stat-value {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #646cff;
+  color: #6366f1;
 }
 
 .gc-stat-label {
@@ -319,10 +319,10 @@ gap: 0.5rem;
   gap: 0.5rem;
   margin-top: 0.75rem;
   padding: 0.5rem 0.75rem;
-  background: rgba(244, 67, 54, 0.1);
-  border: 1px solid rgba(244, 67, 54, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 6px;
-  color: #f44336;
+  color: #ef4444;
   font-size: 0.8rem;
   font-weight: 500;
 }
@@ -341,7 +341,7 @@ gap: 0.5rem;
   width: 24px;
   height: 24px;
   border: 3px solid #333;
-  border-top-color: #646cff;
+  border-top-color: #6366f1;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -407,7 +407,7 @@ gap: 0.5rem;
   }
 
   .service-card-header {
-    background: rgba(100, 108, 255, 0.02);
+    background: rgba(99, 102, 241, 0.02);
     border-bottom-color: #ddd;
   }
 
@@ -429,8 +429,8 @@ gap: 0.5rem;
   }
 
   .gc-stats {
-    background: rgba(100, 108, 255, 0.03);
-    border-color: rgba(100, 108, 255, 0.1);
+    background: rgba(99, 102, 241, 0.03);
+    border-color: rgba(99, 102, 241, 0.1);
   }
 
   .section-title {
@@ -443,7 +443,7 @@ gap: 0.5rem;
   }
 
   .service-memory-stats .refresh-btn-small:hover {
-    background: rgba(100, 108, 255, 0.05);
+    background: rgba(99, 102, 241, 0.04);
   }
 
   .memory-bar-container {

@@ -8,7 +8,7 @@
   align-items: center;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
+  /*background-color: var(--bg-secondary);*/
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -19,9 +19,9 @@
   gap: 0.5rem;
   flex: 1;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
-}
+  /*border-bottom: 1px solid var(--border-color);*/
+  /*background-color: var(--bg-secondary);*/
+}s
 
 .status-chip {
   display: inline-flex;
@@ -30,8 +30,8 @@
   gap: 0.3rem;
   padding: 0.5rem 1rem;
   border-radius: 20px;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
+  /*border: 1px solid var(--border-color);*/
+  /*background-color: var(--bg-secondary);*/
   color: var(--text-secondary);
   font-size: 0.85rem;
   font-weight: 500;
@@ -39,51 +39,56 @@
   transition: all 0.2s;
 }
 
+.status-chip .icon {
+  margin-bottom: 0.2rem;
+  margin-right: 0.3rem;
+}
+
 .status-chip:hover {
-  border-color: #646cff;
+  border-color: #6366f1;
   transform: translateY(-1px);
 }
 
 .status-chip.active {
-  background-color: rgba(100, 108, 255, 0.2);
-  border-color: #646cff;
-  color: #646cff;
+  background-color: rgba(99, 102, 241, 0.14);
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .status-chip.pending.active {
-  background-color: rgba(158, 158, 158, 0.2);
-  border-color: #9e9e9e;
-  color: #9e9e9e;
+  background-color: rgba(113, 113, 122, 0.1);
+  border-color: #71717a;
+  color: #71717a;
 }
 
 .status-chip.running.active {
-  background-color: rgba(33, 150, 243, 0.2);
-  border-color: #2196f3;
-  color: #2196f3;
+  background-color: rgba(59, 130, 246, 0.14);
+  border-color: #3b82f6;
+  color: #3b82f6;
 }
 
 .status-chip.success.active {
-  background-color: rgba(76, 175, 80, 0.2);
-  border-color: #4caf50;
-  color: #4caf50;
+  background-color: rgba(16, 185, 129, 0.14);
+  border-color: #10b981;
+  color: #10b981;
 }
 
 .status-chip.failed.active {
-  background-color: rgba(244, 67, 54, 0.2);
-  border-color: #f44336;
-  color: #f44336;
+  background-color: rgba(239, 68, 68, 0.14);
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 .status-chip.cancelled.active {
-  background-color: rgba(255, 152, 0, 0.2);
-  border-color: #ff9800;
-  color: #ff9800;
+  background-color: rgba(245, 158, 11, 0.14);
+  border-color: #f59e0b;
+  color: #f59e0b;
 }
 
 .status-chip.queued.active {
   background-color: rgba(255, 193, 7, 0.2);
-  border-color: #ffc107;
-  color: #ffc107;
+  border-color: #f59e0b;
+  color: #f59e0b;
 }
 
 .status-chip.timeout.active {
@@ -107,6 +112,7 @@
 .occurrence-table {
   width: 100%;
   border-collapse: collapse;
+  margin-top: 0 !important;
 }
 
 .occurrence-table thead {
@@ -139,7 +145,7 @@
   cursor: pointer;
   width: 18px;
   height: 18px;
-  accent-color: #646cff;
+  accent-color: #6366f1;
 }
 
 .occurrence-table td.checkbox-column input[type="checkbox"]:disabled {
@@ -167,12 +173,12 @@
 }
 
 .occurrence-running:hover {
-  background-color: rgba(33, 150, 243, 0.1) !important;
+  background-color: rgba(59, 130, 246, 0.1) !important;
 }
 
 .job-link,
 .occurrence-link {
-  color: #646cff;
+  color: #6366f1;
   text-decoration: none;
   font-weight: 500;
 }
@@ -184,8 +190,8 @@
 
 .worker-badge {
   padding: 0.25rem 0.75rem;
-  background-color: rgba(100, 108, 255, 0.2);
-  border: 1px solid rgba(100, 108, 255, 0.4);
+  background-color: rgba(99, 102, 241, 0.14);
+  border: 1px solid rgba(99, 102, 241, 0.25);
   border-radius: 12px;
   font-size: 0.85rem;
   font-family: monospace;
@@ -205,33 +211,33 @@
 }
 
 .occurrence-status.status-success {
-  background-color: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
+  background-color: rgba(16, 185, 129, 0.14);
+  color: #10b981;
 }
 
 .occurrence-status.status-failed {
-  background-color: rgba(244, 67, 54, 0.2);
-  color: #f44336;
+  background-color: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
 }
 
 .occurrence-status.status-running {
-  background-color: rgba(33, 150, 243, 0.2);
-  color: #2196f3;
+  background-color: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
 }
 
 .occurrence-status.status-pending {
-  background-color: rgba(158, 158, 158, 0.2);
-  color: #9e9e9e;
+  background-color: rgba(113, 113, 122, 0.1);
+  color: #71717a;
 }
 
 .occurrence-status.status-cancelled {
-  background-color: rgba(255, 152, 0, 0.2);
-  color: #ff9800;
+  background-color: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
 }
 
 .occurrence-status.status-queued {
   background-color: rgba(255, 193, 7, 0.2);
-  color: #ffc107;
+  color: #f59e0b;
 }
 
 .occurrence-status.status-timeout {
@@ -251,9 +257,9 @@
 .bulk-delete-btn {
   padding: 0.5rem 1rem;
   border-radius: 8px;
-  border: 1px solid #f44336;
-  background-color: rgba(244, 67, 54, 0.1);
-  color: #f44336;
+  border: 1px solid #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -265,9 +271,9 @@
 }
 
 .bulk-delete-btn:hover {
-  background-color: rgba(244, 67, 54, 0.2);
+  background-color: rgba(239, 68, 68, 0.14);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(244, 67, 54, 0.2);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.14);
 }
 
 .bulk-delete-btn:active {
@@ -275,22 +281,22 @@
 }
 
 /* Pagination */
-.pagination-container {
+.occurrence-table-container .pagination-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background: var(--bg-card);
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  padding: 1rem 1.25rem;
+  flex-wrap: wrap;
   gap: 1rem;
+  border: 0 !important;
+  margin-top: 0 !important;
 }
 
 .pagination {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  border: 0 !important;
 }
 
 /* Pagination Buttons */
@@ -323,9 +329,9 @@
 }
 
 .pagination .btn.btn-primary {
-  background: rgba(100, 108, 255, 0.2);
-  color: #646cff;
-  border-color: #646cff;
+  background: rgba(99, 102, 241, 0.14);
+  color: #6366f1;
+  border-color: #6366f1;
 }
 
 .pagination .btn-sm {
@@ -383,8 +389,7 @@
   }
 }
 
-.occurrence-status.status-running .material-symbols-outlined,
-.status-chip.running .material-symbols-outlined {
+.occurrence-status.status-running .material-symbols-outlined {
   animation: spin 2s linear infinite;
   display: inline-block;
 }

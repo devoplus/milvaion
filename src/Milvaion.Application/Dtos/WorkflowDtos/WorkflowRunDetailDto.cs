@@ -63,6 +63,16 @@ public class WorkflowRunDetailDto : MilvaionBaseDto<Guid>
     /// Step runs with their current states.
     /// </summary>
     public List<WorkflowStepRunDto> StepRuns { get; set; } = [];
+
+    /// <summary>
+    /// Workflow step definitions (for DAG visualization).
+    /// </summary>
+    public List<WorkflowStepDto> Steps { get; set; } = [];
+
+    /// <summary>
+    /// Workflow edges (for DAG visualization).
+    /// </summary>
+    public List<WorkflowEdgeDto> Edges { get; set; } = [];
 }
 
 /// <summary>

@@ -30,10 +30,8 @@ function App() {
     <ThemeProvider>
       <Router>
         <Routes>
-          {/* Public route - Login */}
           <Route path="/login" element={<Login />} />
 
-          {/* Protected routes - Wrapped in Layout */}
           <Route
             path="/*"
             element={
@@ -66,7 +64,6 @@ function App() {
                     <Route path="/workflows/:id/builder" element={<WorkflowBuilder />} />
                     <Route path="/workflows/:id/runs/:runId" element={<WorkflowRunDetail />} />
 
-                    {/* Catch all - redirect to dashboard */}
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </Layout>

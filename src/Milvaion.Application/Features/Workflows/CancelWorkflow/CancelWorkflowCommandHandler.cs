@@ -27,28 +27,24 @@ public record CancelWorkflowCommandHandler(IMilvaionRepositoryBase<WorkflowRun> 
     /// <inheritdoc/>
     public async Task<Response<bool>> Handle(CancelWorkflowCommand request, CancellationToken cancellationToken)
     {
-        var run = await _workflowRunRepository.GetFirstOrDefaultAsync(
-            condition: r => r.Id == request.WorkflowRunId,
-            projection: q => new WorkflowRun
+        var run = await _workflowRunRepository.GetFirstOrDefaultAsync(condition: r => r.Id == request.WorkflowRunId, projection: q => new WorkflowRun
+        {
+            Id = q.Id,
+            Status = q.Status,
+            EndTime = q.EndTime,
+            Error = q.Error,
+            DurationMs = q.DurationMs,
+            StartTime = q.StartTime,
+            StepOccurrences = q.StepOccurrences.Select(so => new JobOccurrence
             {
-                Id = q.Id,
-                Status = q.Status,
-                EndTime = q.EndTime,
-                Error = q.Error,
-                DurationMs = q.DurationMs,
-                StartTime = q.StartTime,
-                StepOccurrences = q.StepOccurrences.Select(so => new JobOccurrence
-                {
-                    Id = so.Id,
-                    JobId = so.JobId,
-                    StepStatus = so.StepStatus,
-                    Status = so.Status,
-                    EndTime = so.EndTime,
-                    Exception = so.Exception
-                }).ToList()
-            },
-            tracking: true,
-            cancellationToken: cancellationToken);
+                Id = so.Id,
+                JobId = so.JobId,
+                StepStatus = so.StepStatus,
+                Status = so.Status,
+                EndTime = so.EndTime,
+                Exception = so.Exception
+            }).ToList()
+        }, tracking: true, cancellationToken: cancellationToken);
 
         if (run == null)
             return Response<bool>.Error(false, "Workflow run not found.");
@@ -70,14 +66,12 @@ public record CancelWorkflowCommandHandler(IMilvaionRepositoryBase<WorkflowRun> 
         var runningSteps = run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Running).ToList();
         var queuedSteps = run.StepOccurrences.Where(o => o.StepStatus is WorkflowStepStatus.Pending or WorkflowStepStatus.Delayed).ToList();
 
-        // Cancel running steps
         foreach (var occ in runningSteps)
         {
             occ.StepStatus = WorkflowStepStatus.Cancelled;
             occ.Status = JobOccurrenceStatus.Cancelled;
             occ.EndTime = now;
 
-            // Send cancellation signal to Redis
             try
             {
                 await _cancellationService.PublishCancellationAsync(occ.Id, occ.JobId, occ.Id, request.Reason, cancellationToken);
@@ -104,15 +98,13 @@ public record CancelWorkflowCommandHandler(IMilvaionRepositoryBase<WorkflowRun> 
 
         if (occurrencesToUpdate.Count > 0)
         {
-            await _occurrenceRepository.BulkUpdateAsync(
-                occurrencesToUpdate,
-                bc => bc.PropertiesToIncludeOnUpdate = [
-                    nameof(JobOccurrence.StepStatus),
-                    nameof(JobOccurrence.Status),
-                    nameof(JobOccurrence.EndTime),
-                    nameof(JobOccurrence.Exception)
-                ],
-                cancellationToken: cancellationToken);
+            await _occurrenceRepository.BulkUpdateAsync(occurrencesToUpdate, bc => bc.PropertiesToIncludeOnUpdate =
+            [
+                nameof(JobOccurrence.StepStatus),
+                nameof(JobOccurrence.Status),
+                nameof(JobOccurrence.EndTime),
+                nameof(JobOccurrence.Exception)
+            ], cancellationToken: cancellationToken);
         }
 
         return Response<bool>.Success(true, $"Workflow run cancelled. {runningSteps.Count} running steps cancelled, {queuedSteps.Count} pending steps skipped.");

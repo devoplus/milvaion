@@ -1,4 +1,3 @@
-using Milvaion.Application.Features.Workflows;
 using Milvasoft.Components.CQRS.Command;
 using Milvasoft.Components.Rest.MilvaResponse;
 using Milvasoft.Core.Abstractions;
@@ -12,11 +11,9 @@ namespace Milvaion.Application.Features.Workflows.CreateWorkflow;
 [Log]
 [UserActivityTrack(UserActivity.CreateScheduledJob)]
 public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> WorkflowRepository,
-                                            IMilvaionRepositoryBase<WorkflowStep> StepRepository,
                                             IMilvaionRepositoryBase<ScheduledJob> JobRepository) : IInterceptable, ICommandHandler<CreateWorkflowCommand, Guid>
 {
     private readonly IMilvaionRepositoryBase<Workflow> _workflowRepository = WorkflowRepository;
-    private readonly IMilvaionRepositoryBase<WorkflowStep> _stepRepository = StepRepository;
     private readonly IMilvaionRepositoryBase<ScheduledJob> _jobRepository = JobRepository;
 
     /// <inheritdoc/>
@@ -26,12 +23,15 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
             return Response<Guid>.Error(default, "Workflow must have at least one step.");
 
         // Validate all referenced jobs exist
-        var jobIds = request.Steps.Select(s => s.JobId).Distinct().ToList();
+        var jobIds = request.Steps.Where(s => s.NodeType == WorkflowNodeType.Task && s.JobId.HasValue).Select(s => s.JobId!.Value).Distinct().ToList();
+
         var existingJobIds = new HashSet<Guid>();
+
+        var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id), cancellationToken: cancellationToken);
 
         foreach (var jobId in jobIds)
         {
-            var job = await _jobRepository.GetByIdAsync(jobId, cancellationToken: cancellationToken);
+            var job = jobs.FirstOrDefault(j => j.Id == jobId);
 
             if (job != null)
                 existingJobIds.Add(jobId);
@@ -42,16 +42,13 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
         if (missingJobs.Count > 0)
             return Response<Guid>.Error(default, $"Jobs not found: {string.Join(", ", missingJobs)}");
 
-        // Build temp ID to real ID mapping
         var tempIdToRealId = new Dictionary<string, Guid>();
 
         foreach (var step in request.Steps)
-        {
             tempIdToRealId[step.TempId ?? Guid.CreateVersion7().ToString()] = Guid.CreateVersion7();
-        }
 
         // Validate DAG (no cycles)
-        if (!request.Steps.ValidateDAG())
+        if (!request.Steps.ValidateDAG(request.Edges))
             return Response<Guid>.Error(default, "Workflow contains circular dependencies. Steps must form a Directed Acyclic Graph (DAG).");
 
         var workflow = new Workflow
@@ -66,9 +63,13 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
             TimeoutSeconds = request.TimeoutSeconds,
             CronExpression = request.CronExpression,
             Version = 1,
+            Definition = new WorkflowDefinition
+            {
+                Steps = [],
+                Edges = []
+            }
         };
 
-        var steps = new List<WorkflowStep>();
         var tempIds = request.Steps.Select(s => s.TempId).ToList();
 
         for (int i = 0; i < request.Steps.Count; i++)
@@ -76,26 +77,14 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
             var stepCmd = request.Steps[i];
             var stepId = tempIdToRealId[stepCmd.TempId ?? tempIds[i] ?? Guid.CreateVersion7().ToString()];
 
-            // Convert dependency temp IDs to real IDs
-            string dependsOnStepIds = null;
-
-            if (!string.IsNullOrWhiteSpace(stepCmd.DependsOnTempIds))
-            {
-                var depTempIds = stepCmd.DependsOnTempIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                var realDepIds = depTempIds.Select(tid => tempIdToRealId.TryGetValue(tid, out var rid) ? rid.ToString() : null)
-                                           .Where(id => id != null);
-                dependsOnStepIds = string.Join(",", realDepIds);
-            }
-
-            steps.Add(new WorkflowStep
+            workflow.Definition.Steps.Add(new WorkflowStepDefinition
             {
                 Id = stepId,
-                WorkflowId = workflow.Id,
-                JobId = stepCmd.JobId,
+                NodeType = stepCmd.NodeType,
+                JobId = stepCmd.NodeType == WorkflowNodeType.Task && stepCmd.JobId.HasValue && stepCmd.JobId.Value != Guid.Empty ? stepCmd.JobId : null,
                 StepName = stepCmd.StepName,
                 Order = stepCmd.Order,
-                DependsOnStepIds = dependsOnStepIds,
-                Condition = stepCmd.Condition,
+                NodeConfigJson = stepCmd.NodeConfigJson,
                 DataMappings = stepCmd.DataMappings,
                 DelaySeconds = stepCmd.DelaySeconds,
                 JobDataOverride = ScheduledJob.FixJobData(stepCmd.JobDataOverride),
@@ -104,7 +93,23 @@ public record CreateWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
             });
         }
 
-        workflow.Steps = steps;
+        foreach (var edgeCmd in request.Edges ?? [])
+        {
+            if (!tempIdToRealId.TryGetValue(edgeCmd.SourceTempId, out var sourceId) || !tempIdToRealId.TryGetValue(edgeCmd.TargetTempId, out var targetId))
+                continue;
+
+            workflow.Definition.Edges.Add(new WorkflowEdgeDefinition
+            {
+                SourceStepId = sourceId,
+                TargetStepId = targetId,
+                SourcePort = edgeCmd.SourcePort,
+                TargetPort = edgeCmd.TargetPort,
+                Label = edgeCmd.Label,
+                Order = edgeCmd.Order,
+                EdgeConfigJson = edgeCmd.EdgeConfigJson,
+            });
+        }
+
         await _workflowRepository.AddAsync(workflow, cancellationToken: cancellationToken);
 
         return Response<Guid>.Success(workflow.Id, "Workflow created successfully.");

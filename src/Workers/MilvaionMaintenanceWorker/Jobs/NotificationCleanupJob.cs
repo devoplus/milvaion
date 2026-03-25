@@ -12,7 +12,7 @@ namespace MilvaionMaintenanceWorker.Jobs;
 /// Removes seen and unseen notifications after specified retention periods.
 /// Recommended schedule: Daily at 4 AM.
 /// </summary>
-public class NotificationCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult
+public class NotificationCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult<string>
 {
     private readonly MaintenanceOptions _options = options.Value;
 

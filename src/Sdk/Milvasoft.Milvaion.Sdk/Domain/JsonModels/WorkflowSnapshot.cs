@@ -23,6 +23,7 @@ public class WorkflowSnapshot
     public DateTime? LastModificationDate { get; set; }
     public string LastModifierUserName { get; set; }
     public List<WorkflowStepSnapshot> Steps { get; set; }
+    public List<WorkflowEdgeSnapshot> Edges { get; set; }
 }
 
 /// <summary>
@@ -43,7 +44,12 @@ public class WorkflowStepSnapshot
     /// <summary>
     /// The scheduled job this step executes.
     /// </summary>
-    public Guid JobId { get; set; }
+    public WorkflowNodeType NodeType { get; set; }
+
+    /// <summary>
+    /// The scheduled job this step executes.
+    /// </summary>
+    public Guid? JobId { get; set; }
 
     /// <summary>
     /// Job version for this step (for reference, not necessarily unique). Used for visualization and debugging.
@@ -66,18 +72,9 @@ public class WorkflowStepSnapshot
     public int Order { get; set; }
 
     /// <summary>
-    /// Comma-separated list of step IDs that must complete before this step can run.
-    /// Empty or null means this is a root step (no dependencies).
+    /// Node specific configuration stored as JSON.
     /// </summary>
-    public string DependsOnStepIds { get; set; }
-
-    /// <summary>
-    /// JSONPath or expression to evaluate on the previous step's output.
-    /// If the condition evaluates to false, this step is skipped.
-    /// Null means always execute (unconditional).
-    /// Example: "$.status == 'approved'" or "$.count > 0"
-    /// </summary>
-    public string Condition { get; set; }
+    public string NodeConfigJson { get; set; }
 
     /// <summary>
     /// JSON mapping definition for passing data from parent steps to this step's job data.
@@ -106,4 +103,20 @@ public class WorkflowStepSnapshot
     /// Y coordinate for DAG visualization.
     /// </summary>
     public double? PositionY { get; set; }
+}
+
+/// <summary>
+/// Represents a snapshot of a workflow edge.
+/// </summary>
+public class WorkflowEdgeSnapshot
+{
+    public Guid Id { get; set; }
+    public Guid WorkflowId { get; set; }
+    public Guid SourceStepId { get; set; }
+    public Guid TargetStepId { get; set; }
+    public string SourcePort { get; set; }
+    public string TargetPort { get; set; }
+    public string Label { get; set; }
+    public int Order { get; set; }
+    public string EdgeConfigJson { get; set; }
 }

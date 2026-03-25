@@ -1,4 +1,5 @@
 using Milvasoft.Components.CQRS.Command;
+using Milvasoft.Milvaion.Sdk.Domain.Enums;
 
 namespace Milvaion.Application.Features.Workflows.CreateWorkflow;
 
@@ -53,6 +54,11 @@ public record CreateWorkflowCommand : ICommand<Guid>
     /// </summary>
     public List<CreateWorkflowStepDto> Steps { get; set; } = [];
 
+    /// <summary>
+    /// Edges to include in this workflow.
+    /// </summary>
+    public List<CreateWorkflowEdgeDto> Edges { get; set; } = [];
+
     }
 
 /// <summary>
@@ -66,9 +72,14 @@ public class CreateWorkflowStepDto
     public string TempId { get; set; }
 
     /// <summary>
-    /// Job ID to execute.
+    /// Node type.
     /// </summary>
-    public Guid JobId { get; set; }
+    public WorkflowNodeType NodeType { get; set; } = WorkflowNodeType.Task;
+
+    /// <summary>
+    /// Job ID to execute for task nodes.
+    /// </summary>
+    public Guid? JobId { get; set; }
 
     /// <summary>
     /// Step display name.
@@ -81,14 +92,9 @@ public class CreateWorkflowStepDto
     public int Order { get; set; }
 
     /// <summary>
-    /// Comma-separated list of TempIds that must complete first.
+    /// Node specific configuration stored as JSON.
     /// </summary>
-    public string DependsOnTempIds { get; set; }
-
-    /// <summary>
-    /// Condition expression.
-    /// </summary>
-    public string Condition { get; set; }
+    public string NodeConfigJson { get; set; }
 
     /// <summary>
     /// Data mapping definitions (JSON).
@@ -114,4 +120,50 @@ public class CreateWorkflowStepDto
     /// Y position for DAG visualization.
     /// </summary>
     public double? PositionY { get; set; }
+}
+
+/// <summary>
+/// DTO for creating a workflow edge.
+/// </summary>
+public class CreateWorkflowEdgeDto
+{
+    /// <summary>
+    /// Temporary client-side ID for referencing the edge.
+    /// </summary>
+    public string TempId { get; set; }
+
+    /// <summary>
+    /// Temporary ID of the source step.
+    /// </summary>
+    public string SourceTempId { get; set; }
+
+    /// <summary>
+    /// Temporary ID of the target step.
+    /// </summary>
+    public string TargetTempId { get; set; }
+
+    /// <summary>
+    /// Source port identifier for the connection.
+    /// </summary>
+    public string SourcePort { get; set; }
+
+    /// <summary>
+    /// Target port identifier for the connection.
+    /// </summary>
+    public string TargetPort { get; set; }
+
+    /// <summary>
+    /// Display label for the edge.
+    /// </summary>
+    public string Label { get; set; }
+
+    /// <summary>
+    /// Sort order for edge evaluation.
+    /// </summary>
+    public int Order { get; set; }
+
+    /// <summary>
+    /// Edge specific configuration stored as JSON.
+    /// </summary>
+    public string EdgeConfigJson { get; set; }
 }

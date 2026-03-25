@@ -60,8 +60,9 @@
 }
 
 .wfd-header-content h1 {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
   margin: 0 0 0.25rem;
   color: var(--text-primary);
   display: flex;
@@ -128,34 +129,35 @@
 }
 
 .wfd-btn-primary {
-  background: linear-gradient(135deg, #646cff 0%, #535bf2 100%);
+  background: var(--accent-gradient);
   color: white;
 }
 
 .wfd-btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(100, 108, 255, 0.4);
+  opacity: 0.9;
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .wfd-btn-danger {
-  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
 }
 
 .wfd-btn-danger:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+  opacity: 0.9;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
 }
 
 .wfd-btn-secondary {
-  background: var(--bg-secondary);
+  background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
 }
 
 .wfd-btn-secondary:hover:not(:disabled) {
-  border-color: var(--accent-color);
-  color: var(--accent-color);
+  border-color: var(--border-light);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .wfd-btn-sm {
@@ -319,7 +321,7 @@
 .status-completed { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 .status-failed { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 .status-cancelled { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
-.status-partial { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.status-partial { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 
 /* Empty / Loading states */
 .empty-runs {

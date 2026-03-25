@@ -29,6 +29,12 @@ public class CachedWorker
     public Dictionary<string, string> JobDataDefinitions { get; set; } = [];
 
     /// <summary>
+    /// Job name and result schema definition pair this worker handles.
+    /// Only present for jobs implementing IJobWithResult or IAsyncJobWithResult.
+    /// </summary>
+    public Dictionary<string, string> JobResultDefinitions { get; set; } = [];
+
+    /// <summary>
     /// Job types this worker can execute.
     /// </summary>
     public List<string> JobNames { get; set; } = [];

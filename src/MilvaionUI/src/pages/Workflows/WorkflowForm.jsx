@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import workflowService from '../../services/workflowService'
 import jobService from '../../services/jobService'
+import workerService from '../../services/workerService'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import CronExpressionInput from '../../components/CronExpressionInput'
+import DataMappingEditor, { parseSchemaFields } from './DataMappingEditor'
 import './WorkflowForm.css'
 
 const failureStrategies = [
@@ -13,6 +15,12 @@ const failureStrategies = [
   { value: 1, label: 'Continue on Failure' },
   { value: 2, label: 'Retry then Stop' },
   { value: 3, label: 'Retry then Continue' },
+]
+
+const nodeTypes = [
+  { value: 0, label: 'Task', icon: 'work' },
+  { value: 1, label: 'Condition', icon: 'fork_right' },
+  { value: 2, label: 'Merge', icon: 'merge' },
 ]
 
 function WorkflowForm() {
@@ -23,6 +31,7 @@ function WorkflowForm() {
   const { modalProps, showSuccess, showError } = useModal()
 
   const [jobs, setJobs] = useState([])
+  const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [tagInput, setTagInput] = useState('')
@@ -39,16 +48,31 @@ function WorkflowForm() {
   })
 
   const [steps, setSteps] = useState([])
+  const [edges, setEdges] = useState([])
 
   // Load available jobs
   const loadJobs = useCallback(async () => {
     try {
-      const response = await jobService.getAll()
-      setJobs(response?.data || [])
+      const [jobsRes, workersRes] = await Promise.all([jobService.getAll(), workerService.getAll()])
+      setJobs(jobsRes?.data || [])
+      setWorkers(workersRes?.data || [])
     } catch {
       // ignore
     }
   }, [])
+
+  const schemasMap = useMemo(() => {
+    const map = {}
+    for (const worker of workers) {
+      for (const jobName of (worker.jobNames || [])) {
+        map[jobName] = {
+          dataFields: parseSchemaFields(worker.jobDataDefinitions?.[jobName]),
+          resultFields: parseSchemaFields(worker.jobResultDefinitions?.[jobName]),
+        }
+      }
+    }
+    return map
+  }, [workers])
 
   // Load workflow data for edit mode
   const loadWorkflow = useCallback(async () => {
@@ -72,14 +96,29 @@ function WorkflowForm() {
       if (data.steps && data.steps.length > 0) {
         setSteps(data.steps.map(s => ({
           tempId: s.id ? s.id.toString() : `step-${tempIdCounter.current++}`,
+          nodeType: s.nodeType ?? 0,
           jobId: s.jobId || '',
           stepName: s.stepName || '',
           order: s.order || 0,
-          dependsOnTempIds: s.dependsOnStepIds || '',
-          condition: s.condition || '',
+          nodeConfigJson: s.nodeConfigJson || '',
           delaySeconds: s.delaySeconds || 0,
           jobDataOverride: s.jobDataOverride || '',
           dataMappings: s.dataMappings ? deserializeMappings(s.dataMappings) : [],
+          positionX: s.positionX,
+          positionY: s.positionY,
+        })))
+      }
+
+      // Load edges
+      if (data.edges && data.edges.length > 0) {
+        setEdges(data.edges.map(e => ({
+          tempId: e.id ? e.id.toString() : `edge-${tempIdCounter.current++}`,
+          sourceTempId: e.sourceStepId.toString(),
+          targetTempId: e.targetStepId.toString(),
+          sourcePort: e.sourcePort || '',
+          targetPort: e.targetPort || '',
+          label: e.label || '',
+          order: e.order || 0,
         })))
       }
     } catch (err) {
@@ -119,19 +158,21 @@ function WorkflowForm() {
   }
 
   // Step management
-  const addStep = () => {
+  const addStep = (nodeType = 0) => {
     setSteps(prev => [
       ...prev,
       {
         tempId: `step-${tempIdCounter.current++}`,
+        nodeType,
         jobId: '',
         stepName: '',
         order: prev.length + 1,
-        dependsOnTempIds: '',
-        condition: '',
+        nodeConfigJson: '',
         delaySeconds: 0,
         jobDataOverride: '',
         dataMappings: [],
+        positionX: null,
+        positionY: null,
       }
     ])
   }
@@ -144,51 +185,40 @@ function WorkflowForm() {
     const removedTempId = steps[index].tempId
     setSteps(prev => {
       const updated = prev.filter((_, i) => i !== index)
-      // Remove references to the deleted step from dependencies
-      return updated.map((s, i) => ({
-        ...s,
-        order: i + 1,
-        dependsOnTempIds: s.dependsOnTempIds
-          ? s.dependsOnTempIds.split(',').map(d => d.trim()).filter(d => d !== removedTempId).join(',')
-          : ''
-      }))
+      return updated.map((s, i) => ({ ...s, order: i + 1 }))
+    })
+    setEdges(prev => prev.filter(e => e.sourceTempId !== removedTempId && e.targetTempId !== removedTempId))
+  }
+
+  // Edge management
+  const addEdge = () => {
+    setEdges(prev => [
+      ...prev,
+      {
+        tempId: `edge-${tempIdCounter.current++}`,
+        sourceTempId: '',
+        targetTempId: '',
+        sourcePort: '',
+        targetPort: '',
+        label: '',
+        order: prev.length + 1,
+      }
+    ])
+  }
+
+  const updateEdge = (index, field, value) => {
+    setEdges(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e))
+  }
+
+  const removeEdge = (index) => {
+    setEdges(prev => {
+      const updated = prev.filter((_, i) => i !== index)
+      return updated.map((e, i) => ({ ...e, order: i + 1 }))
     })
   }
 
-  const toggleDependency = (stepIndex, depTempId) => {
-    setSteps(prev => prev.map((s, i) => {
-      if (i !== stepIndex) return s
-      const current = s.dependsOnTempIds ? s.dependsOnTempIds.split(',').map(d => d.trim()).filter(Boolean) : []
-      const idx = current.indexOf(depTempId)
-      if (idx >= 0) {
-        current.splice(idx, 1)
-      } else {
-        current.push(depTempId)
-      }
-      return { ...s, dependsOnTempIds: current.join(',') }
-    }))
-  }
-
-  const addMapping = (stepIndex) => {
-    setSteps(prev => prev.map((s, i) => {
-      if (i !== stepIndex) return s
-      return { ...s, dataMappings: [...s.dataMappings, { sourceStepTempId: '', sourcePath: '', targetPath: '' }] }
-    }))
-  }
-
-  const updateMapping = (stepIndex, mapIndex, field, value) => {
-    setSteps(prev => prev.map((s, i) => {
-      if (i !== stepIndex) return s
-      const updated = s.dataMappings.map((m, mi) => mi === mapIndex ? { ...m, [field]: value } : m)
-      return { ...s, dataMappings: updated }
-    }))
-  }
-
-  const removeMapping = (stepIndex, mapIndex) => {
-    setSteps(prev => prev.map((s, i) => {
-      if (i !== stepIndex) return s
-      return { ...s, dataMappings: s.dataMappings.filter((_, mi) => mi !== mapIndex) }
-    }))
+  const handleMappingsChange = (stepIndex, newMappings) => {
+    setSteps(prev => prev.map((s, i) => i === stepIndex ? { ...s, dataMappings: newMappings } : s))
   }
 
   // Deserialize dataMappings from backend JSON format to array for editing
@@ -197,8 +227,8 @@ function WorkflowForm() {
     try {
       const obj = typeof dataMappingsJson === 'string' ? JSON.parse(dataMappingsJson) : dataMappingsJson
       return Object.entries(obj).map(([sourceKey, targetPath]) => {
-        const [sourceStepTempId, sourcePath] = sourceKey.includes(':') 
-          ? sourceKey.split(':', 2) 
+        const [sourceStepTempId, sourcePath] = sourceKey.includes(':')
+          ? sourceKey.split(':', 2)
           : ['', sourceKey]
         return { sourceStepTempId, sourcePath, targetPath }
       })
@@ -234,12 +264,19 @@ function WorkflowForm() {
     }
 
     for (const step of steps) {
-      if (!step.jobId) {
-        showError(`Step "${step.stepName || step.order}" has no job selected.`)
+      if (step.nodeType === 0 && !step.jobId) {
+        showError(`Task step "${step.stepName || step.order}" has no job selected.`)
         return
       }
       if (!step.stepName.trim()) {
         showError(`Step #${step.order} needs a name.`)
+        return
+      }
+    }
+
+    for (const edge of edges) {
+      if (!edge.sourceTempId || !edge.targetTempId) {
+        showError(`Edge #${edge.order} is missing source or target step.`)
         return
       }
     }
@@ -447,202 +484,229 @@ function WorkflowForm() {
         <div className="form-section">
           <div className="section-header">
             <h2><Icon name="layers" size={20} /> Steps ({steps.length})</h2>
-            <button type="button" className="wf-add-step-btn" onClick={addStep}>
-              <Icon name="add" size={16} /> Add Step
-            </button>
+            <div className="wf-add-step-buttons">
+              {nodeTypes.map(nt => (
+                <button
+                  key={nt.value}
+                  type="button"
+                  className="wf-add-step-btn"
+                  onClick={() => addStep(nt.value)}
+                  title={`Add ${nt.label} node`}
+                >
+                  <Icon name={nt.icon} size={16} /> {nt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {steps.length === 0 ? (
             <div className="empty-steps">
               <Icon name="layers" size={40} />
-              <p>No steps yet. Click "Add Step" to build your workflow.</p>
+              <p>No steps yet. Click &quot;Add Step&quot; to build your workflow.</p>
             </div>
           ) : (
             <div className="steps-list">
-              {steps.map((step, index) => (
-                <div key={step.tempId} className="step-card">
-                  <div className="step-card-header">
-                    <span className="step-number">#{step.order}</span>
-                    <span className="step-temp-id">{step.tempId}</span>
+              {steps.map((step, index) => {
+                const nodeTypeInfo = nodeTypes.find(nt => nt.value === step.nodeType) || nodeTypes[0]
+                const isTaskNode = step.nodeType === 0
+                const isConditionNode = step.nodeType === 1
+
+                return (
+                  <div key={step.tempId} className={`step-card step-card-${nodeTypeInfo.label.toLowerCase()}`}>
+                    <div className="step-card-header">
+                      <div className="step-card-header-left">
+                        <Icon name={nodeTypeInfo.icon} size={20} />
+                        <span className="step-type-badge">{nodeTypeInfo.label}</span>
+                        <span className="step-number">#{step.order}</span>
+                        <span className="step-temp-id">{step.tempId}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="wf-remove-step-btn"
+                        onClick={() => removeStep(index)}
+                        title="Remove step"
+                      >
+                        <Icon name="close" size={18} />
+                      </button>
+                    </div>
+
+                    <div className="step-form-grid">
+                      <div className="form-group">
+                        <label>Step Name *</label>
+                        <input
+                          type="text"
+                          value={step.stepName}
+                          onChange={e => updateStep(index, 'stepName', e.target.value)}
+                          placeholder={`e.g. ${nodeTypeInfo.label} Step`}
+                        />
+                      </div>
+
+                      {isTaskNode && (
+                        <>
+                          <div className="form-group">
+                            <label>Job *</label>
+                            <select
+                              value={step.jobId}
+                              onChange={e => updateStep(index, 'jobId', e.target.value)}
+                            >
+                              <option value="">Select a job...</option>
+                              {jobs.map(j => (
+                                <option key={j.id} value={j.id}>{j.displayName || j.jobNameInWorker}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label>Delay (seconds)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={step.delaySeconds}
+                              onChange={e => updateStep(index, 'delaySeconds', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {isConditionNode && (
+                        <div className="form-group form-group-full">
+                          <label>Condition Expression</label>
+                          <input
+                            type="text"
+                            value={(() => {
+                              try {
+                                return step.nodeConfigJson ? (JSON.parse(step.nodeConfigJson).expression || '') : ''
+                              } catch {
+                                return ''
+                              }
+                            })()}
+                            onChange={e => updateStep(index, 'nodeConfigJson', JSON.stringify({ expression: e.target.value }))}
+                            placeholder='e.g. @status == "Completed" || $.price > 100'
+                          />
+                          <small className="wf-form-hint">Supports: @status checks, $.field comparisons, && (AND), || (OR)</small>
+                        </div>
+                      )}
+
+                      {isTaskNode && (
+                        <>
+                          <div className="form-group form-group-full">
+                            <label>Job Data Override (JSON)</label>
+                            <textarea
+                              value={step.jobDataOverride}
+                              onChange={e => updateStep(index, 'jobDataOverride', e.target.value)}
+                              placeholder='{"key": "value"}'
+                              rows={2}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Data Mappings for Task nodes */}
+                    {isTaskNode && (
+                      <div className="step-data-mappings">
+                        <DataMappingEditor
+                          mappings={step.dataMappings}
+                          onChange={(newMappings) => handleMappingsChange(index, newMappings)}
+                          steps={steps}
+                          currentStepTempId={step.tempId}
+                          jobs={jobs}
+                          currentStepJobId={step.jobId}
+                          schemasMap={schemasMap}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Edges */}
+        <div className="form-section">
+          <div className="section-header">
+            <h2><Icon name="fork_right" size={20} /> Connections ({edges.length})</h2>
+            <button type="button" className="wf-add-step-btn" onClick={addEdge}>
+              <Icon name="add" size={16} /> Add Connection
+            </button>
+          </div>
+
+          {edges.length === 0 ? (
+            <div className="empty-steps">
+              <Icon name="fork_right" size={40} />
+              <p>No connections yet. Add edges to define workflow flow.</p>
+            </div>
+          ) : (
+            <div className="edges-list">
+              {edges.map((edge, index) => (
+                <div key={edge.tempId} className="edge-card">
+                  <div className="edge-card-header">
+                    <span className="edge-number">#{edge.order}</span>
+                    <span className="edge-temp-id">{edge.tempId}</span>
                     <button
                       type="button"
                       className="wf-remove-step-btn"
-                      onClick={() => removeStep(index)}
-                      title="Remove step"
+                      onClick={() => removeEdge(index)}
+                      title="Remove edge"
                     >
                       <Icon name="close" size={18} />
                     </button>
                   </div>
 
-                  <div className="step-form-grid">
+                  <div className="edge-form-grid">
                     <div className="form-group">
-                      <label>Step Name *</label>
-                      <input
-                        type="text"
-                        value={step.stepName}
-                        onChange={e => updateStep(index, 'stepName', e.target.value)}
-                        placeholder="e.g. Fetch Data"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Job *</label>
+                      <label>Source Step *</label>
                       <select
-                        value={step.jobId}
-                        onChange={e => updateStep(index, 'jobId', e.target.value)}
+                        value={edge.sourceTempId}
+                        onChange={e => updateEdge(index, 'sourceTempId', e.target.value)}
                       >
-                        <option value="">Select a job...</option>
-                        {jobs.map(j => (
-                          <option key={j.id} value={j.id}>{j.displayName || j.jobNameInWorker}</option>
+                        <option value="">Select source...</option>
+                        {steps.map(s => (
+                          <option key={s.tempId} value={s.tempId}>
+                            {s.stepName || `#${s.order}`} ({nodeTypes.find(nt => nt.value === s.nodeType)?.label})
+                          </option>
                         ))}
                       </select>
                     </div>
+
                     <div className="form-group">
-                      <label>Delay (seconds)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={step.delaySeconds}
-                        onChange={e => updateStep(index, 'delaySeconds', parseInt(e.target.value) || 0)}
-                      />
+                      <label>Target Step *</label>
+                      <select
+                        value={edge.targetTempId}
+                        onChange={e => updateEdge(index, 'targetTempId', e.target.value)}
+                      >
+                        <option value="">Select target...</option>
+                        {steps.map(s => (
+                          <option key={s.tempId} value={s.tempId}>
+                            {s.stepName || `#${s.order}`} ({nodeTypes.find(nt => nt.value === s.nodeType)?.label})
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
                     <div className="form-group">
-                      <label>Condition</label>
+                      <label>Source Port</label>
+                      <select
+                        value={edge.sourcePort}
+                        onChange={e => updateEdge(index, 'sourcePort', e.target.value)}
+                      >
+                        <option value="">None</option>
+                        <option value="true">true</option>
+                        <option value="false">false</option>
+                      </select>
+                      <small className="wf-form-hint">For condition nodes</small>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Label</label>
                       <input
                         type="text"
-                        value={step.condition}
-                        onChange={e => updateStep(index, 'condition', e.target.value)}
-                        placeholder="e.g. $.status == 'approved'"
-                      />
-                    </div>
-                    <div className="form-group form-group-full">
-                      <label>Job Data Override (JSON)</label>
-                      <textarea
-                        value={step.jobDataOverride}
-                        onChange={e => updateStep(index, 'jobDataOverride', e.target.value)}
-                        placeholder='{"key": "value"}'
-                        rows={2}
+                        value={edge.label}
+                        onChange={e => updateEdge(index, 'label', e.target.value)}
+                        placeholder="Optional label"
                       />
                     </div>
                   </div>
-
-                  {/* Data Mappings — pass previous step output to this step's job data */}
-                  {index > 0 && (
-                    <div className="step-data-mappings">
-                      <div className="mapping-header">
-                        <label><Icon name="swap_horiz" size={16} /> Data Mappings</label>
-                        <button type="button" className="wf-mapping-add-btn" onClick={() => addMapping(index)}>
-                          <Icon name="add" size={14} /> Add Mapping
-                        </button>
-                      </div>
-                      {step.dataMappings.length === 0 ? (
-                        <p className="mapping-hint">Map output fields from previous steps into this step's job data.</p>
-                      ) : (
-                        <div className="mapping-rows">
-                          {step.dataMappings.map((mapping, mi) => {
-                            const parentSteps = steps.filter((_, pi) => pi !== index)
-                            const selectedJob = mapping.sourceStepTempId
-                              ? steps.find(s => s.tempId === mapping.sourceStepTempId)
-                              : null
-                            const selectedJobInfo = selectedJob ? jobs.find(j => j.id === selectedJob.jobId) : null
-                            const currentJobInfo = step.jobId ? jobs.find(j => j.id === step.jobId) : null
-
-                            // Try to extract field names from job data JSON for hints
-                            const getFieldHints = (jobInfo) => {
-                              if (!jobInfo?.jobData) return []
-                              try {
-                                return Object.keys(JSON.parse(jobInfo.jobData))
-                              } catch { return [] }
-                            }
-
-                            const sourceHints = getFieldHints(selectedJobInfo)
-                            const targetHints = getFieldHints(currentJobInfo)
-
-                            return (
-                              <div key={mi} className="mapping-row">
-                                <div className="mapping-source">
-                                  <select
-                                    value={mapping.sourceStepTempId}
-                                    onChange={e => updateMapping(index, mi, 'sourceStepTempId', e.target.value)}
-                                    title="Source step"
-                                  >
-                                    <option value="">Any parent</option>
-                                    {parentSteps.map(ps => (
-                                      <option key={ps.tempId} value={ps.tempId}>{ps.stepName || `#${ps.order}`}</option>
-                                    ))}
-                                  </select>
-                                  <div className="mapping-path-input">
-                                    <span className="path-prefix">$.</span>
-                                    <input
-                                      type="text"
-                                      value={mapping.sourcePath}
-                                      onChange={e => updateMapping(index, mi, 'sourcePath', e.target.value)}
-                                      placeholder={sourceHints.length > 0 ? `e.g. ${sourceHints[0]}` : 'field or * for all'}
-                                      list={`src-hints-${step.tempId}-${mi}`}
-                                    />
-                                    {sourceHints.length > 0 && (
-                                      <datalist id={`src-hints-${step.tempId}-${mi}`}>
-                                        <option value="*">Entire result</option>
-                                        {sourceHints.map(h => <option key={h} value={h} />)}
-                                      </datalist>
-                                    )}
-                                  </div>
-                                </div>
-                                <Icon name="arrow_forward" size={16} className="mapping-arrow" />
-                                <div className="mapping-target">
-                                  <div className="mapping-path-input">
-                                    <span className="path-prefix">$.</span>
-                                    <input
-                                      type="text"
-                                      value={mapping.targetPath}
-                                      onChange={e => updateMapping(index, mi, 'targetPath', e.target.value)}
-                                      placeholder={targetHints.length > 0 ? `e.g. ${targetHints[0]}` : 'target field'}
-                                      list={`tgt-hints-${step.tempId}-${mi}`}
-                                    />
-                                    {targetHints.length > 0 && (
-                                      <datalist id={`tgt-hints-${step.tempId}-${mi}`}>
-                                        {targetHints.map(h => <option key={h} value={h} />)}
-                                      </datalist>
-                                    )}
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="wf-remove-step-btn"
-                                  onClick={() => removeMapping(index, mi)}
-                                  title="Remove mapping"
-                                >
-                                  <Icon name="close" size={16} />
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Dependencies */}
-                  {index > 0 && (
-                    <div className="step-dependencies">
-                      <label>Depends on:</label>
-                      <div className="dep-chips">
-                        {steps.filter((_, i) => i !== index).map(other => {
-                          const isSelected = step.dependsOnTempIds?.split(',').map(d => d.trim()).includes(other.tempId)
-                          return (
-                            <button
-                              key={other.tempId}
-                              type="button"
-                              className={`dep-chip ${isSelected ? 'selected' : ''}`}
-                              onClick={() => toggleDependency(index, other.tempId)}
-                            >
-                              {other.stepName || `#${other.order}`}
-                              {isSelected && <Icon name="check" size={14} />}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

@@ -78,17 +78,19 @@ public class Workflow : AuditableEntity<Guid>
     public DateTime? LastScheduledRunAt { get; set; }
 
     /// <summary>
+    /// Workflow definition containing steps and edges as JSONB.
+    /// Stored as a single JSON object for atomic updates and efficient loading.
+    /// </summary>
+    [Required]
+    [Column(TypeName = "jsonb")]
+    public WorkflowDefinition Definition { get; set; } = new();
+
+    /// <summary>
     /// Workflow versions history (serialized workflow snapshots with steps).
     /// Each entry is a JSON snapshot of the workflow definition before it was updated.
     /// </summary>
     [Column(TypeName = "jsonb")]
     public List<WorkflowSnapshot> Versions { get; set; } = [];
-
-    /// <summary>
-    /// Steps in this workflow (DAG nodes).
-    /// </summary>
-    [CascadeOnDelete]
-    public virtual List<WorkflowStep> Steps { get; set; } = [];
 
     /// <summary>
     /// Runs (execution instances) of this workflow.
@@ -127,7 +129,7 @@ public class Workflow : AuditableEntity<Guid>
             LastScheduledRunAt = w.LastScheduledRunAt,
             CreationDate = w.CreationDate,
             CreatorUserName = w.CreatorUserName,
-            Steps = w.Steps,
+            Definition = w.Definition,
             Versions = w.Versions,
         };
 
@@ -146,11 +148,14 @@ public class Workflow : AuditableEntity<Guid>
             LastScheduledRunAt = w.LastScheduledRunAt,
             CreationDate = w.CreationDate,
             CreatorUserName = w.CreatorUserName,
-            Steps = w.Steps.Select(s => new WorkflowStep
-            {
-                Id = s.Id,
-                JobId = s.JobId,
-            }).ToList(),
+            Definition = w.Definition,
+        };
+
+        public static Expression<Func<Workflow, Workflow>> CheckCron { get; } = w => new Workflow
+        {
+            Id = w.Id,
+            CronExpression = w.CronExpression,
+            LastScheduledRunAt = w.LastScheduledRunAt,
         };
     }
 }

@@ -153,7 +153,7 @@ public class MilvaionSdkExtensionsTests
     }
 
     [Fact]
-    public void IsFinalStatus_FinalStatusCount_ShouldBeFive()
+    public void IsFinalStatus_FinalStatusCount_ShouldBeSix()
     {
         // Arrange
         var allStatuses = Enum.GetValues<JobOccurrenceStatus>();
@@ -162,7 +162,7 @@ public class MilvaionSdkExtensionsTests
         var finalStatusCount = allStatuses.Count(s => s.IsFinalStatus());
 
         // Assert
-        finalStatusCount.Should().Be(5, "because there are 5 final statuses: Completed, Failed, Cancelled, TimedOut, Unknown");
+        finalStatusCount.Should().Be(6, "because there are 6 final statuses: Completed, Failed, Cancelled, TimedOut, Unknown, Skipped");
     }
 
     [Fact]

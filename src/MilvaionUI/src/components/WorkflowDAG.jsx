@@ -12,6 +12,17 @@ const stepStatusIcons = {
   6: 'schedule',         // Delayed
 }
 
+// SVG paths for icons (Material Design)
+const iconPaths = {
+  hourglass_empty: 'M6 2v6h.01L6 8.01 10 12l-4 4 .01.01H6V22h12v-5.99h-.01L18 16l-4-4 4-3.99-.01-.01H18V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z',
+  sync: 'M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z',
+  check_circle: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z',
+  error: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z',
+  skip_next: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
+  cancel: 'M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z',
+  schedule: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
+}
+
 const stepStatusColors = {
   0: '#94a3b8',  // Pending - gray
   1: '#3b82f6',  // Running - blue
@@ -36,12 +47,13 @@ const stepStatusLabels = {
  * DAG visualization component for workflow steps.
  * Renders steps as nodes and edges as SVG arrows.
  */
-function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
+/* eslint-disable react/prop-types */
+function WorkflowDAG({ steps = [], edges = [], stepRuns = null, onStepClick = null }) {
   // Build layout using topological sort with levels
-  const { nodes, edges, width, height } = useMemo(() => {
-    if (steps.length === 0) return { nodes: [], edges: [], width: 400, height: 200 }
+  const { nodes, edgeList, width, height } = useMemo(() => {
+    if (steps.length === 0) return { nodes: [], edgeList: [], width: 400, height: 200 }
 
-    // Build adjacency
+    // Build adjacency from edges
     const stepMap = new Map(steps.map(s => [s.id, s]))
     const inDeps = new Map()
     const outEdges = new Map()
@@ -51,17 +63,14 @@ function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
       outEdges.set(s.id, [])
     })
 
-    steps.forEach(s => {
-      if (s.dependsOnStepIds) {
-        const deps = s.dependsOnStepIds.split(',').map(d => d.trim()).filter(Boolean)
-        deps.forEach(depId => {
-          if (stepMap.has(depId)) {
-            inDeps.get(s.id).push(depId)
-            outEdges.get(depId).push(s.id)
-          }
-        })
-      }
-    })
+    if (edges && Array.isArray(edges)) {
+      edges.forEach(e => {
+        if (stepMap.has(e.sourceStepId) && stepMap.has(e.targetStepId)) {
+          inDeps.get(e.targetStepId).push(e.sourceStepId)
+          outEdges.get(e.sourceStepId).push(e.targetStepId)
+        }
+      })
+    }
 
     // Topological sort to determine levels
     const levels = new Map()
@@ -169,35 +178,31 @@ function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
       }
     })
 
-    // Create edges
-    const edgeList = []
-    steps.forEach(step => {
-      if (step.dependsOnStepIds) {
-        const deps = step.dependsOnStepIds.split(',').map(d => d.trim()).filter(Boolean)
-        deps.forEach(depId => {
-          if (nodePositions.has(depId) && nodePositions.has(step.id)) {
-            const from = nodePositions.get(depId)
-            const to = nodePositions.get(step.id)
-            edgeList.push({
-              fromId: depId,
-              toId: step.id,
-              x1: from.x + nodeWidth,
-              y1: from.y + nodeHeight / 2,
-              x2: to.x,
-              y2: to.y + nodeHeight / 2,
-            })
-          }
-        })
+    // Create edges from edge definitions
+    const edgeList = (edges || []).map(e => {
+      if (nodePositions.has(e.sourceStepId) && nodePositions.has(e.targetStepId)) {
+        const from = nodePositions.get(e.sourceStepId)
+        const to = nodePositions.get(e.targetStepId)
+        return {
+          fromId: e.sourceStepId,
+          toId: e.targetStepId,
+          label: e.label,
+          x1: from.x + nodeWidth,
+          y1: from.y + nodeHeight / 2,
+          x2: to.x,
+          y2: to.y + nodeHeight / 2,
+        }
       }
-    })
+      return null
+    }).filter(Boolean)
 
     return {
       nodes,
-      edges: edgeList,
+      edgeList,
       width: Math.max(totalWidth, normalizedMaxX + paddingX),
       height: Math.max(totalHeight, normalizedMaxY + paddingY),
     }
-  }, [steps, stepRuns])
+  }, [steps, edges, stepRuns])
 
   if (steps.length === 0) {
     return (
@@ -221,18 +226,31 @@ function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
         </defs>
 
         {/* Edges */}
-        {edges.map((edge, i) => {
+        {edgeList.map((edge, i) => {
           const midX = (edge.x1 + edge.x2) / 2
           return (
-            <path
-              key={`edge-${i}`}
-              d={`M ${edge.x1} ${edge.y1} C ${midX} ${edge.y1}, ${midX} ${edge.y2}, ${edge.x2} ${edge.y2}`}
-              fill="none"
-              stroke="var(--border-color)"
-              strokeWidth="2"
-              markerEnd="url(#arrowhead)"
-              className="dag-edge"
-            />
+            <g key={`edge-${i}`}>
+              <path
+                d={`M ${edge.x1} ${edge.y1} C ${midX} ${edge.y1}, ${midX} ${edge.y2}, ${edge.x2} ${edge.y2}`}
+                fill="none"
+                stroke="var(--border-color)"
+                strokeWidth="2"
+                markerEnd="url(#arrowhead)"
+                className="dag-edge"
+              />
+              {edge.label && (
+                <text
+                  x={midX}
+                  y={(edge.y1 + edge.y2) / 2 - 5}
+                  textAnchor="middle"
+                  fill="var(--text-muted)"
+                  fontSize="10"
+                  className="edge-label"
+                >
+                  {edge.label}
+                </text>
+              )}
+            </g>
           )
         })}
 
@@ -240,6 +258,8 @@ function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
         {nodes.map(node => {
           const statusColor = node.status !== null ? stepStatusColors[node.status] : '#94a3b8'
           const statusLabel = node.status !== null ? stepStatusLabels[node.status] : null
+          const statusIcon = node.status !== null ? stepStatusIcons[node.status] : null
+          const isRunning = node.status === 1
 
           return (
             <g
@@ -249,67 +269,89 @@ function WorkflowDAG({ steps = [], stepRuns = null, onStepClick = null }) {
               onClick={() => onStepClick?.(node)}
               style={{ cursor: onStepClick ? 'pointer' : 'default' }}
             >
+              {/* Shadow for depth */}
               <rect
                 width={node.width}
                 height={node.height}
                 rx="10"
                 ry="10"
-                fill="var(--bg-secondary)"
-                stroke={statusColor}
-                strokeWidth={node.status === 1 ? 3 : 2}
-                className={node.status === 1 ? 'dag-node-running' : ''}
+                fill="black"
+                opacity="0.1"
+                x="2"
+                y="2"
               />
+
+              {/* Main node background */}
+              <rect
+                width={node.width}
+                height={node.height}
+                rx="10"
+                ry="10"
+                fill="var(--bg-card, var(--bg-secondary))"
+                stroke={statusColor}
+                strokeWidth={isRunning ? 3 : 2}
+                className={isRunning ? 'dag-node-running' : ''}
+              />
+
+              {/* Gradient overlay for running state */}
+              {isRunning && (
+                <>
+                  <defs>
+                    <linearGradient id={`gradient-${node.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor={statusColor} stopOpacity="0.1" />
+                      <stop offset="100%" stopColor={statusColor} stopOpacity="0.05" />
+                    </linearGradient>
+                  </defs>
+                  <rect
+                    width={node.width}
+                    height={node.height}
+                    rx="10"
+                    ry="10"
+                    fill={`url(#gradient-${node.id})`}
+                  />
+                </>
+              )}
+
+              {/* Status icon at left center */}
+              {statusIcon && (
+                <g transform={`translate(20, ${node.height / 2})`}>
+                  <title>{statusLabel || 'No status'}</title>
+                  <circle cx="0" cy="0" r="14" fill={statusColor} opacity="0.15" />
+                  <svg
+                    x="-10"
+                    y="-10"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    className={isRunning ? 'dag-status-icon-spinning' : 'dag-status-icon'}
+                  >
+                    <path d={iconPaths[statusIcon]} fill={statusColor} />
+                  </svg>
+                </g>
+              )}
 
               {/* Step name */}
               <text
-                x={node.width / 2}
-                y={22}
-                textAnchor="middle"
+                x={48}
+                y={node.height / 2 - 6}
+                textAnchor="start"
                 fill="var(--text-primary)"
-                fontSize="13"
+                fontSize="14"
                 fontWeight="600"
               >
-                {node.label.length > 22 ? node.label.substring(0, 20) + '...' : node.label}
+                {node.label.length > 18 ? node.label.substring(0, 16) + '...' : node.label}
               </text>
 
               {/* Job name */}
               <text
-                x={node.width / 2}
-                y={40}
-                textAnchor="middle"
+                x={48}
+                y={node.height / 2 + 10}
+                textAnchor="start"
                 fill="var(--text-muted)"
                 fontSize="11"
               >
-                {node.jobName.length > 26 ? node.jobName.substring(0, 24) + '...' : node.jobName}
+                {node.jobName.length > 20 ? node.jobName.substring(0, 18) + '...' : node.jobName}
               </text>
-
-              {/* Status badge */}
-              {statusLabel && (
-                <g transform={`translate(${node.width / 2 - 30}, ${node.height - 22})`}>
-                  <rect width="60" height="16" rx="8" fill={statusColor} opacity="0.15" />
-                  <text x="30" y="12" textAnchor="middle" fill={statusColor} fontSize="10" fontWeight="600">
-                    {statusLabel}
-                  </text>
-                </g>
-              )}
-
-              {/* Condition indicator */}
-              {node.condition && (
-                <g transform={`translate(${node.width - 22}, 4)`}>
-                  <title>Has condition: {node.condition}</title>
-                  <circle cx="8" cy="8" r="8" fill="#f59e0b" opacity="0.2" />
-                  <text x="8" y="12" textAnchor="middle" fill="#d97706" fontSize="10">?</text>
-                </g>
-              )}
-
-              {/* Delay indicator */}
-              {node.delay > 0 && (
-                <g transform={`translate(4, 4)`}>
-                  <title>Has delay: {node.delay}s</title>
-                  <circle cx="8" cy="8" r="8" fill="#8b5cf6" opacity="0.2" />
-                  <text x="8" y="12" textAnchor="middle" fill="#7c3aed" fontSize="9">⏱</text>
-                </g>
-              )}
             </g>
           )
         })}

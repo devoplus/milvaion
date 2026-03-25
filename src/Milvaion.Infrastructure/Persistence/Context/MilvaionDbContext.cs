@@ -45,7 +45,6 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
     public DbSet<FailedOccurrence> FailedOccurrences { get; set; }
     public DbSet<JobOccurrenceLog> JobOccurrenceLogs { get; set; }
     public DbSet<Workflow> Workflows { get; set; }
-    public DbSet<WorkflowStep> WorkflowSteps { get; set; }
     public DbSet<WorkflowRun> WorkflowRuns { get; set; }
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
@@ -88,7 +87,6 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
         modelBuilder.Entity<JobOccurrenceLog>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<FailedOccurrence>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<Workflow>().Property(x => x.Id).ValueGeneratedNever();
-        modelBuilder.Entity<WorkflowStep>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<WorkflowRun>().Property(x => x.Id).ValueGeneratedNever();
 
         base.OnModelCreating(modelBuilder);

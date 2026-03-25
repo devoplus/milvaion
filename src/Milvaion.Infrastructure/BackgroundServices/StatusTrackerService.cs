@@ -111,14 +111,32 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(_options.BatchIntervalMs, stoppingToken);
+                using var _ = _metrics.MeasureDuration(ServiceName);
 
-                await ProcessBatchAsync(stoppingToken);
+                try
+                {
+                    await Task.Delay(_options.BatchIntervalMs, stoppingToken);
 
-                // Retry failed Redis completions independently of batch processing.
-                await DrainPendingRedisCompletionsAsync(stoppingToken);
+                    await ProcessBatchAsync(stoppingToken);
 
-                TrackMemoryAfterIteration();
+                    // Retry failed Redis completions independently of batch processing.
+                    await DrainPendingRedisCompletionsAsync(stoppingToken);
+
+                    _metrics.RecordServiceIteration(ServiceName);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _metrics.RecordServiceError(ServiceName, ex.GetType().Name);
+                    _logger.Error(ex, "Error in batch processor loop");
+                }
+                finally
+                {
+                    TrackMemoryAfterIteration();
+                }
             }
         }, stoppingToken);
 
@@ -144,6 +162,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             {
                 retryCount++;
 
+                _metrics.RecordServiceError(ServiceName, "RabbitMQ_Connection_Failed");
                 _logger.Error(ex, "StatusTrackerService connection failed (attempt {Retry}/{MaxRetries})", retryCount, maxRetries);
 
                 if (retryCount >= maxRetries)
@@ -254,6 +273,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             if (message == null)
             {
                 _logger.Debug("Failed to deserialize status update message");
+                _metrics.RecordStatusUpdateFailure("Deserialization_Failed");
 
                 await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
 
@@ -286,6 +306,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         }
         catch (Exception ex)
         {
+            _metrics.RecordStatusUpdateFailure(ex.GetType().Name);
             _logger.Error(ex, "Failed to process status update message");
 
             await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
@@ -381,6 +402,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
                     if (retryCount >= maxRetries)
                     {
+                        _metrics.RecordStatusUpdateFailure("Concurrency_Conflict_Max_Retries");
                         _logger.Error(concurrencyEx, "Concurrency conflict after {MaxRetries} retries. Status updates will be retried in next batch.", maxRetries);
 
                         // Re-queue failed messages for next batch
@@ -397,6 +419,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 }
                 catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "40P01") // Deadlock
                 {
+                    _metrics.RecordStatusUpdateFailure("Database_Deadlock");
                     _logger.Warning(pgEx, "Deadlock detected in status batch processing. Updates will be retried in next batch.");
 
                     // Re-queue messages for next batch
@@ -406,6 +429,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 }
                 catch (Exception ex)
                 {
+                    _metrics.RecordStatusUpdateFailure(ex.GetType().Name);
                     _logger.Error(ex, "Failed to process status update batch");
 
                     // Re-queue messages for next batch

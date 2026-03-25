@@ -18,8 +18,9 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-size: 1.75rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
   margin: 0;
 }
@@ -31,15 +32,15 @@
 }
 
 .bulk-resolve-btn {
-  padding: 0.625rem 1rem;
-  border-radius: 8px;
-  border: 1px solid #4caf50;
-  background-color: rgba(76, 175, 80, 0.1);
-  color: #4caf50;
-  font-size: 0.9rem;
-  font-weight: 600;
+  padding: 0.4rem 0.875rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background-color: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  font-size: var(--text-sm);
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color var(--transition-base), box-shadow var(--transition-base);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -47,25 +48,20 @@
 }
 
 .bulk-resolve-btn:hover {
-  background-color: rgba(76, 175, 80, 0.2);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.2);
-}
-
-.bulk-resolve-btn:active {
-  transform: translateY(0);
+  background-color: rgba(16, 185, 129, 0.14);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 .bulk-delete-btn {
-  padding: 0.625rem 1rem;
-  border-radius: 8px;
-  border: 1px solid #f44336;
-  background-color: rgba(244, 67, 54, 0.1);
-  color: #f44336;
-  font-size: 0.9rem;
-  font-weight: 600;
+  padding: 0.4rem 0.875rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background-color: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  font-size: var(--text-sm);
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color var(--transition-base), box-shadow var(--transition-base);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -73,13 +69,8 @@
 }
 
 .bulk-delete-btn:hover {
-  background-color: rgba(244, 67, 54, 0.2);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(244, 67, 54, 0.2);
-}
-
-.bulk-delete-btn:active {
-  transform: translateY(0);
+  background-color: rgba(239, 68, 68, 0.14);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
 /* Statistics Grid */
@@ -92,12 +83,12 @@
 
 .stat-card {
   background: var(--bg-card);
-  border-radius: 12px;
-  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  padding: 1.25rem;
   display: flex;
   align-items: center;
   gap: 1rem;
-  box-shadow: var(--shadow-sm);
   transition: transform 0.2s, box-shadow 0.2s;
   border: 1px solid var(--border-color);
 }
@@ -118,7 +109,7 @@
 }
 
 .stat-card.total .stat-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent-gradient);
 }
 
 .stat-card.unresolved .stat-icon {
@@ -156,7 +147,6 @@
   gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
-  box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
 }
 
@@ -260,9 +250,9 @@
 }
 
 .filter-btn.active {
-  background: rgba(100, 108, 255, 0.2);
-  color: #646cff;
-  border-color: #646cff;
+  background: rgba(99, 102, 241, 0.14);
+  color: #6366f1;
+  border-color: #6366f1;
 }
 
 .filter-select {
@@ -299,7 +289,6 @@
   border-radius: 12px;
   overflow-x: auto;
   overflow-y: hidden;
-  box-shadow: var(--shadow-sm);
   margin-bottom: 1.5rem;
   border: 1px solid var(--border-color);
   /* Smooth horizontal scrolling */
@@ -319,7 +308,7 @@
 }
 
 .failed-jobs-table-container::-webkit-scrollbar-thumb {
-  background: #646cff;
+  background: #6366f1;
   border-radius: 4px;
 }
 
@@ -331,23 +320,25 @@
   width: 100%;
   border-collapse: collapse;
   min-width: 800px; /* Minimum width to trigger horizontal scroll on mobile */
+  margin-top: 0 !important;
 }
 
 .failed-jobs-table thead {
-  background: var(--bg-tertiary);
+  /*background: var(--bg-tertiary);*/
 }
 
-.failed-jobs-table th {
-  padding: 1rem;
-  text-align: left;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 2px solid var(--border-color);
-  white-space: nowrap; /* Prevent header text wrapping */
-}
+  .failed-jobs-table th {
+    padding: 1rem;
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap; /* Prevent header text wrapping */
+    background: none !important;
+  }
 
 .failed-jobs-table th.checkbox-column {
   width: 50px;
@@ -364,7 +355,7 @@
   cursor: pointer;
   width: 18px;
   height: 18px;
-  accent-color: #646cff;
+  accent-color: #6366f1;
 }
 
 .failed-jobs-table tbody tr {
@@ -443,23 +434,23 @@
 }
 
 .action-btn.view {
-  color: #646cff;
+  color: #6366f1;
 }
 
 .action-btn.view:hover {
-  background: rgba(100, 108, 255, 0.15);
+  background: rgba(99, 102, 241, 0.12);
 }
 
 .action-btn.resolve {
-  color: #4caf50;
+  color: #10b981;
 }
 
 .action-btn.resolve:hover {
-  background: rgba(76, 175, 80, 0.15);
+  background: rgba(16, 185, 129, 0.12);
 }
 
 .action-btn.delete {
-  color: #f44336;
+  color: #ef4444;
 }
 
 .action-btn.delete:hover {
@@ -501,7 +492,7 @@
 
 .resolve-form .form-control:focus {
   outline: none;
-  border-color: #646cff;
+  border-color: #6366f1;
 }
 
 .resolve-form textarea.form-control {
@@ -514,11 +505,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: rgba(100, 108, 255, 0.1);
-  border: 1px solid rgba(100, 108, 255, 0.3);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
   border-radius: 6px;
   font-size: 0.875rem;
-  color: #646cff;
+  color: #6366f1;
 }
 
 /* Empty State */
@@ -527,7 +518,6 @@
   border-radius: 12px;
   padding: 3rem 2rem;
   text-align: center;
-  box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
 }
 
@@ -557,9 +547,15 @@
   padding: 1rem;
   background: var(--bg-card);
   border-radius: 12px;
-  box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
   gap: 1rem;
+  margin-top: 0 !important;
+}
+
+.failed-jobs-table-container .pagination-container {
+  border: none;
+  border-radius: 0;
+  background: none;
 }
 
 .pagination {
@@ -599,9 +595,9 @@
 }
 
 .pagination .btn.btn-primary {
-  background: rgba(100, 108, 255, 0.2);
-  color: #646cff;
-  border-color: #646cff;
+  background: rgba(99, 102, 241, 0.14);
+  color: #6366f1;
+  border-color: #6366f1;
 }
 
 .pagination .btn-sm {
@@ -693,7 +689,7 @@
 }
 
 .error {
-  color: #f44336;
+  color: #ef4444;
 }
 
 .failure-type-badge {

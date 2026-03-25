@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import accountService from '../../services/accountService'
 import authService from '../../services/authService'
 import Icon from '../../components/Icon'
@@ -12,20 +12,15 @@ function Profile() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Password change
   const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [passwordError, setPasswordError] = useState('')
 
-  const { modalProps, showSuccess, showError: showModalError } = useModal()
+  const { modalProps, showSuccess } = useModal()
 
   const currentUser = authService.getCurrentUser()
 
-  useEffect(() => {
-    loadProfile()
-  }, [])
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -38,7 +33,11 @@ function Profile() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUser?.id])
+
+  useEffect(() => {
+    loadProfile()
+  }, [loadProfile])
 
   const handlePasswordChange = async () => {
     if (!passwordData.oldPassword.trim()) { setPasswordError('Current password is required'); return }
@@ -84,26 +83,56 @@ function Profile() {
 
   if (error) return <div className="error">{error}</div>
 
+  const getInitials = (p) => {
+    if (!p) return '?'
+    const n = (p.name?.trim()?.[0] || '').toUpperCase()
+    const s = (p.surname?.trim()?.[0] || '').toUpperCase()
+    return n + s || p.userName?.[0]?.toUpperCase() || '?'
+  }
+
+  const displayName = [profile?.name, profile?.surname].filter(Boolean).join(' ') || profile?.userName || '—'
+
   return (
     <div className="profile-page">
       <Modal {...modalProps} />
 
       <div className="page-header">
         <h1>
-          <Icon name="person" size={28} />
-          <span style={{ margin: '0 0 0 1rem' }}>Profile</span>
+          <Icon name="person" size={24} />
+          Profile
         </h1>
+      </div>
+
+      {/* Hero Card */}
+      <div className="profile-hero-card">
+        <div className="profile-avatar">
+          <span className="avatar-initials">{getInitials(profile)}</span>
+        </div>
+        <div className="profile-hero-info">
+          <div className="profile-hero-name">{displayName}</div>
+          <div className="profile-hero-username">@{profile?.userName}</div>
+          {profile?.roles?.length > 0 && (
+            <div className="roles-badges">
+              {profile.roles.map(role => (
+                <span key={role.id} className="role-badge">
+                  <Icon name="shield" size={12} />
+                  {role.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="profile-grid">
         {/* Account Info Card */}
         <div className="profile-card">
           <div className="card-header">
-            <Icon name="badge" size={20} />
+            <Icon name="badge" size={18} />
             <h2>Account Information</h2>
           </div>
           <div className="card-body">
-            <div className="info-grid">
+            <div className="info-list">
               <div className="info-item">
                 <span className="info-label">Username</span>
                 <span className="info-value">{profile?.userName || '—'}</span>
@@ -121,27 +150,13 @@ function Profile() {
                 <span className="info-value">{profile?.surname || '—'}</span>
               </div>
             </div>
-
-            {profile?.roles?.length > 0 && (
-              <div className="info-section">
-                <span className="info-label">Roles</span>
-                <div className="roles-badges">
-                  {profile.roles.map(role => (
-                    <span key={role.id} className="role-badge">
-                      <Icon name="shield" size={12} />
-                      {role.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Change Password Card */}
         <div className="profile-card">
           <div className="card-header">
-            <Icon name="lock" size={20} />
+            <Icon name="lock" size={18} />
             <h2>Change Password</h2>
           </div>
           <div className="card-body">
@@ -153,7 +168,7 @@ function Profile() {
             )}
 
             <div className="form-group">
-              <label htmlFor="oldPassword">Current Password *</label>
+              <label htmlFor="oldPassword">Current Password</label>
               <input
                 id="oldPassword"
                 type="password"
@@ -165,7 +180,7 @@ function Profile() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="newPassword">New Password *</label>
+              <label htmlFor="newPassword">New Password</label>
               <input
                 id="newPassword"
                 type="password"
@@ -177,7 +192,7 @@ function Profile() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="confirmNewPassword">Confirm New Password *</label>
+              <label htmlFor="confirmNewPassword">Confirm New Password</label>
               <input
                 id="confirmNewPassword"
                 type="password"

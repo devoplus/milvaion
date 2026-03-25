@@ -64,7 +64,7 @@ public class WorkflowListDto : MilvaionBaseDto<Guid>
         IsActive = w.IsActive,
         FailureStrategy = w.FailureStrategy,
         Version = w.Version,
-        StepCount = w.Steps.Count,
+        StepCount = w.Definition.Steps.Count,
         CronExpression = w.CronExpression,
     };
 }

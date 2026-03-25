@@ -28,8 +28,7 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
         if (!workflow.IsActive)
             return Response<Guid>.Error(default, "Workflow is not active.");
 
-        // Get steps for this workflow
-        var steps = workflow.Steps;
+        var steps = workflow.Definition?.Steps;
 
         if (steps == null || steps.Count == 0)
             return Response<Guid>.Error(default, "Workflow has no steps.");
@@ -48,16 +47,17 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
             CreatedAt = now,
         };
 
-        // Pre-create one JobOccurrence per step in Pending state.
+        // Pre-create one JobOccurrence per task step in Pending state.
+        // Virtual nodes (Condition, Merge, Trigger) are handled in-memory by WorkflowEngineService.
         // WorkflowEngineService picks these up and dispatches them when dependencies are satisfied.
-        foreach (var step in steps.OrderBy(s => s.Order))
+        foreach (var step in steps.Where(s => s.NodeType == WorkflowNodeType.Task).OrderBy(s => s.Order))
         {
             workflowRun.StepOccurrences.Add(new JobOccurrence
             {
                 Id = Guid.CreateVersion7(),
                 WorkflowRunId = workflowRun.Id,
                 WorkflowStepId = step.Id,
-                JobId = step.JobId,
+                JobId = step.JobId!.Value,
                 CorrelationId = correlationId,
                 StepStatus = WorkflowStepStatus.Pending,
                 Status = JobOccurrenceStatus.Queued,

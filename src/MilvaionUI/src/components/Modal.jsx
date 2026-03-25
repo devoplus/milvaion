@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
+import PropTypes from 'prop-types'
 import Icon from './Icon'
 import './Modal.css'
 
-function Modal({ 
+function Modal({
   isOpen, 
   onClose, 
   onConfirm, 
@@ -95,6 +96,19 @@ function Modal({
       </div>
     </div>
   )
+}
+
+Modal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onConfirm: PropTypes.func,
+  title: PropTypes.string.isRequired,
+  message: PropTypes.oneOfType([PropTypes.string, PropTypes.node]).isRequired,
+  type: PropTypes.oneOf(['info', 'success', 'warning', 'error', 'confirm', 'custom']),
+  confirmText: PropTypes.string,
+  cancelText: PropTypes.string,
+  showCancel: PropTypes.bool,
+  className: PropTypes.string
 }
 
 export default Modal

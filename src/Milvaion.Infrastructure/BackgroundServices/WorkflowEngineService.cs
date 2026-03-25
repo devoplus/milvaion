@@ -25,21 +25,17 @@ namespace Milvaion.Infrastructure.BackgroundServices;
 /// Polls for pending/running workflow runs and dispatches ready steps.
 /// </summary>
 public class WorkflowEngineService(IServiceProvider serviceProvider,
-                                    IRabbitMQPublisher rabbitMQPublisher,
-                                    IRedisSchedulerService redisScheduler,
-                                    IRedisStatsService redisStatsService,
                                     IOptions<WorkflowEngineOptions> options,
                                     ILoggerFactory loggerFactory,
-                                    BackgroundServiceMetrics metrics,
                                     IMemoryStatsRegistry memoryStatsRegistry = null) : MemoryTrackedBackgroundService(loggerFactory, options.Value, memoryStatsRegistry)
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
-    private readonly IRabbitMQPublisher _rabbitMQPublisher = rabbitMQPublisher;
-    private readonly IRedisSchedulerService _redisScheduler = redisScheduler;
-    private readonly IRedisStatsService _redisStatsService = redisStatsService;
+    private readonly IRabbitMQPublisher _rabbitMQPublisher = serviceProvider.GetRequiredService<IRabbitMQPublisher>();
+    private readonly IRedisSchedulerService _redisScheduler = serviceProvider.GetRequiredService<IRedisSchedulerService>();
+    private readonly IRedisStatsService _redisStatsService = serviceProvider.GetRequiredService<IRedisStatsService>();
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<WorkflowEngineService>();
     private readonly WorkflowEngineOptions _options = options.Value;
-    private readonly BackgroundServiceMetrics _metrics = metrics;
+    private readonly BackgroundServiceMetrics _metrics = serviceProvider.GetRequiredService<BackgroundServiceMetrics>();
 
     private static readonly List<string> _workflowUpdateProps = [nameof(Workflow.LastScheduledRunAt)];
     private static readonly List<string> _workflowRunUpdateProps = [nameof(WorkflowRun.Status), nameof(WorkflowRun.StartTime), nameof(WorkflowRun.EndTime), nameof(WorkflowRun.DurationMs), nameof(WorkflowRun.Error)];
@@ -53,6 +49,8 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     /// <inheritdoc/>
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
+        _logger.Debug("WorkflowEngine StartAsync called. Enabled={Enabled}", _options.Enabled);
+
         if (!_options.Enabled)
         {
             _logger.Warning("Workflow engine is disabled. Skipping startup.");
@@ -70,7 +68,10 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
                 if (await dbContext.Database.CanConnectAsync(cancellationToken))
+                {
+                    _logger.Debug("Database connection ready on attempt {Attempt}", attempt);
                     break;
+                }
             }
             catch
             {
@@ -79,6 +80,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             }
         }
 
+        _logger.Debug("Calling base.StartAsync...");
         await base.StartAsync(cancellationToken);
         _logger.Information("Workflow engine service started successfully.");
     }
@@ -90,11 +92,14 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            using var _ = _metrics.MeasureDuration(ServiceName);
+
             try
             {
                 await CheckCronWorkflowsAsync(stoppingToken);
                 await ProcessWorkflowRunsAsync(stoppingToken);
-                TrackMemoryAfterIteration();
+
+                _metrics.RecordServiceIteration(ServiceName);
             }
             catch (OperationCanceledException)
             {
@@ -102,7 +107,12 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             }
             catch (Exception ex)
             {
+                _metrics.RecordServiceError(ServiceName, ex.GetType().Name);
                 _logger.Error(ex, "Error during workflow engine iteration");
+            }
+            finally
+            {
+                TrackMemoryAfterIteration();
             }
 
             await Task.Delay(TimeSpan.FromSeconds(_options.PollingIntervalSeconds), stoppingToken);
@@ -113,7 +123,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.Information("Workflow engine service stopping...");
+
         await base.StopAsync(cancellationToken);
+
         _logger.Information("Workflow engine service stopped.");
     }
 
@@ -128,7 +140,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
         var now = DateTime.UtcNow;
 
-        var cronWorkflows = await dbContext.Workflows.Where(w => w.IsActive && w.CronExpression != null).ToListAsync(cancellationToken);
+        var cronWorkflows = await dbContext.Workflows.Where(w => w.IsActive && w.CronExpression != null)
+                                                     .Select(Workflow.Projections.CheckCron)
+                                                     .ToListAsync(cancellationToken);
 
         var triggeredWorkflows = new List<Workflow>();
 
@@ -145,17 +159,24 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
                 if (nextOccurrence.HasValue && nextOccurrence.Value <= now)
                 {
-                    var command = new TriggerWorkflowCommand { WorkflowId = workflow.Id, Reason = "Cron schedule" };
+                    var command = new TriggerWorkflowCommand
+                    {
+                        WorkflowId = workflow.Id,
+                        Reason = "Cron schedule"
+                    };
+
                     await mediator.Send(command, cancellationToken);
 
                     workflow.LastScheduledRunAt = now;
+
                     triggeredWorkflows.Add(workflow);
 
-                    _logger.Information("Workflow {WorkflowId} triggered by cron schedule ({CronExpression})", workflow.Id, workflow.CronExpression);
+                    _logger.Debug("Workflow {WorkflowId} triggered by cron schedule ({CronExpression})", workflow.Id, workflow.CronExpression);
                 }
             }
             catch (Exception ex)
             {
+                _metrics.RecordServiceError(ServiceName, "Cron_Schedule_Check_Failed");
                 _logger.Error(ex, "Error checking cron schedule for workflow {WorkflowId}", workflow.Id);
             }
         }
@@ -167,53 +188,52 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     /// <summary>
     /// Processes all active workflow runs.
     /// </summary>
-    private async Task ProcessWorkflowRunsAsync(CancellationToken cancellationToken)
+    private async Task<int> ProcessWorkflowRunsAsync(CancellationToken cancellationToken)
     {
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
         var activeRuns = await dbContext.WorkflowRuns
-            .Include(r => r.StepOccurrences)
-            .Include(r => r.Workflow).ThenInclude(w => w.Steps)
-            .Where(r => r.Status == WorkflowStatus.Pending || r.Status == WorkflowStatus.Running)
-            .ToListAsync(cancellationToken);
+                                        .Include(r => r.StepOccurrences)
+                                        .Include(r => r.Workflow)
+                                        .Where(r => r.Status == WorkflowStatus.Pending || r.Status == WorkflowStatus.Running)
+                                        .ToListAsync(cancellationToken);
 
         if (activeRuns.IsNullOrEmpty())
-            return;
+            return 0;
 
         _logger.Debug("Processing {Count} active workflow runs", activeRuns.Count);
 
         var now = DateTime.UtcNow;
 
-        // Phase 1: Process all runs in memory — collect all changes without touching the DB
+        // Process all runs in memory — collect all changes without touching the DB
         var runsToUpdate = new List<WorkflowRun>();
         var occurrencesToUpdate = new List<JobOccurrence>();
-        var pendingDispatches = new List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStep StepDef)>();
+        var pendingDispatches = new List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStepDefinition StepDef)>();
         var runningOccurrencesToCancel = new List<JobOccurrence>();
 
         foreach (var run in activeRuns)
         {
             try
             {
-                CollectRunChanges(run, now, runsToUpdate, occurrencesToUpdate, pendingDispatches, runningOccurrencesToCancel);
+                DetectRunChanges(run, now, runsToUpdate, occurrencesToUpdate, pendingDispatches, runningOccurrencesToCancel);
             }
             catch (Exception ex)
             {
+                _metrics.RecordServiceError(ServiceName, "Workflow_Run_Processing_Failed");
                 _logger.Error(ex, "Error processing workflow run {RunId}", run.Id);
             }
         }
 
-        // Phase 2: Bulk load all jobs needed for dispatch and for naming non-dispatched occurrences (skipped, cancelled, delayed)
-        var jobIds = pendingDispatches.Select(d => d.StepDef.JobId)
-            .Concat(occurrencesToUpdate
-                .Where(o => string.IsNullOrWhiteSpace(o.JobName) && o.WorkflowStepId.HasValue && o.JobId != Guid.Empty)
-                .Select(o => o.JobId))
-            .Distinct()
-            .ToList();
+        // Load all jobs needed for dispatch and for naming non-dispatched occurrences (skipped, cancelled, delayed)
+        var jobIds = pendingDispatches.Where(d => d.StepDef.JobId.HasValue)
+                                      .Select(d => d.StepDef.JobId!.Value)
+                                      .Concat(occurrencesToUpdate.Where(o => string.IsNullOrWhiteSpace(o.JobName) && o.WorkflowStepId.HasValue && o.JobId != Guid.Empty)
+                                                                 .Select(o => o.JobId))
+                                      .Distinct()
+                                      .ToList();
 
-        var jobsById = jobIds.Count > 0
-            ? await dbContext.ScheduledJobs.Where(j => jobIds.Contains(j.Id)).ToDictionaryAsync(j => j.Id, cancellationToken)
-            : [];
+        var jobsById = jobIds.Count > 0 ? await dbContext.ScheduledJobs.Where(j => jobIds.Contains(j.Id)).ToDictionaryAsync(j => j.Id, cancellationToken) : [];
 
         // Populate JobName for occurrences that were never dispatched (skipped, cancelled, delayed)
         foreach (var occ in occurrencesToUpdate.Where(o => string.IsNullOrWhiteSpace(o.JobName) && o.WorkflowStepId.HasValue))
@@ -223,11 +243,14 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         }
 
         // Resolve job data for each dispatch; mark as failed if job not found
-        var validDispatches = new List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStep StepDef, ScheduledJob Job, string JobData)>();
+        var validDispatches = new List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStepDefinition StepDef, ScheduledJob Job, string JobData)>();
 
         foreach (var (run, occurrence, stepDef) in pendingDispatches)
         {
-            if (!jobsById.TryGetValue(stepDef.JobId, out var job))
+            if (stepDef.NodeType != WorkflowNodeType.Task || !stepDef.JobId.HasValue)
+                continue;
+
+            if (!jobsById.TryGetValue(stepDef.JobId.Value, out var job))
             {
                 occurrence.StepStatus = WorkflowStepStatus.Failed;
                 occurrence.Exception = $"Job {stepDef.JobId} not found.";
@@ -237,29 +260,28 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
             var jobData = !string.IsNullOrWhiteSpace(stepDef.JobDataOverride) ? stepDef.JobDataOverride : job.JobData;
             var occurrencesDict = run.StepOccurrences.ToDictionary(o => o.WorkflowStepId!.Value);
-            var stepDefsDict = run.Workflow?.Steps?.ToDictionary(s => s.Id) ?? [];
 
             if (!string.IsNullOrWhiteSpace(stepDef.DataMappings))
-                jobData = ApplyDataMappings(jobData, stepDef.DataMappings, occurrencesDict, stepDefsDict);
+                jobData = ApplyDataMappings(jobData, stepDef.DataMappings, occurrencesDict);
 
             validDispatches.Add((run, occurrence, stepDef, job, jobData));
         }
 
-        // Phase 3: Single bulk save for all run/step status changes
+        // Single bulk save for all run/step status changes
         if (runsToUpdate.Count > 0)
             await dbContext.BulkUpdateAsync(runsToUpdate, bc => bc.PropertiesToIncludeOnUpdate = _workflowRunUpdateProps, cancellationToken: cancellationToken);
 
         if (occurrencesToUpdate.Count > 0)
             await dbContext.BulkUpdateAsync(occurrencesToUpdate, bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceUpdateProps, cancellationToken: cancellationToken);
 
-        // Phase 4: Batch dispatch all ready steps
+        // Batch dispatch all ready steps
         if (validDispatches.Count > 0)
         {
             var eventPublisher = scope.ServiceProvider.GetService<IJobOccurrenceEventPublisher>();
-            await BatchDispatchStepsAsync(dbContext, eventPublisher, validDispatches, cancellationToken);
+            await DispatchStepsAsync(dbContext, eventPublisher, validDispatches, cancellationToken);
         }
 
-        // Phase 5: Send Redis cancellation signals for Running steps that were cancelled due to workflow failure/timeout
+        // Send Redis cancellation signals for Running steps that were cancelled due to workflow failure/timeout
         if (runningOccurrencesToCancel.Count > 0)
         {
             var cancellationService = scope.ServiceProvider.GetService<IJobCancellationService>();
@@ -280,19 +302,20 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 }
             }
         }
+
+        return activeRuns.Count; // Return count for adaptive polling
     }
 
     /// <summary>
     /// Processes a single workflow run in memory: mutates run/step state and populates change lists.
     /// No database calls — all persistence is batched at the caller level.
     /// </summary>
-    private void CollectRunChanges(
-        WorkflowRun run,
-        DateTime now,
-        List<WorkflowRun> runsToUpdate,
-        List<JobOccurrence> occurrencesToUpdate,
-        List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStep StepDef)> pendingDispatches,
-        List<JobOccurrence> runningOccurrencesToCancel)
+    private void DetectRunChanges(WorkflowRun run,
+                                  DateTime now,
+                                  List<WorkflowRun> runsToUpdate,
+                                  List<JobOccurrence> occurrencesToUpdate,
+                                  List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStepDefinition StepDef)> pendingDispatches,
+                                  List<JobOccurrence> runningOccurrencesToCancel)
     {
         // Start pending run
         if (run.Status == WorkflowStatus.Pending)
@@ -303,15 +326,22 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         }
 
         // Check for timeout
-        if (run.Workflow?.TimeoutSeconds > 0 && run.StartTime.HasValue &&
-            (now - run.StartTime.Value).TotalSeconds > run.Workflow.TimeoutSeconds)
+        if (run.Workflow?.TimeoutSeconds > 0 && run.StartTime.HasValue && (now - run.StartTime.Value).TotalSeconds > run.Workflow.TimeoutSeconds)
         {
-            CancelRunInMemory(run, now, "Workflow timed out", runsToUpdate, occurrencesToUpdate, runningOccurrencesToCancel);
+            CancelRun(run, now, "Workflow timed out", runsToUpdate, occurrencesToUpdate, runningOccurrencesToCancel);
             return;
         }
 
-        var stepDefinitions = run.Workflow?.Steps?.ToDictionary(s => s.Id) ?? [];
+        var stepDefinitions = run.Workflow?.Definition?.Steps?.ToDictionary(s => s.Id) ?? [];
+        var workflowEdges = run.Workflow?.Definition?.Edges ?? [];
         var stepOccurrences = run.StepOccurrences.ToDictionary(o => o.WorkflowStepId!.Value);
+
+        // Track virtual node states in-memory
+        var virtualNodeStates = stepDefinitions.Values.Where(s => s.NodeType != WorkflowNodeType.Task && !stepOccurrences.ContainsKey(s.Id))
+                                                      .ToDictionary(s => s.Id, s => WorkflowStepStatus.Pending);
+
+        // Track condition node results for port-based activation
+        var conditionResults = new Dictionary<Guid, string>();
 
         // Check for failures
         var failedOccs = run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Failed).ToList();
@@ -327,7 +357,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
                 if (exhaustedOccs.Count > 0 || maxRetries == 0)
                 {
-                    FailRunInMemory(run, now, $"Step(s) failed: {string.Join(", ", exhaustedOccs.Select(o => stepDefinitions.GetValueOrDefault(o.WorkflowStepId!.Value)?.StepName ?? o.WorkflowStepId.ToString()))}", runsToUpdate, occurrencesToUpdate, runningOccurrencesToCancel);
+                    FailRun(run, now, $"Step(s) failed: {string.Join(", ", exhaustedOccs.Select(o => stepDefinitions.GetValueOrDefault(o.WorkflowStepId!.Value)?.StepName ?? o.WorkflowStepId.ToString()))}", runsToUpdate, occurrencesToUpdate, runningOccurrencesToCancel);
                     return;
                 }
 
@@ -348,7 +378,38 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             }
         }
 
+        // Process virtual nodes first so their results are available for downstream task steps
+        foreach (var kvp in virtualNodeStates.Where(kv => kv.Value == WorkflowStepStatus.Pending).ToList())
+        {
+            var stepId = kvp.Key;
+            var stepDef = stepDefinitions[stepId];
+
+            if (!AreDependenciesSatisfied(stepDef, workflowEdges, stepOccurrences, virtualNodeStates, run.Workflow?.FailureStrategy ?? WorkflowFailureStrategy.StopOnFirstFailure, conditionResults, _logger))
+                continue;
+
+            // Condition nodes: evaluate expression
+            if (stepDef.NodeType == WorkflowNodeType.Condition)
+            {
+                var result = EvaluateCondition(stepDef, workflowEdges, stepOccurrences);
+
+                virtualNodeStates[stepId] = WorkflowStepStatus.Completed;
+                conditionResults[stepId] = result ? "true" : "false";
+
+                _logger.Debug("Condition node {StepId} ({StepName}) evaluated to {Result}", stepId, stepDef.StepName, conditionResults[stepId]);
+                continue;
+            }
+
+            // Merge: instant complete
+            if (stepDef.NodeType == WorkflowNodeType.Merge)
+            {
+                virtualNodeStates[stepId] = WorkflowStepStatus.Completed;
+                continue;
+            }
+        }
+
         // Find steps that are ready to execute
+        var stepsToSkipDueToPort = new List<JobOccurrence>();
+
         foreach (var occ in run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Pending))
         {
             var stepDef = stepDefinitions.GetValueOrDefault(occ.WorkflowStepId!.Value);
@@ -356,18 +417,21 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             if (stepDef == null)
                 continue;
 
-            if (!AreDependenciesSatisfied(stepDef, stepOccurrences, run.Workflow?.FailureStrategy ?? WorkflowFailureStrategy.StopOnFirstFailure))
-                continue;
-
-            if (!string.IsNullOrWhiteSpace(stepDef.Condition) && !EvaluateCondition(stepDef, stepOccurrences))
+            // Check if this step should be skipped due to port-based branching
+            if (ShouldSkipDueToPortMismatch(stepDef, workflowEdges, stepOccurrences, virtualNodeStates, conditionResults, stepDefinitions, out var skipReason))
             {
                 occ.StepStatus = WorkflowStepStatus.Skipped;
                 occ.Status = JobOccurrenceStatus.Skipped;
                 occ.EndTime = now;
-                occ.Exception = $"Step skipped: condition '{stepDef.Condition}' evaluated to false.";
-                occurrencesToUpdate.Add(occ);
+                occ.Exception = skipReason;
+                stepsToSkipDueToPort.Add(occ);
+
+                _logger.Debug("Step {StepId} ({StepName}) skipped: {Reason}", stepDef.Id, stepDef.StepName, skipReason);
                 continue;
             }
+
+            if (!AreDependenciesSatisfied(stepDef, workflowEdges, stepOccurrences, virtualNodeStates, run.Workflow?.FailureStrategy ?? WorkflowFailureStrategy.StopOnFirstFailure, conditionResults, _logger))
+                continue;
 
             if (stepDef.DelaySeconds > 0 && occ.StepScheduledAt == null)
             {
@@ -380,6 +444,8 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             pendingDispatches.Add((run, occ, stepDef));
         }
 
+        occurrencesToUpdate.AddRange(stepsToSkipDueToPort);
+
         // Also check delayed steps that are now due
         foreach (var occ in run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Delayed && o.StepScheduledAt <= now))
         {
@@ -390,7 +456,10 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         }
 
         // Check completion
-        if (run.StepOccurrences.All(o => o.StepStatus is WorkflowStepStatus.Completed or WorkflowStepStatus.Failed or WorkflowStepStatus.Skipped or WorkflowStepStatus.Cancelled))
+        var allTasksComplete = run.StepOccurrences.All(o => o.StepStatus is WorkflowStepStatus.Completed or WorkflowStepStatus.Failed or WorkflowStepStatus.Skipped or WorkflowStepStatus.Cancelled);
+        var allVirtualNodesComplete = virtualNodeStates.Values.All(s => s != WorkflowStepStatus.Pending);
+
+        if (allTasksComplete && allVirtualNodesComplete)
         {
             var hasFailures = run.StepOccurrences.Any(o => o.StepStatus == WorkflowStepStatus.Failed);
             var hasSkipped = run.StepOccurrences.Any(o => o.StepStatus == WorkflowStepStatus.Skipped);
@@ -418,32 +487,154 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Checks if all dependencies
+    /// Checks if step should be skipped due to port-based branching.
+    /// If all incoming edges with port requirements have mismatched source results, step is skipped.
     /// </summary>
-    private static bool AreDependenciesSatisfied(WorkflowStep stepDef, Dictionary<Guid, JobOccurrence> stepOccurrences, WorkflowFailureStrategy failureStrategy)
+    private static bool ShouldSkipDueToPortMismatch(WorkflowStepDefinition stepDef,
+                                                    List<WorkflowEdgeDefinition> workflowEdges,
+                                                    Dictionary<Guid, JobOccurrence> stepOccurrences,
+                                                    Dictionary<Guid, WorkflowStepStatus> virtualNodeStates,
+                                                    Dictionary<Guid, string> conditionResults,
+                                                    Dictionary<Guid, WorkflowStepDefinition> stepDefinitions,
+                                                    out string skipReason)
     {
-        if (string.IsNullOrWhiteSpace(stepDef.DependsOnStepIds))
-            return true; // Root step
+        skipReason = null;
+        var incomingEdges = workflowEdges.Where(e => e.TargetStepId == stepDef.Id).ToList();
 
-        var depIds = stepDef.DependsOnStepIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // Root step can't be skipped
+        if (incomingEdges.Count == 0)
+            return false;
 
-        foreach (var depIdStr in depIds)
+        var portedEdges = incomingEdges.Where(e => !string.IsNullOrWhiteSpace(e.SourcePort)).ToList();
+
+        // No port requirements
+        if (portedEdges.Count == 0)
+            return false;
+
+        // If all ported edges have sources that are complete but with mismatched port results, skip this step
+        var allPortMismatches = true;
+
+        foreach (var edge in portedEdges)
         {
-            if (!Guid.TryParse(depIdStr, out var depStepId))
+            // Check source node type - Merge nodes don't produce port results
+            if (stepDefinitions.TryGetValue(edge.SourceStepId, out var sourceStepDef))
+            {
+                // Merge nodes always pass through, ignore port
+                if (sourceStepDef.NodeType == WorkflowNodeType.Merge)
+                {
+                    allPortMismatches = false;
+                    break;
+                }
+            }
+
+            WorkflowStepStatus? sourceStatus = null;
+            string sourceResult = null;
+
+            if (stepOccurrences.TryGetValue(edge.SourceStepId, out var depOcc))
+            {
+                sourceStatus = depOcc.StepStatus;
+                sourceResult = depOcc.Result;
+            }
+            else if (virtualNodeStates.TryGetValue(edge.SourceStepId, out var virtualStatus))
+            {
+                sourceStatus = virtualStatus;
+                sourceResult = conditionResults?.GetValueOrDefault(edge.SourceStepId);
+            }
+
+            // If source not complete yet, we can't determine skip
+            if (sourceStatus != WorkflowStepStatus.Completed)
+            {
+                allPortMismatches = false;
+                break;
+            }
+
+            // Check if port matches (only for Condition nodes)
+            var port = edge.SourcePort.Trim();
+            var matches = (port.Equals("true", StringComparison.OrdinalIgnoreCase) && sourceResult == "true") ||
+                          (port.Equals("false", StringComparison.OrdinalIgnoreCase) && sourceResult == "false");
+
+            // At least one edge matches, step should execute
+            if (matches)
+            {
+                allPortMismatches = false;
+                break;
+            }
+        }
+
+        if (allPortMismatches)
+        {
+            skipReason = "All incoming condition branches evaluated to opposite path";
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if all incoming edges are satisfied (source nodes completed/skipped with matching port).
+    /// </summary>
+    private static bool AreDependenciesSatisfied(WorkflowStepDefinition stepDef,
+                                                 List<WorkflowEdgeDefinition> workflowEdges,
+                                                 Dictionary<Guid, JobOccurrence> stepOccurrences,
+                                                 Dictionary<Guid, WorkflowStepStatus> virtualNodeStates,
+                                                 WorkflowFailureStrategy failureStrategy,
+                                                 Dictionary<Guid, string> conditionResults,
+                                                 IMilvaLogger logger)
+    {
+        var incomingEdges = workflowEdges.Where(e => e.TargetStepId == stepDef.Id).ToList();
+
+        // Root step
+        if (incomingEdges.Count == 0)
+            return true;
+
+        foreach (var edge in incomingEdges)
+        {
+            // Check if source is task node (has occurrence) or virtual node (in-memory state)
+            WorkflowStepStatus? sourceStatus = null;
+
+            string sourceResult = null;
+
+            if (stepOccurrences.TryGetValue(edge.SourceStepId, out var depOcc))
+            {
+                sourceStatus = depOcc.StepStatus;
+                sourceResult = depOcc.Result;
+            }
+            else if (virtualNodeStates.TryGetValue(edge.SourceStepId, out var virtualStatus))
+            {
+                sourceStatus = virtualStatus;
+                sourceResult = conditionResults?.GetValueOrDefault(edge.SourceStepId);
+            }
+
+            if (!sourceStatus.HasValue)
+                return false;
+
+            // Check port-based activation for condition branches
+            if (!string.IsNullOrWhiteSpace(edge.SourcePort) && sourceStatus == WorkflowStepStatus.Completed)
+            {
+                var port = edge.SourcePort.Trim();
+
+                if (port.Equals("true", StringComparison.OrdinalIgnoreCase) && sourceResult != "true")
+                {
+                    logger?.Debug("Step {StepId} edge from {SourceId} not activated: port '{Port}' but got '{Result}'", stepDef.Id, edge.SourceStepId, port, sourceResult);
+                    continue;
+                }
+
+                if (port.Equals("false", StringComparison.OrdinalIgnoreCase) && sourceResult != "false")
+                {
+                    logger?.Debug("Step {StepId} edge from {SourceId} not activated: port '{Port}' but got '{Result}'", stepDef.Id, edge.SourceStepId, port, sourceResult);
+                    continue;
+                }
+
+                continue;
+            }
+
+            if (sourceStatus is WorkflowStepStatus.Completed or WorkflowStepStatus.Skipped)
                 continue;
 
-            if (!stepOccurrences.TryGetValue(depStepId, out var depOcc))
-                return false; // Dependency not found
-
-            // Completed or skipped means satisfied
-            if (depOcc.StepStatus is WorkflowStepStatus.Completed or WorkflowStepStatus.Skipped)
+            if (failureStrategy == WorkflowFailureStrategy.ContinueOnFailure && sourceStatus == WorkflowStepStatus.Failed)
                 continue;
 
-            // For ContinueOnFailure strategy, Failed is also "satisfied" (allows downstream to run)
-            if (failureStrategy == WorkflowFailureStrategy.ContinueOnFailure && depOcc.StepStatus == WorkflowStepStatus.Failed)
-                continue;
-
-            return false; // Dependency not yet satisfied
+            return false;
         }
 
         return true;
@@ -458,29 +649,61 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     ///   - stepId:@status != 'Skipped'  → specific parent status check
     ///   - stepId:$.price > 100         → specific parent result field check
     /// </summary>
-    private static bool EvaluateCondition(WorkflowStep stepDef, Dictionary<Guid, JobOccurrence> stepOccurrences)
+    /// <summary>
+    /// Extracts the condition expression from node config JSON.
+    /// </summary>
+    private static string ExtractConditionExpression(string nodeConfigJson)
+    {
+        if (string.IsNullOrWhiteSpace(nodeConfigJson))
+            return null;
+
+        try
+        {
+            var json = JsonNode.Parse(nodeConfigJson);
+            return json?["expression"]?.GetValue<string>();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Evaluates whether the specified workflow step should execute based on its condition expression and the states of
+    /// its dependent steps.
+    /// </summary>
+    /// <remarks>If the condition expression is empty, missing, or an error occurs during evaluation, the
+    /// method defaults to allowing the step to execute. The evaluation logic supports logical AND and OR
+    /// operators to combine conditions on dependent steps.</remarks>
+    /// <param name="stepDef">The workflow step definition containing the condition expression to evaluate.</param>
+    /// <param name="workflowEdges">A list of workflow edges representing dependencies between workflow steps.</param>
+    /// <param name="stepOccurrences">A dictionary mapping step identifiers to their corresponding job occurrences, used to determine the state of
+    /// each dependent step.</param>
+    /// <returns>true if the condition expression evaluates to allow execution of the step; otherwise, false.</returns>
+    private static bool EvaluateCondition(WorkflowStepDefinition stepDef, List<WorkflowEdgeDefinition> workflowEdges, Dictionary<Guid, JobOccurrence> stepOccurrences)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(stepDef.Condition))
+            var condition = ExtractConditionExpression(stepDef.NodeConfigJson);
+
+            if (string.IsNullOrWhiteSpace(condition))
                 return true;
 
-            if (string.IsNullOrWhiteSpace(stepDef.DependsOnStepIds))
-                return true;
+            var allDepIds = workflowEdges.Where(e => e.TargetStepId == stepDef.Id)
+                                         .Select(e => e.SourceStepId)
+                                         .Distinct()
+                                         .ToList();
 
-            var allDepIds = stepDef.DependsOnStepIds
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(id => Guid.TryParse(id, out _))
-                .Select(Guid.Parse)
-                .ToList();
+            if (allDepIds.Count == 0)
+                return true;
 
             // Split by || → OR groups; any group true → overall true (|| has lower precedence than &&)
-            var orGroups = stepDef.Condition.Split([" || "], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var orGroups = condition.Split(" || ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             foreach (var orGroup in orGroups)
             {
                 // Split by && → AND clauses; all must be true
-                var andClauses = orGroup.Split([" && "], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var andClauses = orGroup.Split(" && ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
                 if (andClauses.All(clause => EvaluateClause(clause.Trim(), allDepIds, stepOccurrences)))
                     return true;
@@ -490,7 +713,8 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         }
         catch
         {
-            return true; // On error, default to executing
+            // On error, default to executing
+            return true;
         }
     }
 
@@ -502,7 +726,6 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     {
         try
         {
-            // Optional stepId: prefix to target a specific parent
             List<Guid> targetIds;
             string expression;
 
@@ -519,7 +742,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 expression = clause;
             }
 
-            // @status — checks WorkflowStepStatus of target parent(s); ALL must satisfy
+            // @status — checks WorkflowStepStatus of target parent(s); All must satisfy
             if (expression.StartsWith("@status"))
             {
                 var opAndValue = expression[7..].Trim();
@@ -587,7 +810,8 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 return true;
             }
 
-            return true; // Unknown format → default execute
+            // Unknown format → default execute
+            return true;
         }
         catch
         {
@@ -595,6 +819,13 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         }
     }
 
+    /// <summary>
+    /// Compares actual and expected values based on the operator. Supports string equality and numeric comparisons.
+    /// </summary>
+    /// <param name="actual"></param>
+    /// <param name="expected"></param>
+    /// <param name="op"></param>
+    /// <returns></returns>
     private static bool CompareValues(string actual, string expected, string op) => op switch
     {
         "==" => string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase),
@@ -610,11 +841,10 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     /// Updates all pre-created step occurrences to Queued/Running, bulk-inserts dispatch logs,
     /// then publishes to RabbitMQ. Failures are bulk-saved in a single pass.
     /// </summary>
-    private async Task BatchDispatchStepsAsync(
-        MilvaionDbContext dbContext,
-        IJobOccurrenceEventPublisher eventPublisher,
-        List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStep StepDef, ScheduledJob Job, string JobData)> dispatches,
-        CancellationToken cancellationToken)
+    private async Task DispatchStepsAsync(MilvaionDbContext dbContext,
+                                          IJobOccurrenceEventPublisher eventPublisher,
+                                          List<(WorkflowRun Run, JobOccurrence Occurrence, WorkflowStepDefinition StepDef, ScheduledJob Job, string JobData)> dispatches,
+                                          CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
         var logs = new List<JobOccurrenceLog>(dispatches.Count);
@@ -687,7 +917,6 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             }
         }
 
-        // Bulk save all publish failures in one pass
         if (failedOccurrences.Count > 0)
             await dbContext.BulkUpdateAsync(failedOccurrences, bc => bc.PropertiesToIncludeOnUpdate = _stepOccurrenceFailProps, cancellationToken: cancellationToken);
 
@@ -714,7 +943,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
     /// <summary>
     /// Applies data mappings from parent step outputs to the current step's job data.
     /// </summary>
-    private static string ApplyDataMappings(string jobData, string dataMappingsJson, Dictionary<Guid, JobOccurrence> stepOccurrences, Dictionary<Guid, WorkflowStep> stepDefinitions)
+    private static string ApplyDataMappings(string jobData, string dataMappingsJson, Dictionary<Guid, JobOccurrence> stepOccurrences)
     {
         try
         {
@@ -723,7 +952,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             if (mappings == null || mappings.Count == 0)
                 return jobData;
 
-            var targetJson = !string.IsNullOrWhiteSpace(jobData) ? JsonNode.Parse(jobData)?.AsObject() : new JsonObject();
+            var targetJson = !string.IsNullOrWhiteSpace(jobData) ? JsonNode.Parse(jobData)?.AsObject() : [];
 
             targetJson ??= [];
 
@@ -787,7 +1016,23 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
             if (current == null)
                 return null;
 
-            current = current[segment];
+            if (current is JsonObject obj)
+            {
+                // Try exact match first, then case-insensitive fallback
+                if (!obj.TryGetPropertyValue(segment, out var exactMatch))
+                {
+                    var ciKey = obj.Select(p => p.Key).FirstOrDefault(k => string.Equals(k, segment, StringComparison.OrdinalIgnoreCase));
+                    current = ciKey != null ? obj[ciKey] : null;
+                }
+                else
+                {
+                    current = exactMatch;
+                }
+            }
+            else
+            {
+                current = current[segment];
+            }
         }
 
         return current;
@@ -812,7 +1057,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         current[segments[^1]] = value;
     }
 
-    private void CancelRunInMemory(WorkflowRun run, DateTime now, string reason, List<WorkflowRun> runsToUpdate, List<JobOccurrence> occurrencesToUpdate, List<JobOccurrence> runningOccurrencesToCancel)
+    private void CancelRun(WorkflowRun run, DateTime now, string reason, List<WorkflowRun> runsToUpdate, List<JobOccurrence> occurrencesToUpdate, List<JobOccurrence> runningOccurrencesToCancel)
     {
         run.Status = WorkflowStatus.Cancelled;
         run.EndTime = now;
@@ -821,13 +1066,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         if (run.StartTime.HasValue)
             run.DurationMs = (long)(now - run.StartTime.Value).TotalMilliseconds;
 
-        var runningToCancel = run.StepOccurrences
-            .Where(o => o.StepStatus == WorkflowStepStatus.Running)
-            .ToList();
+        var runningToCancel = run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Running).ToList();
 
-        var pendingToSkip = run.StepOccurrences
-            .Where(o => o.StepStatus is WorkflowStepStatus.Pending or WorkflowStepStatus.Delayed)
-            .ToList();
+        var pendingToSkip = run.StepOccurrences.Where(o => o.StepStatus is WorkflowStepStatus.Pending or WorkflowStepStatus.Delayed).ToList();
 
         runningOccurrencesToCancel.AddRange(runningToCancel);
 
@@ -853,7 +1094,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         _logger.Warning("Workflow run {RunId} cancelled: {Reason}", run.Id, reason);
     }
 
-    private void FailRunInMemory(WorkflowRun run, DateTime now, string reason, List<WorkflowRun> runsToUpdate, List<JobOccurrence> occurrencesToUpdate, List<JobOccurrence> runningOccurrencesToCancel)
+    private void FailRun(WorkflowRun run, DateTime now, string reason, List<WorkflowRun> runsToUpdate, List<JobOccurrence> occurrencesToUpdate, List<JobOccurrence> runningOccurrencesToCancel)
     {
         run.Status = WorkflowStatus.Failed;
         run.EndTime = now;
@@ -862,13 +1103,9 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         if (run.StartTime.HasValue)
             run.DurationMs = (long)(now - run.StartTime.Value).TotalMilliseconds;
 
-        var runningToCancel = run.StepOccurrences
-            .Where(o => o.StepStatus == WorkflowStepStatus.Running)
-            .ToList();
+        var runningToCancel = run.StepOccurrences.Where(o => o.StepStatus == WorkflowStepStatus.Running).ToList();
 
-        var pendingToSkip = run.StepOccurrences
-            .Where(o => o.StepStatus is WorkflowStepStatus.Pending or WorkflowStepStatus.Delayed)
-            .ToList();
+        var pendingToSkip = run.StepOccurrences.Where(o => o.StepStatus is WorkflowStepStatus.Pending or WorkflowStepStatus.Delayed).ToList();
 
         runningOccurrencesToCancel.AddRange(runningToCancel);
 

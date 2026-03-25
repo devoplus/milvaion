@@ -65,6 +65,11 @@ public class WorkflowDetailDto : MilvaionBaseDto<Guid>
     public List<WorkflowStepDto> Steps { get; set; } = [];
 
     /// <summary>
+    /// Edges in this workflow.
+    /// </summary>
+    public List<WorkflowEdgeDto> Edges { get; set; } = [];
+
+    /// <summary>
     /// Workflow versions history (serialized workflow snapshots with steps).
     /// Each entry is a JSON snapshot of the workflow definition before it was updated.
     /// </summary>
@@ -82,9 +87,14 @@ public class WorkflowStepDto
     public Guid Id { get; set; }
 
     /// <summary>
+    /// Node type.
+    /// </summary>
+    public WorkflowNodeType NodeType { get; set; }
+
+    /// <summary>
     /// The scheduled job this step executes.
     /// </summary>
-    public Guid JobId { get; set; }
+    public Guid? JobId { get; set; }
 
     /// <summary>
     /// Job display name.
@@ -102,14 +112,9 @@ public class WorkflowStepDto
     public int Order { get; set; }
 
     /// <summary>
-    /// Comma-separated list of step IDs that must complete before this step.
+    /// Node specific configuration stored as JSON.
     /// </summary>
-    public string DependsOnStepIds { get; set; }
-
-    /// <summary>
-    /// Condition expression for conditional branching.
-    /// </summary>
-    public string Condition { get; set; }
+    public string NodeConfigJson { get; set; }
 
     /// <summary>
     /// Data mapping definitions.
@@ -135,4 +140,45 @@ public class WorkflowStepDto
     /// Y position for DAG visualization.
     /// </summary>
     public double? PositionY { get; set; }
+}
+
+/// <summary>
+/// DTO for a workflow edge.
+/// </summary>
+public class WorkflowEdgeDto
+{
+    /// <summary>
+    /// ID of the source step.
+    /// </summary>
+    public Guid SourceStepId { get; set; }
+
+    /// <summary>
+    /// ID of the target step.
+    /// </summary>
+    public Guid TargetStepId { get; set; }
+
+    /// <summary>
+    /// Source port identifier for the connection.
+    /// </summary>
+    public string SourcePort { get; set; }
+
+    /// <summary>
+    /// Target port identifier for the connection.
+    /// </summary>
+    public string TargetPort { get; set; }
+
+    /// <summary>
+    /// Display label for the edge.
+    /// </summary>
+    public string Label { get; set; }
+
+    /// <summary>
+    /// Sort order for edge evaluation.
+    /// </summary>
+    public int Order { get; set; }
+
+    /// <summary>
+    /// Edge specific configuration stored as JSON.
+    /// </summary>
+    public string EdgeConfigJson { get; set; }
 }

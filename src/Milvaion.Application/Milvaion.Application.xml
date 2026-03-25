@@ -3857,6 +3857,11 @@
             Job name and jobdata definition pair this worker handles.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.JobResultDefinitions">
+            <summary>
+            Job name and result schema definition pair this worker handles.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.JobNames">
             <summary>
             Job names that the worker can execute.
@@ -3962,6 +3967,11 @@
             Steps in this workflow.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.Edges">
+            <summary>
+            Edges in this workflow.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.WorkflowVersions">
             <summary>
             Workflow versions history (serialized workflow snapshots with steps).
@@ -3976,6 +3986,11 @@
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.Id">
             <summary>
             Step ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.NodeType">
+            <summary>
+            Node type.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.JobId">
@@ -3998,14 +4013,9 @@
             Sort order.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.DependsOnStepIds">
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.NodeConfigJson">
             <summary>
-            Comma-separated list of step IDs that must complete before this step.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.Condition">
-            <summary>
-            Condition expression for conditional branching.
+            Node specific configuration stored as JSON.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.DataMappings">
@@ -4031,6 +4041,46 @@
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.PositionY">
             <summary>
             Y position for DAG visualization.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto">
+            <summary>
+            DTO for a workflow edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.SourceStepId">
+            <summary>
+            ID of the source step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.TargetStepId">
+            <summary>
+            ID of the target step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.SourcePort">
+            <summary>
+            Source port identifier for the connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.TargetPort">
+            <summary>
+            Target port identifier for the connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.Label">
+            <summary>
+            Display label for the edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.Order">
+            <summary>
+            Sort order for edge evaluation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.EdgeConfigJson">
+            <summary>
+            Edge specific configuration stored as JSON.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto">
@@ -4141,6 +4191,16 @@
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.StepRuns">
             <summary>
             Step runs with their current states.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.Steps">
+            <summary>
+            Workflow step definitions (for DAG visualization).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.Edges">
+            <summary>
+            Workflow edges (for DAG visualization).
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto">
@@ -7049,6 +7109,11 @@
             Steps to include in this workflow.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.Edges">
+            <summary>
+            Edges to include in this workflow.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto">
             <summary>
             DTO for creating a workflow step.
@@ -7059,9 +7124,14 @@
             Temporary client-side ID for referencing in DependsOnStepIds.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.NodeType">
+            <summary>
+            Node type.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.JobId">
             <summary>
-            Job ID to execute.
+            Job ID to execute for task nodes.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.StepName">
@@ -7074,14 +7144,9 @@
             Sort order.
             </summary>
         </member>
-        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.DependsOnTempIds">
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.NodeConfigJson">
             <summary>
-            Comma-separated list of TempIds that must complete first.
-            </summary>
-        </member>
-        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.Condition">
-            <summary>
-            Condition expression.
+            Node specific configuration stored as JSON.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.DataMappings">
@@ -7109,12 +7174,57 @@
             Y position for DAG visualization.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto">
+            <summary>
+            DTO for creating a workflow edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.TempId">
+            <summary>
+            Temporary client-side ID for referencing the edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.SourceTempId">
+            <summary>
+            Temporary ID of the source step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.TargetTempId">
+            <summary>
+            Temporary ID of the target step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.SourcePort">
+            <summary>
+            Source port identifier for the connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.TargetPort">
+            <summary>
+            Target port identifier for the connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.Label">
+            <summary>
+            Display label for the edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.Order">
+            <summary>
+            Sort order for edge evaluation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.EdgeConfigJson">
+            <summary>
+            Edge specific configuration stored as JSON.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandHandler">
             <summary>
             Handles workflow creation with DAG validation.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowStep},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+        <member name="M:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
             <summary>
             Handles workflow creation with DAG validation.
             </summary>
@@ -7238,7 +7348,7 @@
             Handles the workflow run detail query.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowStep},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
             <summary>
             Handles the workflow run detail query.
             </summary>
@@ -7381,12 +7491,17 @@
             If null, steps are not modified.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Edges">
+            <summary>
+            Edges to update in this workflow. When provided, replaces all existing edges.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler">
             <summary>
             Handles workflow settings update.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowStep},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+        <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
             <summary>
             Handles workflow settings update.
             </summary>
@@ -7407,7 +7522,7 @@
             Extension methods for workflow step collections.
             </summary>
         </member>
-        <member name="M:Milvaion.Application.Features.Workflows.WorkflowStepExtensions.ValidateDAG(System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto})">
+        <member name="M:Milvaion.Application.Features.Workflows.WorkflowStepExtensions.ValidateDAG(System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto})">
             <summary>
             Validates that the step graph contains no cycles using Kahn's topological sort.
             Returns <see langword="true"/> if the steps form a valid DAG.

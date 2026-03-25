@@ -941,8 +941,6 @@ namespace Milvaion.Api.Migrations
 
                     b.HasIndex("WorkflowRunId");
 
-                    b.HasIndex("WorkflowStepId");
-
                     b.ToTable("JobOccurrences");
                 });
 
@@ -1075,6 +1073,10 @@ namespace Milvaion.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<WorkflowDefinition>("Definition")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -1167,63 +1169,6 @@ namespace Milvaion.Api.Migrations
                     b.HasIndex("WorkflowId");
 
                     b.ToTable("WorkflowRuns");
-                });
-
-            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowStep", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Condition")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<DateTime?>("CreationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatorUserName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("DataMappings")
-                        .HasColumnType("jsonb");
-
-                    b.Property<int>("DelaySeconds")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("DependsOnStepIds")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<string>("JobDataOverride")
-                        .HasColumnType("jsonb");
-
-                    b.Property<Guid>("JobId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("integer");
-
-                    b.Property<double?>("PositionX")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("PositionY")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("StepName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid>("WorkflowId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("JobId");
-
-                    b.HasIndex("WorkflowId");
-
-                    b.ToTable("WorkflowSteps");
                 });
 
             modelBuilder.Entity("Milvaion.Domain.ContentManagement.Content", b =>
@@ -1375,15 +1320,9 @@ namespace Milvaion.Api.Migrations
                         .WithMany("StepOccurrences")
                         .HasForeignKey("WorkflowRunId");
 
-                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.WorkflowStep", "WorkflowStep")
-                        .WithMany()
-                        .HasForeignKey("WorkflowStepId");
-
                     b.Navigation("Job");
 
                     b.Navigation("WorkflowRun");
-
-                    b.Navigation("WorkflowStep");
                 });
 
             modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.JobOccurrenceLog", b =>
@@ -1404,25 +1343,6 @@ namespace Milvaion.Api.Migrations
                         .HasForeignKey("WorkflowId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Workflow");
-                });
-
-            modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowStep", b =>
-                {
-                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.ScheduledJob", "Job")
-                        .WithMany()
-                        .HasForeignKey("JobId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Milvasoft.Milvaion.Sdk.Domain.Workflow", "Workflow")
-                        .WithMany("Steps")
-                        .HasForeignKey("WorkflowId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Job");
 
                     b.Navigation("Workflow");
                 });
@@ -1493,8 +1413,6 @@ namespace Milvaion.Api.Migrations
             modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.Workflow", b =>
                 {
                     b.Navigation("Runs");
-
-                    b.Navigation("Steps");
                 });
 
             modelBuilder.Entity("Milvasoft.Milvaion.Sdk.Domain.WorkflowRun", b =>

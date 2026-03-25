@@ -456,12 +456,12 @@ public class JobDataTypeHelperTests
         public Task ExecuteAsync(IJobContext context) => Task.CompletedTask;
     }
 
-    private sealed class TypedJobWithResult : IJobWithResult<SampleJobData>
+    private sealed class TypedJobWithResult : IJobWithResult<SampleJobData, string>
     {
         public string Execute(IJobContext context) => "done";
     }
 
-    private sealed class AsyncTypedJobWithResult : IAsyncJobWithResult<SampleJobData>
+    private sealed class AsyncTypedJobWithResult : IAsyncJobWithResult<SampleJobData, string>
     {
         public Task<string> ExecuteAsync(IJobContext context) => Task.FromResult("done");
     }

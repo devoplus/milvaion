@@ -38,8 +38,16 @@ public class WorkerDiscoveryRequest
 
     /// <summary>
     /// Job data definitions this worker handles.
+    /// Key: job type name, Value: JSON Schema of the job data type.
     /// </summary>
     public Dictionary<string, string> JobDataDefinitions { get; set; } = [];
+
+    /// <summary>
+    /// Job result definitions this worker handles.
+    /// Key: job type name, Value: JSON Schema of the result type.
+    /// Only present for jobs implementing IJobWithResult or IAsyncJobWithResult.
+    /// </summary>
+    public Dictionary<string, string> JobResultDefinitions { get; set; } = [];
 
     /// <summary>
     /// Job types this worker can execute.

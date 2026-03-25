@@ -176,7 +176,6 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
     public async Task JobExecutor_ShouldReturnResult_WhenAsyncJobWithResultSucceeds()
     {
         // Arrange
-
         var loggerFactory = GetLoggerFactory();
         var executor = new JobExecutor(loggerFactory);
         var job = new AsyncJobWithResultImpl();
@@ -1217,7 +1216,7 @@ public class JobConsumerTests(WorkerSdkContainerFixture fixture, ITestOutputHelp
         }
     }
 
-    private sealed class AsyncJobWithResultImpl : IAsyncJobWithResult
+    private sealed class AsyncJobWithResultImpl : IAsyncJobWithResult<string>
     {
         public Task<string> ExecuteAsync(IJobContext context) => Task.FromResult("Custom result from job");
     }

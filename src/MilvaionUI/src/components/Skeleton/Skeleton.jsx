@@ -1,20 +1,13 @@
+import PropTypes from 'prop-types'
 import './Skeleton.css'
 
-/**
- * Reusable skeleton loading component
- * @param {string} variant - 'text' | 'circular' | 'rectangular' | 'card' | 'table-row' | 'stat-card'
- * @param {number} width - Custom width (optional)
- * @param {number} height - Custom height (optional)
- * @param {number} count - Number of skeleton items to render
- * @param {string} className - Additional CSS classes
- */
-function Skeleton({ 
-  variant = 'text', 
-  width, 
-  height, 
-  count = 1, 
+function Skeleton({
+  variant = 'text',
+  width,
+  height,
+  count = 1,
   className = '',
-  animation = 'pulse' // 'pulse' | 'wave' | 'none'
+  animation = 'pulse'
 }) {
   const style = {
     ...(width && { width: typeof width === 'number' ? `${width}px` : width }),
@@ -22,7 +15,7 @@ function Skeleton({
   }
 
   const items = Array.from({ length: count }, (_, i) => (
-    <div 
+    <div
       key={i}
       className={`skeleton skeleton-${variant} skeleton-${animation} ${className}`}
       style={style}
@@ -33,7 +26,15 @@ function Skeleton({
   return count === 1 ? items[0] : <>{items}</>
 }
 
-// Pre-built skeleton patterns for common UI elements
+Skeleton.propTypes = {
+  variant: PropTypes.oneOf(['text', 'circular', 'rectangular', 'card', 'table-row', 'stat-card']),
+  width: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  height: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  count: PropTypes.number,
+  className: PropTypes.string,
+  animation: PropTypes.oneOf(['pulse', 'wave', 'none'])
+}
+
 export function SkeletonStatCard() {
   return (
     <div className="skeleton-stat-card">
@@ -60,6 +61,10 @@ export function SkeletonTableRow({ columns = 5 }) {
   )
 }
 
+SkeletonTableRow.propTypes = {
+  columns: PropTypes.number
+}
+
 export function SkeletonTable({ rows = 5, columns = 5 }) {
   return (
     <div className="skeleton-table-container">
@@ -83,6 +88,11 @@ export function SkeletonTable({ rows = 5, columns = 5 }) {
   )
 }
 
+SkeletonTable.propTypes = {
+  rows: PropTypes.number,
+  columns: PropTypes.number
+}
+
 export function SkeletonCard({ lines = 3 }) {
   return (
     <div className="skeleton-card">
@@ -91,16 +101,20 @@ export function SkeletonCard({ lines = 3 }) {
       </div>
       <div className="skeleton-card-body">
         {Array.from({ length: lines }, (_, i) => (
-          <Skeleton 
-            key={i} 
-            variant="text" 
-            width={i === lines - 1 ? '60%' : '100%'} 
-            height={14} 
+          <Skeleton
+            key={i}
+            variant="text"
+            width={i === lines - 1 ? '60%' : '100%'}
+            height={14}
           />
         ))}
       </div>
     </div>
   )
+}
+
+SkeletonCard.propTypes = {
+  lines: PropTypes.number
 }
 
 export function SkeletonDashboard() {
@@ -113,7 +127,7 @@ export function SkeletonDashboard() {
         <SkeletonStatCard />
         <SkeletonStatCard />
       </div>
-      
+
       {/* Main Grid */}
       <div className="skeleton-dashboard-grid">
         <SkeletonCard lines={4} />
@@ -127,16 +141,18 @@ export function SkeletonDashboard() {
 export function SkeletonJobList({ rows = 10 }) {
   return (
     <div className="skeleton-job-list">
-      {/* Search/Filter Bar */}
       <div className="skeleton-toolbar">
         <Skeleton variant="rectangular" width={200} height={36} />
         <Skeleton variant="rectangular" width={120} height={36} />
       </div>
-      
-      {/* Table */}
+
       <SkeletonTable rows={rows} columns={6} />
     </div>
   )
+}
+
+SkeletonJobList.propTypes = {
+  rows: PropTypes.number
 }
 
 export function SkeletonDetail() {

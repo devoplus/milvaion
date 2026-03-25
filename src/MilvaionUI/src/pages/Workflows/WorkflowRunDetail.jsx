@@ -4,6 +4,7 @@ import workflowService from '../../services/workflowService'
 import signalRService from '../../services/signalRService'
 import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
+import WorkflowDAG from '../../components/WorkflowDAG'
 import { useModal } from '../../hooks/useModal'
 import { formatDate } from '../../utils/dateUtils'
 import './WorkflowRunDetail.css'
@@ -248,6 +249,23 @@ function WorkflowRunDetail() {
           </div>
         )}
       </div>
+
+      {/* DAG Visualization */}
+      {run.steps && run.steps.length > 0 && (
+        <div className="wfr-dag-section">
+          <div className="wfr-section-header">
+            <h2><Icon name="schema" size={22} /> Workflow DAG</h2>
+            {signalRActive && (
+              <span className="wfr-dag-live-indicator">
+                <Icon name="sensors" size={16} /> Real-time updates active
+              </span>
+            )}
+          </div>
+          <div className="wfr-dag-container">
+            <WorkflowDAG steps={run.steps || []} edges={run.edges || []} stepRuns={run.stepRuns || []} />
+          </div>
+        </div>
+      )}
 
       {/* Step Runs */}
       <div className="wfr-steps-section">

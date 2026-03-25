@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import authService from '../../services/authService'
 import Icon from '../../components/Icon'
@@ -13,6 +13,13 @@ function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+
+  // Redirect authenticated users away from login page
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [navigate])
 
   const handleChange = useCallback((e) => {
     setFormData(prev => ({
@@ -60,94 +67,108 @@ function Login() {
     <div className="login-page">
       <div className="login-container">
         <div className="login-card">
-          {/* Logo/Brand */}
-          <div className="login-header">
+
+          {/* ── Brand Panel (left) ── */}
+          <div className="login-brand-panel">
+            <div className="login-brand-content">
               <img src="/logo.png" alt="Milvaion Logo" className="login-logo" />
-            <h1>Milvaion Scheduler</h1>
-            <p>Sign in to your account</p>
+              <h1 className="login-brand-title">Milvaion</h1>
+              <p className="login-brand-subtitle">Job Scheduler &amp; Workflow Engine</p>
+              <div className="login-brand-features">
+                <div className="login-brand-feature">
+                  <Icon name="schedule" size={14} />
+                  <span>Smart job scheduling</span>
+                </div>
+                <div className="login-brand-feature">
+                  <Icon name="account_tree" size={14} />
+                  <span>Workflow automation</span>
+                </div>
+                <div className="login-brand-feature">
+                  <Icon name="computer" size={14} />
+                  <span>Worker management</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="login-form">
-            {/* Error Message */}
-            {error && (
-              <div className="error-message">
-                <Icon name="error" size={20} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Username Field */}
-            <div className="form-group">
-              <label htmlFor="username">
-                <Icon name="person" size={20} />
-                Username
-              </label>
-              <input
-                type="text"
-                id="username"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                placeholder="Enter your username"
-                disabled={loading}
-                autoComplete="username"
-                autoFocus
-              />
+          {/* ── Form Panel (right) ── */}
+          <div className="login-form-panel">
+            <div className="login-form-header">
+              <h2>Welcome back</h2>
+              <p>Sign in to continue</p>
             </div>
 
-            {/* Password Field */}
-            <div className="form-group">
-              <label htmlFor="password">
-                <Icon name="lock" size={20} />
-                Password
-              </label>
-              <div className="password-input-wrapper">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Enter your password"
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
-                >
-                  <Icon name={showPassword ? 'visibility_off' : 'visibility'} size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="login-button"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Icon name="sync" size={20} className="spinning" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <Icon name="login" size={20} />
-                  Sign In
-                </>
+            <form onSubmit={handleSubmit} className="login-form">
+              {error && (
+                <div className="error-message">
+                  <Icon name="error" size={16} />
+                  <span>{error}</span>
+                </div>
               )}
-            </button>
-          </form>
 
-          {/* Footer */}
-          <div className="login-footer">
-            <p>Powered by Milvasoft</p>
+              <div className="form-group">
+                <label htmlFor="username">Username</label>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  placeholder="Enter your username"
+                  disabled={loading}
+                  autoComplete="username"
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Enter your password"
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    <Icon name={showPassword ? 'visibility_off' : 'visibility'} size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="login-button"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Icon name="sync" size={18} className="spinning" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="login" size={18} />
+                    Sign In
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="login-footer">
+              <p>Powered by Milvasoft</p>
+            </div>
           </div>
+
         </div>
       </div>
     </div>

@@ -60,4 +60,9 @@ public record UpdateWorkflowCommand : ICommand<Guid>
     /// If null, steps are not modified.
     /// </summary>
     public List<CreateWorkflowStepDto> Steps { get; set; }
+
+    /// <summary>
+    /// Edges to update in this workflow. When provided, replaces all existing edges.
+    /// </summary>
+    public List<CreateWorkflowEdgeDto> Edges { get; set; }
 }

@@ -167,11 +167,6 @@ public class JobOccurrence : CreationAuditableEntity<Guid>
     /// </summary>
     public virtual WorkflowRun WorkflowRun { get; set; }
 
-    /// <summary>
-    /// Navigation to the workflow step definition (only set for workflow step occurrences).
-    /// </summary>
-    public virtual WorkflowStep WorkflowStep { get; set; }
-
     public static class Projections
     {
         public static Expression<Func<JobOccurrence, JobOccurrence>> AddFailedOccurrence { get; } = s => new JobOccurrence

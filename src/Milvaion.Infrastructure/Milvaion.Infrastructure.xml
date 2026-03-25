@@ -569,7 +569,7 @@
             Polls for pending/running workflow runs and dispatches ready steps.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.#ctor(System.IServiceProvider,Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService,Milvaion.Application.Interfaces.Redis.IRedisStatsService,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkflowEngineOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.#ctor(System.IServiceProvider,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.WorkflowEngineOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.BackgroundServices.Base.IMemoryStatsRegistry)">
             <summary>
             Background service that orchestrates workflow (DAG) execution.
             Polls for pending/running workflow runs and dispatches ready steps.
@@ -597,18 +597,24 @@
             Processes all active workflow runs.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.CollectRunChanges(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,System.DateTime,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvasoft.Milvaion.Sdk.Domain.WorkflowStep}},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.DetectRunChanges(Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,System.DateTime,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition}},System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
             <summary>
             Processes a single workflow run in memory: mutates run/step state and populates change lists.
             No database calls — all persistence is batched at the caller level.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.AreDependenciesSatisfied(Milvasoft.Milvaion.Sdk.Domain.WorkflowStep,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ShouldSkipDueToPortMismatch(Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowEdgeDefinition},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowStepStatus},System.Collections.Generic.Dictionary{System.Guid,System.String},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition},System.String@)">
             <summary>
-            Checks if all dependencies
+            Checks if step should be skipped due to port-based branching.
+            If all incoming edges with port requirements have mismatched source results, step is skipped.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.EvaluateCondition(Milvasoft.Milvaion.Sdk.Domain.WorkflowStep,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.AreDependenciesSatisfied(Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowEdgeDefinition},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowStepStatus},Milvasoft.Milvaion.Sdk.Domain.Enums.WorkflowFailureStrategy,System.Collections.Generic.Dictionary{System.Guid,System.String},Milvasoft.Core.Abstractions.IMilvaLogger)">
+            <summary>
+            Checks if all incoming edges are satisfied (source nodes completed/skipped with matching port).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ExtractConditionExpression(System.String)">
             <summary>
             Evaluates a condition expression against parent step outputs and statuses.
             Supports:
@@ -618,6 +624,23 @@
               - stepId:@status != 'Skipped'  → specific parent status check
               - stepId:$.price > 100         → specific parent result field check
             </summary>
+            <summary>
+            Extracts the condition expression from node config JSON.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.EvaluateCondition(Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition,System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowEdgeDefinition},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
+            <summary>
+            Evaluates whether the specified workflow step should execute based on its condition expression and the states of
+            its dependent steps.
+            </summary>
+            <remarks>If the condition expression is empty, missing, or an error occurs during evaluation, the
+            method defaults to allowing the step to execute. The evaluation logic supports logical AND and OR
+            operators to combine conditions on dependent steps.</remarks>
+            <param name="stepDef">The workflow step definition containing the condition expression to evaluate.</param>
+            <param name="workflowEdges">A list of workflow edges representing dependencies between workflow steps.</param>
+            <param name="stepOccurrences">A dictionary mapping step identifiers to their corresponding job occurrences, used to determine the state of
+            each dependent step.</param>
+            <returns>true if the condition expression evaluates to allow execution of the step; otherwise, false.</returns>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.EvaluateClause(System.String,System.Collections.Generic.List{System.Guid},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
             <summary>
@@ -625,13 +648,22 @@
             Format: [stepId:](@status|$.field) operator value
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.BatchDispatchStepsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvasoft.Milvaion.Sdk.Domain.WorkflowStep,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.String}},System.Threading.CancellationToken)">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.CompareValues(System.String,System.String,System.String)">
+            <summary>
+            Compares actual and expected values based on the operator. Supports string equality and numeric comparisons.
+            </summary>
+            <param name="actual"></param>
+            <param name="expected"></param>
+            <param name="op"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.DispatchStepsAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,Milvaion.Application.Interfaces.IJobOccurrenceEventPublisher,System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence,Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition,Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.String}},System.Threading.CancellationToken)">
             <summary>
             Updates all pre-created step occurrences to Queued/Running, bulk-inserts dispatch logs,
             then publishes to RabbitMQ. Failures are bulk-saved in a single pass.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ApplyDataMappings(System.String,System.String,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.WorkflowStep})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.WorkflowEngineService.ApplyDataMappings(System.String,System.String,System.Collections.Generic.Dictionary{System.Guid,Milvasoft.Milvaion.Sdk.Domain.JobOccurrence})">
             <summary>
             Applies data mappings from parent step outputs to the current step's job data.
             </summary>

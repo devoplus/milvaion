@@ -5,37 +5,41 @@
 
 /* Page Header */
 .role-list .page-header {
-  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .role-list .page-header h1 {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-size: 1.75rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
-  margin: 0 0 1.5rem 0;
+  margin: 0;
 }
 
 /* Search Section */
 .role-list .search-section {
   margin-bottom: 1.5rem;
-  padding: 1.5rem;
+  padding: 1rem 1.25rem;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
   display: flex;
   gap: 1rem;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .role-list .search-box {
   position: relative;
   flex: 1;
-  min-width: 240px;
+  min-width: 0;
   max-width: 600px;
 }
 
@@ -53,7 +57,7 @@
 .role-list .search-input:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .role-list .search-input::placeholder {
@@ -71,7 +75,7 @@
   cursor: pointer;
   padding: 0.25rem;
   display: flex;
-  align-items: center;
+  align-items: inherit;
 }
 
 .role-list .clear-search-btn:hover {
@@ -79,65 +83,79 @@
 }
 
 .role-list .create-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  background: var(--accent-color);
+  padding: 0.5rem 1.125rem;
+  background: var(--accent-gradient);
   color: white;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-weight: 500;
-  font-size: 0.9375rem;
-  transition: all 0.2s;
+  font-size: var(--text-sm);
   white-space: nowrap;
+  transition: opacity var(--transition-base), box-shadow var(--transition-base);
 }
 
 .role-list .create-btn:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
+  opacity: 0.9;
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 /* Table */
   .role-list .table-container {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    overflow: hidden;
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+    overflow-y: hidden;
     margin: 0 0 !important;
-    box-shadow: var(--shadow-sm);
+    -webkit-overflow-scrolling: touch;
   }
 
 .role-list .data-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 400px;
 }
 
 .role-list .data-table thead {
-  background: var(--bg-tertiary);
+  /*background: var(--bg-tertiary);*/
 }
 
-.role-list .data-table th {
-  padding: 0.875rem 1.25rem;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border-color);
-}
+  .role-list .data-table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+    background: none !important;
+  }
 
 .role-list .data-table td {
-  padding: 0.875rem 1.25rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
   font-size: 0.9375rem;
+  white-space: nowrap;
 }
 
 .role-list .data-table tbody tr:hover {
   background: var(--bg-hover);
+}
+
+.role-list .data-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.role-list .data-table tbody tr.clickable-row:hover {
+  background: var(--bg-hover);
+  border-left: 2px solid var(--accent-color);
 }
 
 .role-list .data-table tbody tr:last-child td {
@@ -189,9 +207,9 @@
 }
 
 .role-list .action-btn.delete:hover {
-  background: #d32f2f;
+  background: #dc2626;
   color: white;
-  border-color: #d32f2f;
+  border-color: #dc2626;
 }
 
 /* Pagination */
@@ -363,7 +381,7 @@
   background: rgba(211, 47, 47, 0.1);
   border: 1px solid rgba(211, 47, 47, 0.3);
   border-radius: 8px;
-  color: #d32f2f;
+  color: #dc2626;
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }
@@ -402,7 +420,7 @@
 .role-list .form-input:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .role-list .permission-search {

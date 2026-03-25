@@ -28,6 +28,7 @@ Welcome to the official Milvaion documentation. This documentation will help you
 | [05-implementing-jobs.md](05-implementing-jobs.md) | Write jobs with DI, error handling, testing |
 | [06-configuration.md](06-configuration.md) | All configuration options for API and Workers |
 | [14-built-in-workers.md](14-built-in-workers.md) | Pre-built workers (HTTP Worker, etc.) |
+| [20-workflows.md](20-workflows.md) | Build multi-step job pipelines with DAG-based orchestration |
 
 ### Operations Guide
 

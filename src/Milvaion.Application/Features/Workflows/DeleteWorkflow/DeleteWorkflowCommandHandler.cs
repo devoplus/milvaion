@@ -17,7 +17,7 @@ public record DeleteWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wor
     /// <inheritdoc/>
     public async Task<Response<Guid>> Handle(DeleteWorkflowCommand request, CancellationToken cancellationToken)
     {
-        var workflow = await _workflowRepository.GetByIdAsync(request.WorkflowId, cancellationToken: cancellationToken);
+        var workflow = await _workflowRepository.GetForDeleteAsync(request.WorkflowId, cancellationToken: cancellationToken);
 
         if (workflow == null)
             return Response<Guid>.Error(default, "Workflow not found.");

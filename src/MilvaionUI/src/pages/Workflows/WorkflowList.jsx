@@ -7,15 +7,6 @@ import { useModal } from '../../hooks/useModal'
 import CronDisplay from '../../components/CronDisplay'
 import './WorkflowList.css'
 
-const statusLabels = {
-  0: 'Pending',
-  1: 'Running',
-  2: 'Completed',
-  3: 'Failed',
-  4: 'Cancelled',
-  5: 'Partially Completed'
-}
-
 const failureStrategyLabels = {
   0: 'Stop on First Failure',
   1: 'Continue on Failure',
@@ -101,7 +92,7 @@ function WorkflowList() {
         <div className="page-header-actions">
           <Link to="/workflows/new/builder" className="create-workflow-btn create-workflow-btn--builder" title="Create with visual builder (experimental)">
             <Icon name="account_tree" size={18} />
-            Builder
+            Create via Workspace
           </Link>
           <Link to="/workflows/new" className="create-workflow-btn">
             <Icon name="add" size={18} />
@@ -122,7 +113,7 @@ function WorkflowList() {
           </div>
         ) : (
           workflows.map(workflow => (
-            <div key={workflow.id} className="workflow-card">
+            <div key={workflow.id} className="workflow-card" onClick={() => navigate(`/workflows/${workflow.id}`)}>
               <div className="workflow-card-header">
                 <Link to={`/workflows/${workflow.id}`} className="workflow-name">
                   <Icon name="account_tree" size={20} />
@@ -151,13 +142,13 @@ function WorkflowList() {
                 </div>
               )}
               <div className="workflow-actions">
-                <button className="wf-action-btn wf-action-primary" onClick={() => handleTrigger(workflow)} disabled={!workflow.isActive}>
+                <button className="wf-action-btn wf-action-primary" onClick={(e) => { e.stopPropagation(); handleTrigger(workflow) }} disabled={!workflow.isActive}>
                   <Icon name="play_arrow" size={16} /> Run
                 </button>
-                <Link to={`/workflows/${workflow.id}`} className="wf-action-btn wf-action-secondary">
+                <Link to={`/workflows/${workflow.id}`} className="wf-action-btn wf-action-secondary" onClick={(e) => e.stopPropagation()}>
                   <Icon name="visibility" size={16} /> View
                 </Link>
-                <button className="wf-action-btn wf-action-danger" onClick={() => handleDelete(workflow)}>
+                <button className="wf-action-btn wf-action-danger" onClick={(e) => { e.stopPropagation(); handleDelete(workflow) }}>
                   <Icon name="delete" size={16} />
                 </button>
               </div>

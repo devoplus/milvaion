@@ -190,7 +190,7 @@ function WorkflowDetail() {
             intervalSeconds={15}
           />
           <Link to={`/workflows/${id}/builder`} className="wfd-btn wfd-btn-secondary" title="Open visual builder (experimental)">
-            <Icon name="account_tree" size={18} /> Builder
+            <Icon name="account_tree" size={18} /> Edit via Workspace
           </Link>
           <Link to={`/workflows/${id}/edit`} className="wfd-btn wfd-btn-secondary">
             <Icon name="edit" size={18} /> Edit
@@ -198,7 +198,7 @@ function WorkflowDetail() {
           <button className="wfd-btn wfd-btn-primary" onClick={handleTrigger} disabled={!workflow.isActive}>
             <Icon name="play_arrow" size={18} /> Run Workflow
           </button>
-          <button className="wfd-btn wfd-btn-danger" onClick={handleDelete}>
+          <button className="wfd-btn" onClick={handleDelete}>
             <Icon name="delete" size={18} /> Delete
           </button>
         </div>
@@ -250,7 +250,7 @@ function WorkflowDetail() {
       <div className="workflow-dag-section">
         <h2><Icon name="schema" size={22} /> Workflow DAG</h2>
         <div className="dag-container">
-          <WorkflowDAG steps={workflow.steps || []} />
+          <WorkflowDAG steps={workflow.steps || []} edges={workflow.edges || []} />
         </div>
       </div>
 
@@ -265,34 +265,45 @@ function WorkflowDetail() {
                 <th>Step Name</th>
                 <th>Job</th>
                 <th>Dependencies</th>
-                <th>Condition</th>
+                <th>Type</th>
                 <th>Delay</th>
               </tr>
             </thead>
             <tbody>
-              {(workflow.steps || []).map((step) => (
-                <tr key={step.id}>
-                  <td>{step.order}</td>
-                  <td><strong>{step.stepName}</strong></td>
-                  <td>
-                    <Link to={`/jobs/${step.jobId}`} className="job-link">
-                      {step.jobDisplayName || step.jobId}
-                    </Link>
-                  </td>
-                  <td>
-                    {step.dependsOnStepIds ? (
-                      step.dependsOnStepIds.split(',').map(depId => {
-                        const depStep = workflow.steps?.find(s => s.id === depId.trim())
-                        return depStep ? depStep.stepName : depId.trim()
-                      }).join(', ')
-                    ) : (
-                      <span className="text-muted">Root</span>
-                    )}
-                  </td>
-                  <td>{step.condition || <span className="text-muted">Always</span>}</td>
-                  <td>{step.delaySeconds > 0 ? `${step.delaySeconds}s` : '-'}</td>
-                </tr>
-              ))}
+              {(workflow.steps || []).map((step) => {
+                const incomingEdges = (workflow.edges || []).filter(e => e.targetStepId === step.id)
+                const dependencies = incomingEdges.map(e => {
+                  const sourceStep = workflow.steps?.find(s => s.id === e.sourceStepId)
+                  return sourceStep ? sourceStep.stepName : e.sourceStepId
+                }).join(', ')
+
+                return (
+                  <tr key={step.id}>
+                    <td>{step.order}</td>
+                    <td><strong>{step.stepName}</strong></td>
+                    <td>
+                      {step.jobId ? (
+                        <Link to={`/jobs/${step.jobId}`} className="job-link">
+                          {step.jobDisplayName || step.jobId}
+                        </Link>
+                      ) : (
+                        <span className="text-muted">Virtual Node</span>
+                      )}
+                    </td>
+                    <td>
+                      {dependencies || <span className="text-muted">Root</span>}
+                    </td>
+                    <td>
+                      {step.nodeType === 1 ? (
+                        <span className="condition-badge">Condition Node</span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                    <td>{step.delaySeconds > 0 ? `${step.delaySeconds}s` : '-'}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

@@ -11,7 +11,7 @@ public static class WorkflowStepExtensions
     /// Validates that the step graph contains no cycles using Kahn's topological sort.
     /// Returns <see langword="true"/> if the steps form a valid DAG.
     /// </summary>
-    public static bool ValidateDAG(this List<CreateWorkflowStepDto> steps)
+    public static bool ValidateDAG(this List<CreateWorkflowStepDto> steps, List<CreateWorkflowEdgeDto> edges)
     {
         if (steps == null || steps.Count == 0)
             return true;
@@ -26,22 +26,15 @@ public static class WorkflowStepExtensions
             inDegree.TryAdd(id, 0);
         }
 
-        foreach (var step in steps)
+        foreach (var edge in edges ?? [])
         {
-            var id = step.TempId ?? step.GetHashCode().ToString();
+            if (string.IsNullOrWhiteSpace(edge.SourceTempId) || string.IsNullOrWhiteSpace(edge.TargetTempId))
+                continue;
 
-            if (!string.IsNullOrWhiteSpace(step.DependsOnTempIds))
+            if (adjacency.TryGetValue(edge.SourceTempId, out var neighbors) && inDegree.ContainsKey(edge.TargetTempId))
             {
-                var deps = step.DependsOnTempIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-                foreach (var dep in deps)
-                {
-                    if (adjacency.TryGetValue(dep, out var neighbors))
-                    {
-                        neighbors.Add(id);
-                        inDegree[id] = inDegree.GetValueOrDefault(id) + 1;
-                    }
-                }
+                neighbors.Add(edge.TargetTempId);
+                inDegree[edge.TargetTempId] = inDegree.GetValueOrDefault(edge.TargetTempId) + 1;
             }
         }
 

@@ -1,7 +1,6 @@
 ﻿using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
 
 namespace SampleWorker;
 
@@ -104,13 +103,13 @@ public class AlwaysFailingJob : IAsyncJob
 /// <summary>
 /// Always failing job for DLQ testing.
 /// </summary>
-public class HaveResultJob : IJobWithResult<SampleJobResultModel>
+public class HaveResultJob : IJobWithResult<SampleJobResultModel, SampleJobResultModel>
 {
-    public string Execute(IJobContext context)
+    public SampleJobResultModel Execute(IJobContext context)
     {
         context.LogInformation("Have result job starting...");
 
-        return JsonSerializer.Serialize(new SampleJobResultModel
+        return new SampleJobResultModel
         {
             Name = "Test Product",
             Price = 99,
@@ -119,7 +118,7 @@ public class HaveResultJob : IJobWithResult<SampleJobResultModel>
                 Title = "High Priority",
                 Priority = 1
             }
-        });
+        };
     }
 }
 

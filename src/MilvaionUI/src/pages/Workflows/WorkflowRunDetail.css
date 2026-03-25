@@ -125,6 +125,11 @@
   border: none;
 }
 
+.wfr-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .wfr-btn-secondary {
   background: var(--bg-secondary);
   color: var(--text-secondary);
@@ -134,6 +139,22 @@
 .wfr-btn-secondary:hover {
   border-color: var(--accent-color);
   color: var(--accent-color);
+}
+
+.wfr-btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.wfr-btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.wfr-btn-sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 12px;
 }
 
 /* Info Grid */
@@ -194,11 +215,76 @@
 .wfr-status-skipped { background: rgba(156, 163, 175, 0.15); color: #9ca3af; }
 .wfr-status-cancelled { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
 .wfr-status-delayed { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-.wfr-status-partial { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.wfr-status-partial { background: rgba(16, 185, 129, 0.15); color: #10b981 }
+
+/* DAG Section */
+.wfr-dag-section {
+  margin-bottom: 32px;
+  background: var(--bg-card, var(--bg-secondary));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.wfr-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.wfr-section-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.wfr-dag-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
+  color: #10b981;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  animation: wfr-live-glow 2s ease-in-out infinite;
+}
+
+@keyframes wfr-live-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(34, 197, 94, 0);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
+  }
+}
+
+.wfr-dag-container {
+  margin-top: 16px;
+  background: var(--bg-primary);
+  border-radius: 10px;
+  overflow: hidden;
+}
 
 /* Steps Table */
 .wfr-steps-section {
   margin-bottom: 24px;
+  background: var(--bg-card, var(--bg-secondary));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .wfr-steps-section h2 {
@@ -207,7 +293,7 @@
   gap: 8px;
   font-size: 18px;
   font-weight: 600;
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   color: var(--text-primary);
 }
 
@@ -215,6 +301,7 @@
   overflow-x: auto;
   border: 1px solid var(--border-color);
   border-radius: 10px;
+  background: var(--bg-primary);
 }
 
 .wfr-table {
@@ -225,27 +312,34 @@
 
 .wfr-table thead {
   background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .wfr-table th {
   text-align: left;
-  padding: 10px 14px;
-  font-size: 12px;
+  padding: 12px 16px;
+  font-size: 11px;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.5px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-color);
+  font-weight: 700;
+  border-bottom: 2px solid var(--border-color);
 }
 
 .wfr-table td {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
 }
 
 .wfr-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.wfr-table tbody tr {
+  transition: background-color 0.2s;
 }
 
 .wfr-table tbody tr:hover {

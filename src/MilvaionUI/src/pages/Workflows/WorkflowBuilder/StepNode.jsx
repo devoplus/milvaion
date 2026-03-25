@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Handle, Position } from 'reactflow'
 import Icon from '../../../components/Icon'
 
+/* eslint-disable react/prop-types */
 function StepNode({ data, selected }) {
   const { step, jobsMap, onDelete } = data
   const job = jobsMap?.[step.jobId]
@@ -34,18 +35,11 @@ function StepNode({ data, selected }) {
         </span>
       </div>
 
-      {(step.condition || step.delaySeconds > 0) && (
+      {step.delaySeconds > 0 && (
         <div className="wfb-step-node-meta">
-          {step.condition && (
-            <span className="wfb-step-meta-tag" title={`Condition: ${step.condition}`}>
-              <Icon name="rule" size={11} /> if
-            </span>
-          )}
-          {step.delaySeconds > 0 && (
-            <span className="wfb-step-meta-tag">
-              <Icon name="schedule" size={11} /> {step.delaySeconds}s
-            </span>
-          )}
+          <span className="wfb-step-meta-tag">
+            <Icon name="schedule" size={11} /> {step.delaySeconds}s
+          </span>
         </div>
       )}
 
