@@ -73,7 +73,7 @@ public class JobExecutorTests
         var scheduledJob = CreateScheduledJob(jobId, "TestAsyncJobWithResult");
         var expectedResult = "Job completed successfully with result";
 
-        var mockJob = new Mock<IAsyncJobWithResult>();
+        var mockJob = new Mock<IAsyncJobWithResult<string>>();
         mockJob.Setup(x => x.ExecuteAsync(It.IsAny<IJobContext>())).ReturnsAsync(expectedResult);
 
         var jobConsumerConfig = new JobConsumerConfig { ExecutionTimeoutSeconds = 60 };
@@ -138,7 +138,7 @@ public class JobExecutorTests
         var scheduledJob = CreateScheduledJob(jobId, "TestSyncJobWithResult");
         var expectedResult = "Sync job result";
 
-        var mockJob = new Mock<IJobWithResult>();
+        var mockJob = new Mock<IJobWithResult<string>>();
         mockJob.Setup(x => x.Execute(It.IsAny<IJobContext>())).Returns(expectedResult);
 
         var jobConsumerConfig = new JobConsumerConfig { ExecutionTimeoutSeconds = 60 };
@@ -382,7 +382,7 @@ public class JobExecutorTests
         var workerId = "test-worker";
         var scheduledJob = CreateScheduledJob(jobId, "TestNullResultJob");
 
-        var mockJob = new Mock<IAsyncJobWithResult>();
+        var mockJob = new Mock<IAsyncJobWithResult<string>>();
         mockJob.Setup(x => x.ExecuteAsync(It.IsAny<IJobContext>())).ReturnsAsync((string)null);
 
         var jobConsumerConfig = new JobConsumerConfig { ExecutionTimeoutSeconds = 60 };

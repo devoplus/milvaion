@@ -30,14 +30,14 @@ public interface IJob : IJobBase
 /// NOTE: Synchronous jobs do not support cancellation.
 /// For cancellation support, use <see cref="IAsyncJobWithResult"/> instead.
 /// </summary>
-public interface IJobWithResult : IJobBase
+public interface IJobWithResult<TJobResult> : IJobBase
 {
     /// <summary>
     /// Executes the job logic.
     /// </summary>
     /// <param name="context">Job execution context providing logging, cancellation, and metadata</param>
     /// <returns>Result string to store</returns>
-    string Execute(IJobContext context);
+    TJobResult Execute(IJobContext context);
 }
 
 /// <summary>
@@ -58,14 +58,14 @@ public interface IAsyncJob : IJobBase
 /// Interface that all job implementations must implement.
 /// Provides strongly-typed job execution with context and cancellation support.
 /// </summary>
-public interface IAsyncJobWithResult : IJobBase
+public interface IAsyncJobWithResult<TJobResult> : IJobBase
 {
     /// <summary>
     /// Executes the job logic.
     /// </summary>
     /// <param name="context">Job execution context providing logging, cancellation, and metadata</param>
     /// <returns>Task representing the asynchronous operation with result</returns>
-    Task<string> ExecuteAsync(IJobContext context);
+    Task<TJobResult> ExecuteAsync(IJobContext context);
 }
 
 #endregion
@@ -86,7 +86,7 @@ public interface IJob<TJobData> : IJob where TJobData : class, new()
 /// The generic type parameter defines the expected job data schema.
 /// </summary>
 /// <typeparam name="TJobData">The type of job data this job expects. Must be a class with parameterless constructor.</typeparam>
-public interface IJobWithResult<TJobData> : IJobWithResult where TJobData : class, new()
+public interface IJobWithResult<TJobData, TJobResult> : IJobWithResult<TJobResult> where TJobData : class, new()
 {
 }
 
@@ -106,7 +106,7 @@ public interface IJobWithResult<TJobData> : IJobWithResult where TJobData : clas
 ///         // Send email using data.To, data.Subject, etc.
 ///     }
 /// }
-/// 
+///
 /// public class EmailJobData
 /// {
 ///     public string To { get; set; }
@@ -124,7 +124,7 @@ public interface IAsyncJob<TJobData> : IAsyncJob where TJobData : class, new()
 /// The generic type parameter defines the expected job data schema.
 /// </summary>
 /// <typeparam name="TJobData">The type of job data this job expects. Must be a class with parameterless constructor.</typeparam>
-public interface IAsyncJobWithResult<TJobData> : IAsyncJobWithResult where TJobData : class, new()
+public interface IAsyncJobWithResult<TJobData, TJobResult> : IAsyncJobWithResult<TJobResult> where TJobData : class, new()
 {
 }
 

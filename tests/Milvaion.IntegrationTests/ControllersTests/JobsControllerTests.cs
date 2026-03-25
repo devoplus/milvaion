@@ -839,7 +839,7 @@ public class JobsControllerTests(CustomWebApplicationFactory factory, ITestOutpu
         var client = await _factory.CreateClient().LoginAsync();
         var request = new CancelJobOccurrenceCommand
         {
-            OccurrenceId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             Reason = "Integration test cancellation"
         };
 

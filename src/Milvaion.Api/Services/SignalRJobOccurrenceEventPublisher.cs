@@ -88,6 +88,9 @@ public class SignalRJobOccurrenceEventPublisher(IHubContext<JobsHub> hubContext)
                         StartTime = occurrence.StartTime,
                         WorkerId = occurrence.WorkerId,
                         EndTime = occurrence.EndTime,
+                        DurationMs = occurrence.DurationMs,
+                        Exception = occurrence.Exception,
+                        StepStatus = occurrence.StepStatus.HasValue ? (int)occurrence.StepStatus.Value : null,
                     }, cancellationToken);
                 }
                 catch (Exception ex)

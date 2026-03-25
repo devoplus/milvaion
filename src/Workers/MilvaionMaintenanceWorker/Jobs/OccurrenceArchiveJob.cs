@@ -13,7 +13,7 @@ namespace MilvaionMaintenanceWorker.Jobs;
 /// Useful for compliance, auditing, or historical analysis.
 /// Recommended schedule: Monthly (1st day of month, 04:00).
 /// </summary>
-public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult
+public class OccurrenceArchiveJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult<string>
 {
     private readonly MaintenanceOptions _options = options.Value;
 

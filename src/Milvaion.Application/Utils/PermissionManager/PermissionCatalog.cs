@@ -228,6 +228,28 @@ public static partial class PermissionCatalog
         public const string Delete = "FailedOccurrenceManagement.Delete";
     }
 
+    [Description("Workflow Management")]
+    public static class WorkflowManagement
+    {
+        [Description("Workflow list permission.")]
+        public const string List = "WorkflowManagement.List";
+
+        [Description("Workflow detail view permission")]
+        public const string Detail = "WorkflowManagement.Detail";
+
+        [Description("Workflow create permission")]
+        public const string Create = "WorkflowManagement.Create";
+
+        [Description("Workflow update permission")]
+        public const string Update = "WorkflowManagement.Update";
+
+        [Description("Workflow delete permission")]
+        public const string Delete = "WorkflowManagement.Delete";
+
+        [Description("Workflow trigger permission")]
+        public const string Trigger = "WorkflowManagement.Trigger";
+    }
+
     /// <summary>
     /// Gets all permissions in the system as grouped by permission group.
     /// </summary>

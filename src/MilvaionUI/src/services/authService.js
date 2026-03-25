@@ -7,14 +7,12 @@ const DEVICE_ID_KEY = 'deviceId'
 
 class AuthService {
   constructor() {
-    // Generate or retrieve device ID
     this.deviceId = this.getOrCreateDeviceId()
   }
 
   getOrCreateDeviceId() {
     let deviceId = localStorage.getItem(DEVICE_ID_KEY)
     if (!deviceId) {
-      // Generate unique device ID
       deviceId = `web-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       localStorage.setItem(DEVICE_ID_KEY, deviceId)
     }
@@ -32,16 +30,14 @@ class AuthService {
       if (response.isSuccess && response.data) {
         const { token, id, userType } = response.data
 
-        // Store tokens
-        this.setTokens(token.accessToken, token.refreshToken)
+          this.setTokens(token.accessToken, token.refreshToken)
 
-        // Store user info
-        const user = {
-          id,
-          username,
-          userType
-        }
-        localStorage.setItem(USER_KEY, JSON.stringify(user))
+          const user = {
+            id,
+            username,
+            userType
+          }
+          localStorage.setItem(USER_KEY, JSON.stringify(user))
 
         return {
           success: true,
@@ -81,7 +77,6 @@ class AuthService {
       if (response.isSuccess && response.data) {
         const { token } = response.data
 
-        // Update tokens
         this.setTokens(token.accessToken, token.refreshToken)
 
         return true
@@ -94,11 +89,26 @@ class AuthService {
     }
   }
 
-  logout() {
+  clearAuth() {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
-    // Keep device ID for future logins
+  }
+
+  async logout() {
+    try {
+      const user = this.getCurrentUser()
+      if (user) {
+        await api.post('/account/logout', {
+          userName: user.username,
+          deviceId: this.deviceId
+        })
+      }
+    } catch (error) {
+      console.error('Logout API error:', error)
+    } finally {
+      this.clearAuth()
+    }
   }
 
   setTokens(accessToken, refreshToken) {
@@ -130,13 +140,12 @@ class AuthService {
     return !!this.getAccessToken()
   }
 
-  // Check if token is expired (JWT parsing)
   isTokenExpired(token) {
     if (!token) return true
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
-      const exp = payload.exp * 1000 // Convert to milliseconds
+      const exp = payload.exp * 1000
       return Date.now() >= exp
     } catch {
       return true
@@ -153,7 +162,6 @@ class AuthService {
       const now = Date.now()
       const timeUntilExpiry = exp - now
 
-      // Refresh if less than 5 minutes until expiry
       return timeUntilExpiry < 5 * 60 * 1000
     } catch {
       return false

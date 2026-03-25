@@ -10,7 +10,7 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Core;
 /// <summary>
 /// Implementation of IJobContext providing job execution environment.
 /// </summary>
-public class JobContext(Guid correlationId,
+public class JobContext(Guid occurrenceId,
                         ScheduledJob job,
                         string workerId,
                         IMilvaLogger logger,
@@ -23,7 +23,7 @@ public class JobContext(Guid correlationId,
     private readonly OutboxService _outboxService = outboxService;
 
     /// <inheritdoc/>
-    public Guid CorrelationId { get; private set; } = correlationId;
+    public Guid OccurrenceId { get; private set; } = occurrenceId;
 
     /// <inheritdoc/>
     public ScheduledJob Job { get; private set; } = job;
@@ -184,7 +184,7 @@ public class JobContext(Guid correlationId,
                 return;
             }
 
-            await _outboxService.PublishLogAsync(CorrelationId, WorkerId, log, CancellationToken);
+            await _outboxService.PublishLogAsync(OccurrenceId, WorkerId, log, CancellationToken);
         }
         catch (OperationCanceledException ex)
         {

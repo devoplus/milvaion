@@ -55,7 +55,7 @@ public class StoredStatusUpdateTests
 
         // Assert
         update.Id.Should().Be(0);
-        update.CorrelationId.Should().Be(Guid.Empty);
+        update.OccurrenceId.Should().Be(Guid.Empty);
         update.JobId.Should().Be(Guid.Empty);
         update.WorkerId.Should().BeNull();
         update.Status.Should().Be(JobOccurrenceStatus.Queued);
@@ -71,7 +71,7 @@ public class StoredStatusUpdateTests
     public void StoredStatusUpdate_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var correlationId = Guid.CreateVersion7();
+        var occurrenceId = Guid.CreateVersion7();
         var jobId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
 
@@ -79,7 +79,7 @@ public class StoredStatusUpdateTests
         var update = new StoredStatusUpdate
         {
             Id = 1,
-            CorrelationId = correlationId,
+            OccurrenceId = occurrenceId,
             JobId = jobId,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Completed,
@@ -94,7 +94,7 @@ public class StoredStatusUpdateTests
 
         // Assert
         update.Id.Should().Be(1);
-        update.CorrelationId.Should().Be(correlationId);
+        update.OccurrenceId.Should().Be(occurrenceId);
         update.JobId.Should().Be(jobId);
         update.WorkerId.Should().Be("test-worker");
         update.Status.Should().Be(JobOccurrenceStatus.Completed);
@@ -114,7 +114,7 @@ public class StoredLogTests
 
         // Assert
         storedLog.Id.Should().Be(0);
-        storedLog.CorrelationId.Should().Be(Guid.Empty);
+        storedLog.OccurrenceId.Should().Be(Guid.Empty);
         storedLog.WorkerId.Should().BeNull();
         storedLog.Log.Should().BeNull();
         storedLog.RetryCount.Should().Be(0);
@@ -139,7 +139,7 @@ public class StoredLogTests
         var storedLog = new StoredLog
         {
             Id = 1,
-            CorrelationId = correlationId,
+            OccurrenceId = correlationId,
             WorkerId = "test-worker",
             Log = log,
             CreatedAt = now,
@@ -148,7 +148,7 @@ public class StoredLogTests
 
         // Assert
         storedLog.Id.Should().Be(1);
-        storedLog.CorrelationId.Should().Be(correlationId);
+        storedLog.OccurrenceId.Should().Be(correlationId);
         storedLog.WorkerId.Should().Be("test-worker");
         storedLog.Log.Should().NotBeNull();
         storedLog.Log.Message.Should().Be("Test log message");
@@ -295,7 +295,7 @@ public class JobStatusUpdateMessageTests
         var message = new JobStatusUpdateMessage();
 
         // Assert
-        message.CorrelationId.Should().Be(Guid.Empty);
+        message.OccurrenceId.Should().Be(Guid.Empty);
         message.JobId.Should().Be(Guid.Empty);
         message.WorkerId.Should().BeNull();
         message.Status.Should().Be(JobOccurrenceStatus.Queued);
@@ -318,7 +318,7 @@ public class JobStatusUpdateMessageTests
         // Act
         var message = new JobStatusUpdateMessage
         {
-            CorrelationId = correlationId,
+            OccurrenceId = correlationId,
             JobId = jobId,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Completed,
@@ -331,7 +331,7 @@ public class JobStatusUpdateMessageTests
         };
 
         // Assert
-        message.CorrelationId.Should().Be(correlationId);
+        message.OccurrenceId.Should().Be(correlationId);
         message.JobId.Should().Be(jobId);
         message.WorkerId.Should().Be("test-worker");
         message.Status.Should().Be(JobOccurrenceStatus.Completed);

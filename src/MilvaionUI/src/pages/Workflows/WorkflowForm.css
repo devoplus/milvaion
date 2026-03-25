@@ -1,0 +1,743 @@
+.workflow-form-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.workflow-form-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 40px;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+/* Header — matches JobForm pattern */
+.wf-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.wf-form-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.wf-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-top: 0.5rem;
+}
+
+.wf-back-btn:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  background-color: var(--bg-hover);
+  transform: translateX(-2px);
+}
+
+.wf-form-header-content {
+  flex: 1;
+  text-align:left;
+}
+
+.wf-form-header-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: var(--text-primary);
+}
+
+.wf-form-subtitle {
+  color: var(--text-muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Form */
+.workflow-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* General + Settings side by side */
+.wf-top-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.wf-general-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wf-settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Section cards */
+.workflow-form-page .form-section {
+  background: var(--bg-card, var(--bg-secondary));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.workflow-form-page .form-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.workflow-form-page .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.workflow-form-page .section-header h2 {
+  margin: 0;
+}
+
+/* Form Grid */
+.workflow-form-page .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.workflow-form-page .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.workflow-form-page .form-group-full {
+  grid-column: 1 / -1;
+}
+
+.workflow-form-page .form-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.workflow-form-page .form-group input,
+.workflow-form-page .form-group select,
+.workflow-form-page .form-group textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.workflow-form-page .form-group input:focus,
+.workflow-form-page .form-group select:focus,
+.workflow-form-page .form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.workflow-form-page .form-group textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* Tags input — chip-based, matches JobForm */
+.wf-tags-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wf-tag-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.wf-tag-input-wrapper input {
+  flex: 1;
+}
+
+.wf-tag-add-btn {
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.wf-tag-add-btn:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.wf-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 36px;
+  padding: 0.5rem;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.wf-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  background-color: var(--accent-color);
+  color: white;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.wf-tag-remove {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: 0.15rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.wf-tag-remove:hover {
+  opacity: 1;
+}
+
+/* Switch toggle — matches JobForm */
+.wf-switch-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-weight: normal;
+  color: var(--text-primary);
+  margin-top: 0.5rem;
+}
+
+.wf-switch-label-text {
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.wf-switch-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.wf-switch-input {
+  display: none;
+}
+
+.wf-switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+  background-color: var(--bg-tertiary);
+  border-radius: 28px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border: 2px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.wf-switch-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background-color: var(--text-muted);
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.wf-switch-input:checked + .wf-switch {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.wf-switch-input:checked + .wf-switch .wf-switch-slider {
+  transform: translateX(24px);
+  background-color: white;
+}
+
+.wf-switch-status {
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 60px;
+  margin-left: 10px;
+}
+
+.wf-switch-input:checked ~ .wf-switch-status {
+  color: #10b981;
+}
+
+.wf-switch-input:not(:checked) ~ .wf-switch-status {
+  color: var(--text-muted);
+}
+
+/* Form hint text */
+.wf-form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.wf-cron-field {
+  grid-column: 1 / -1;
+}
+
+/* Add Step button */
+.wf-add-step-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wf-add-step-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wf-add-step-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+/* Steps */
+.empty-steps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+}
+
+.empty-steps p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.step-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.step-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.step-number {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--accent-color);
+  background: rgba(99, 102, 241, 0.1);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+}
+
+.step-temp-id {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.step-card-header .wf-remove-step-btn {
+  margin-left: auto;
+}
+
+.wf-remove-step-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--error-color);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.wf-remove-step-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.step-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Data Mappings */
+.step-data-mappings {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.mapping-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mapping-header label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wf-mapping-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--accent-color);
+  border: 1px solid var(--accent-color);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wf-mapping-add-btn:hover {
+  background: var(--accent-color);
+  color: white;
+}
+
+.mapping-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.mapping-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mapping-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.mapping-source {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mapping-source select {
+  width: 120px;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.mapping-path-input {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.path-prefix {
+  padding: 4px 0 4px 8px;
+  color: var(--accent-color);
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.mapping-path-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px 4px 2px;
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.mapping-path-input input:focus {
+  outline: none;
+}
+
+.mapping-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mapping-target {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Dependencies */
+.step-dependencies {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.step-dependencies label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.dep-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dep-chip:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.dep-chip.selected {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+/* Edges */
+.edges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.edge-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid #6366f1;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.edge-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.edge-number {
+  font-weight: 700;
+  font-size: 13px;
+  color: #6366f1;
+}
+
+.edge-temp-id {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.edge-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .edge-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Form Actions — in header, right side */
+.wf-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.wf-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.wf-cancel-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.wf-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.125rem;
+  background: var(--accent-gradient);
+  color: white;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: opacity var(--transition-base), box-shadow var(--transition-base);
+}
+
+.wf-submit-btn:hover {
+  opacity: 0.9;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.wf-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .wf-top-row {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-form-page .form-grid,
+  .step-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wf-form-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .wf-form-header-content h1 {
+    font-size: 1.5rem;
+  }
+}

@@ -1039,6 +1039,61 @@
             <param name="cancellation"></param>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Api.Controllers.WorkflowsController">
+            <summary>
+            Workflow (Job Chaining / DAG) endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.#ctor(MediatR.IMediator)">
+            <summary>
+            Workflow (Job Chaining / DAG) endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowsAsync(Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflows.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowAsync(Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflow detail with steps.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.CreateWorkflowAsync(Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Creates a new workflow with steps (DAG definition).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.UpdateWorkflowAsync(Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates an existing workflow's settings.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.DeleteWorkflowAsync(Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Deletes a workflow.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.TriggerWorkflowAsync(Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Triggers a workflow run (creates a WorkflowRun and dispatches root steps).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.CancelWorkflowAsync(Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Cancels a running workflow (cancels running steps, skips pending steps).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowRunsAsync(Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflow runs with optional workflow filter.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowRunDetailAsync(Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflow run detail with step run states (for DAG visualization).
+            </summary>
+        </member>
         <member name="T:Milvaion.Api.Hubs.JobsHub">
             <summary>
             SignalR hub for real-time job updates to dashboard.
@@ -1140,6 +1195,30 @@
             <inheritdoc />
         </member>
         <member name="M:Milvaion.Api.Migrations.AddExternalJobSupport.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.WorkflowEngine">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEngine.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEngine.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEngine.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.WorkflowEnhance">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEnhance.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEnhance.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEnhance.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">

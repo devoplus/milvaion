@@ -9,7 +9,7 @@ namespace EmailWorker.Jobs;
 /// Generic email sending job that supports SMTP with configurable providers.
 /// Supports HTML/text emails, attachments, CC/BCC, and multiple SMTP configurations.
 /// </summary>
-public class SendEmailJob(IEmailSender emailSender) : IAsyncJobWithResult<EmailJobData>
+public class SendEmailJob(IEmailSender emailSender) : IAsyncJobWithResult<EmailJobData, string>
 {
     private readonly IEmailSender _emailSender = emailSender;
 

@@ -240,7 +240,7 @@ function WorkerList() {
                   </div>
                 </div>
 
-                {isExpanded && (
+                <div className={`worker-details-wrapper${isExpanded ? ' expanded' : ''}`}>
                   <div className="worker-details">
                     <div className="detail-section">
                       <h4 className="header-title">
@@ -341,7 +341,7 @@ function WorkerList() {
                       </div>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             )
           })}

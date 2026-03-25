@@ -11,7 +11,7 @@ namespace MilvaionMaintenanceWorker.Jobs;
 /// Performs database maintenance operations: VACUUM, ANALYZE, and optionally REINDEX.
 /// Should be scheduled during low-traffic periods (e.g., weekly at 3 AM Sunday).
 /// </summary>
-public class DatabaseMaintenanceJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult
+public class DatabaseMaintenanceJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult<string>
 {
     private readonly MaintenanceOptions _options = options.Value;
 

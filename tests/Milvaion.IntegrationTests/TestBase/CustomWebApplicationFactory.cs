@@ -111,6 +111,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
             Environment.SetEnvironmentVariable("MilvaionConfig__WorkerAutoDiscovery__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__ZombieOccurrenceDetector__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__FailedOccurrenceHandler__Enabled", "false");
+            Environment.SetEnvironmentVariable("MilvaionConfig__WorkflowEngine__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__LogCollector__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__Logging__Seq__Enabled", "false");
 

@@ -40,7 +40,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         JobStatusUpdateMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupStatusUpdateConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
+            if (msg?.OccurrenceId == correlationId)
                 receivedMessage = msg;
         }, cts.Token);
 
@@ -48,7 +48,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
 
         // Act
         await publisher.PublishStatusAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             jobId: jobId,
             workerId: workerId,
             instanceId: $"{workerId}-instance",
@@ -69,7 +69,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         // Assert
         found.Should().BeTrue("status update message should be received");
         receivedMessage.Should().NotBeNull();
-        receivedMessage!.CorrelationId.Should().Be(correlationId);
+        receivedMessage!.OccurrenceId.Should().Be(correlationId);
         receivedMessage.JobId.Should().Be(jobId);
         receivedMessage.WorkerId.Should().Be(workerId);
         receivedMessage.Status.Should().Be(JobOccurrenceStatus.Running);
@@ -96,7 +96,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         JobStatusUpdateMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupStatusUpdateConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
+            if (msg?.OccurrenceId == correlationId)
                 receivedMessage = msg;
         }, cts.Token);
 
@@ -104,7 +104,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
 
         // Act
         await publisher.PublishStatusAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             jobId: jobId,
             workerId: workerId,
             instanceId: $"{workerId}-instance",
@@ -151,7 +151,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         JobStatusUpdateMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupStatusUpdateConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
+            if (msg?.OccurrenceId == correlationId)
                 receivedMessage = msg;
         }, cts.Token);
 
@@ -159,7 +159,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
 
         // Act
         await publisher.PublishStatusAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             jobId: jobId,
             workerId: workerId,
             instanceId: $"{workerId}-instance",
@@ -201,7 +201,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         JobStatusUpdateMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupStatusUpdateConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
+            if (msg?.OccurrenceId == correlationId)
                 receivedMessage = msg;
         }, cts.Token);
 
@@ -209,7 +209,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
 
         // Act
         await publisher.PublishStatusAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             jobId: jobId,
             workerId: workerId,
             instanceId: $"{workerId}-instance",
@@ -251,7 +251,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         JobStatusUpdateMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupStatusUpdateConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
+            if (msg?.OccurrenceId == correlationId)
                 receivedMessage = msg;
         }, cts.Token);
 
@@ -259,7 +259,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
 
         // Act
         await publisher.PublishStatusAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             jobId: jobId,
             workerId: workerId,
             instanceId: $"{workerId}-instance",
@@ -301,7 +301,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         JobStatusUpdateMessage receivedMessage = null;
         (IChannel channel, IConnection connection) = await SetupStatusUpdateConsumerAsync(msg =>
         {
-            if (msg?.CorrelationId == correlationId)
+            if (msg?.OccurrenceId == correlationId)
                 receivedMessage = msg;
         }, cts.Token);
 
@@ -309,7 +309,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
 
         // Act
         await publisher.PublishStatusAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             jobId: jobId,
             workerId: "test-worker",
             instanceId: "test-worker-instance",
@@ -390,7 +390,7 @@ public class StatusUpdatePublisherTests(WorkerSdkContainerFixture fixture, ITest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         await publisher.PublishStatusAsync(
-            correlationId: Guid.CreateVersion7(),
+            occurrenceId: Guid.CreateVersion7(),
             jobId: Guid.CreateVersion7(),
             workerId: "test-worker",
             instanceId: "test-worker-instance",

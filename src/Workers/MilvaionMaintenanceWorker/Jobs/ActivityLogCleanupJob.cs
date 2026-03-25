@@ -12,7 +12,7 @@ namespace MilvaionMaintenanceWorker.Jobs;
 /// Prevents database bloat from accumulating audit logs.
 /// Recommended schedule: Daily at 3 AM.
 /// </summary>
-public class ActivityLogCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult
+public class ActivityLogCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult<string>
 {
     private readonly MaintenanceOptions _options = options.Value;
 

@@ -28,8 +28,6 @@ function FailedOccurrenceList() {
   })
   const [lastRefreshTime, setLastRefreshTime] = useState(null)
 
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
-
   const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = useModal()
   const { modalProps: resolveModalProps, showModal } = useModal()
 
@@ -97,10 +95,7 @@ function FailedOccurrenceList() {
       setError(getApiErrorMessage(err, 'Failed to load failed jobs'))
       console.error(err)
     } finally {
-      if (showLoading) {
-        setLoading(false)
-        setIsInitialLoad(false)
-      }
+      setLoading(false)
     }
   }, [filterResolved, filterFailureType, currentPage, pageSize, debouncedSearchTerm])
 
@@ -477,93 +472,93 @@ function FailedOccurrenceList() {
                 ))}
               </tbody>
             </table>
-          </div>
 
-          {/* Pagination */}
-          <div className="pagination-container">
-            <div className="pagination">
-              {(() => {
-                const totalPages = Math.ceil(totalCount / pageSize)
-                if (totalPages <= 1) return null
+            {/* Pagination */}
+            <div className="pagination-container">
+              <div className="pagination">
+                {(() => {
+                  const totalPages = Math.ceil(totalCount / pageSize)
+                  if (totalPages <= 1) return null
 
-                const maxVisiblePages = 5
-                let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-                let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+                  const maxVisiblePages = 5
+                  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+                  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
 
-                if (endPage - startPage + 1 < maxVisiblePages) {
-                  startPage = Math.max(1, endPage - maxVisiblePages + 1)
-                }
+                  if (endPage - startPage + 1 < maxVisiblePages) {
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1)
+                  }
 
-                return (
-                  <>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                    >
-                      <Icon name="first_page" size={18} />
-                    </button>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      <Icon name="chevron_left" size={18} />
-                    </button>
-
-                    {startPage > 1 && <span className="page-ellipsis">...</span>}
-
-                    {Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => (
+                  return (
+                    <>
                       <button
-                        key={page}
-                        className={'btn btn-sm' + (page === currentPage ? ' btn-primary' : '')}
-                        onClick={() => setCurrentPage(page)}
+                        className="btn btn-sm"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
                       >
-                        {page}
+                        <Icon name="first_page" size={18} />
                       </button>
-                    ))}
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <Icon name="chevron_left" size={18} />
+                      </button>
 
-                    {endPage < totalPages && <span className="page-ellipsis">...</span>}
+                      {startPage > 1 && <span className="page-ellipsis">...</span>}
 
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      <Icon name="chevron_right" size={18} />
-                    </button>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                    >
-                      <Icon name="last_page" size={18} />
-                    </button>
+                      {Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => (
+                        <button
+                          key={page}
+                          className={'btn btn-sm' + (page === currentPage ? ' btn-primary' : '')}
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </button>
+                      ))}
 
-                    <span className="page-info">
-                      Page {currentPage} of {totalPages} ({totalCount} total)
-                    </span>
-                  </>
-                )
-              })()}
-            </div>
+                      {endPage < totalPages && <span className="page-ellipsis">...</span>}
 
-            <div className="page-size-selector">
-              <label htmlFor="pageSize">Rows per page:</label>
-              <select
-                id="pageSize"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(parseInt(e.target.value))
-                  setCurrentPage(1)
-                }}
-                className="page-size-select"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        <Icon name="chevron_right" size={18} />
+                      </button>
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                      >
+                        <Icon name="last_page" size={18} />
+                      </button>
+
+                      <span className="page-info">
+                        Page {currentPage} of {totalPages} ({totalCount} total)
+                      </span>
+                    </>
+                  )
+                })()}
+              </div>
+
+              <div className="page-size-selector">
+                <label htmlFor="pageSize">Rows per page:</label>
+                <select
+                  id="pageSize"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(parseInt(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="page-size-select"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
             </div>
           </div>
         </>

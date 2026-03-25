@@ -66,7 +66,8 @@ function generateExampleFromSchema(schema) {
   return example
 }
 
-// Schema Viewer Component
+import PropTypes from 'prop-types'
+
 function SchemaViewer({ schema }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -125,6 +126,10 @@ function SchemaViewer({ schema }) {
       )}
     </div>
   )
+}
+
+SchemaViewer.propTypes = {
+  schema: PropTypes.oneOfType([PropTypes.string, PropTypes.object])
 }
 
 function JobForm() {
@@ -343,10 +348,18 @@ function JobForm() {
         payload.executeAt = new Date(formData.executeAt).toISOString()
       }
 
-      if (isEditMode) {
-        await jobService.update(id, payload)
-      } else {
-        await jobService.create(payload)
+      const response = isEditMode
+        ? await jobService.update(id, payload)
+        : await jobService.create(payload)
+
+      if (response && response.isSuccess === false) {
+        const messages = response.messages
+        if (Array.isArray(messages) && messages.length > 0) {
+          setError(messages.map(m => m.message).join(' '))
+        } else {
+          setError('Failed to save job')
+        }
+        return
       }
 
       navigate(isEditMode ? `/jobs/${id}` : '/jobs')
@@ -872,11 +885,11 @@ function JobForm() {
           {/* Help Card */}
           <div className="sidebar-card">
             <h4 className="sidebar-card-title">Tips</h4>
-            <p><strong>Execution Timeout:</strong> Max time a job can run before being cancelled. Leave empty to use worker's default (1 hour).</p>
+            <p><strong>Execution Timeout:</strong> Max time a job can run before being cancelled. Leave empty to use worker&apos;s default (1 hour).</p>
             <p><strong>Zombie Timeout:</strong> Max time in Queued status before marked as failed. Leave empty for default (10 min).</p>
             <p><strong>Concurrent Policies:</strong></p>
             <ul>
-              <li><strong>Skip:</strong> Don't create execution if already executing</li>
+              <li><strong>Skip:</strong> Don&apos;t create execution if already executing</li>
               <li><strong>Queue:</strong> Create execution and wait for previous execution to complete</li>
             </ul>
             <p><strong>Auto-Disable:</strong> Automatically disables job after consecutive failures to prevent resource waste. Admin notification will be sent.</p>

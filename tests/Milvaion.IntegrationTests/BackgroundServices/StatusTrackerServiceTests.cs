@@ -64,7 +64,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Publish status update to Running
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = uniqueWorkerId,
             Status = JobOccurrenceStatus.Running,
@@ -125,7 +125,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Publish status update
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Running,
@@ -192,7 +192,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Completed,
@@ -258,7 +258,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Failed,
@@ -328,7 +328,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         {
             await PublishStatusUpdateAsync(new JobStatusUpdateMessage
             {
-                CorrelationId = occ.CorrelationId,
+                OccurrenceId = occ.Id,
                 JobId = job.Id,
                 WorkerId = uniqueWorkerId,
                 Status = JobOccurrenceStatus.Running,
@@ -397,7 +397,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "heartbeat-worker",
             Status = JobOccurrenceStatus.Running
@@ -469,7 +469,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Completed,
@@ -532,7 +532,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Cancelled,
@@ -594,7 +594,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.TimedOut,
@@ -656,7 +656,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Step 1: Queued -> Running
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = uniqueWorkerId,
             Status = JobOccurrenceStatus.Running,
@@ -679,7 +679,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         var uniqueResult = $"Lifecycle complete - {Guid.CreateVersion7():N}";
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = uniqueWorkerId,
             Status = JobOccurrenceStatus.Completed,
@@ -749,7 +749,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Send different status updates for each occurrence
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence1.CorrelationId,
+            OccurrenceId = occurrence1.Id,
             JobId = job1.Id,
             WorkerId = "worker-1",
             Status = JobOccurrenceStatus.Running,
@@ -758,7 +758,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence2.CorrelationId,
+            OccurrenceId = occurrence2.Id,
             JobId = job2.Id,
             WorkerId = "worker-2",
             Status = JobOccurrenceStatus.Completed,
@@ -769,7 +769,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence3.CorrelationId,
+            OccurrenceId = occurrence3.Id,
             JobId = job3.Id,
             WorkerId = "worker-3",
             Status = JobOccurrenceStatus.Failed,
@@ -845,7 +845,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Running,
@@ -907,7 +907,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Completed,
@@ -1095,7 +1095,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Publish status update before starting disabled tracker
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Running,
@@ -1162,7 +1162,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Publish valid message after invalid one
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = uniqueWorkerId,
             Status = JobOccurrenceStatus.Running,
@@ -1219,7 +1219,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Try to transition from Completed -> Running (invalid: final -> non-final)
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Running,
@@ -1272,7 +1272,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Publish status update for non-existent correlation ID
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = Guid.CreateVersion7(), // Non-existent
+            OccurrenceId = Guid.CreateVersion7(), // Non-existent
             JobId = job.Id,
             WorkerId = "ghost-worker",
             Status = JobOccurrenceStatus.Running,
@@ -1282,7 +1282,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Publish a valid update to prove tracker didn't crash
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = realOccurrence.CorrelationId,
+            OccurrenceId = realOccurrence.Id,
             JobId = job.Id,
             WorkerId = uniqueWorkerId,
             Status = JobOccurrenceStatus.Running,
@@ -1367,7 +1367,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
 
             await PublishStatusUpdateAsync(new JobStatusUpdateMessage
             {
-                CorrelationId = occ.CorrelationId,
+                OccurrenceId = occ.Id,
                 JobId = job.Id,
                 WorkerId = "fail-worker",
                 Status = JobOccurrenceStatus.Failed,
@@ -1450,7 +1450,7 @@ public class StatusTrackerServiceTests(ServicesWebApplicationFactory factory, IT
         // Try Failed -> Queued (invalid)
         await PublishStatusUpdateAsync(new JobStatusUpdateMessage
         {
-            CorrelationId = occurrence.CorrelationId,
+            OccurrenceId = occurrence.Id,
             JobId = job.Id,
             WorkerId = "test-worker",
             Status = JobOccurrenceStatus.Queued

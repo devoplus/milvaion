@@ -252,6 +252,10 @@ function UserList() {
           <span style={{ margin: '0 0 0 1rem' }}>Users</span>
           <span>({totalCount})</span>
         </h1>
+        <button className="create-btn" onClick={handleCreate}>
+          <Icon name="person_add" size={18} />
+          <span>Create User</span>
+        </button>
       </div>
 
       <div className="search-section">
@@ -269,10 +273,6 @@ function UserList() {
             </button>
           )}
         </div>
-        <button className="create-btn" onClick={handleCreate}>
-          <Icon name="person_add" size={20} />
-          <span>Create User</span>
-        </button>
       </div>
 
       {users.length === 0 ? (
@@ -300,7 +300,7 @@ function UserList() {
             </thead>
             <tbody>
               {users.map(user => (
-                <tr key={user.id}>
+                <tr key={user.id} className="clickable-row" onClick={() => handleEdit(user)}>
                   <td className="id-col">{user.id}</td>
                   <td>
                     <div className="user-name-cell">
@@ -312,10 +312,10 @@ function UserList() {
                   <td className="email-col">{user.email || <span className="text-muted">—</span>}</td>
                   <td className="actions-col">
                     <div className="row-actions">
-                      <button onClick={() => handleEdit(user)} className="action-btn edit" title="Edit">
+                      <button onClick={(e) => { e.stopPropagation(); handleEdit(user) }} className="action-btn edit" title="Edit">
                         <Icon name="edit" size={16} />
                       </button>
-                      <button onClick={() => handleDelete(user.id)} className="action-btn delete" title="Delete">
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(user.id) }} className="action-btn delete" title="Delete">
                         <Icon name="delete" size={16} />
                       </button>
                     </div>

@@ -59,7 +59,7 @@ public class JobContextTests
             CancellationToken.None);
 
         // Assert
-        context.CorrelationId.Should().Be(_correlationId);
+        context.OccurrenceId.Should().Be(_correlationId);
         context.Job.Should().Be(_scheduledJob);
         context.WorkerId.Should().Be(_workerId);
         context.Logger.Should().Be(_loggerMock.Object);

@@ -38,13 +38,13 @@ public class JobOccurrenceStatusTests
     }
 
     [Fact]
-    public void JobOccurrenceStatus_ShouldHaveSevenValues()
+    public void JobOccurrenceStatus_ShouldHaveEightValues()
     {
         // Act
         var values = Enum.GetValues<JobOccurrenceStatus>();
 
         // Assert
-        values.Should().HaveCount(7);
+        values.Should().HaveCount(8);
     }
 }
 

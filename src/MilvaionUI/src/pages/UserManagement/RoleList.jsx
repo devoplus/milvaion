@@ -251,6 +251,10 @@ function RoleList() {
           <span style={{ margin: '0 0 0 1rem' }}>Roles</span>
           <span>({totalCount})</span>
         </h1>
+        <button className="create-btn" onClick={handleCreate}>
+          <Icon name="add" size={18} />
+          <span>Create Role</span>
+        </button>
       </div>
 
       <div className="search-section">
@@ -268,10 +272,6 @@ function RoleList() {
             </button>
           )}
         </div>
-        <button className="create-btn" onClick={handleCreate}>
-          <Icon name="add" size={20} />
-          <span>Create Role</span>
-        </button>
       </div>
 
       {roles.length === 0 ? (
@@ -297,7 +297,7 @@ function RoleList() {
             </thead>
             <tbody>
               {roles.map(role => (
-                <tr key={role.id}>
+                <tr key={role.id} className="clickable-row" onClick={() => handleEdit(role)}>
                   <td className="id-col">{role.id}</td>
                   <td>
                     <div className="role-name">
@@ -307,10 +307,10 @@ function RoleList() {
                   </td>
                   <td className="actions-col">
                     <div className="row-actions">
-                      <button onClick={() => handleEdit(role)} className="action-btn edit" title="Edit">
+                      <button onClick={(e) => { e.stopPropagation(); handleEdit(role) }} className="action-btn edit" title="Edit">
                         <Icon name="edit" size={16} />
                       </button>
-                      <button onClick={() => handleDelete(role.id)} className="action-btn delete" title="Delete">
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(role.id) }} className="action-btn delete" title="Delete">
                         <Icon name="delete" size={16} />
                       </button>
                     </div>

@@ -41,4 +41,9 @@ public enum JobOccurrenceStatus
     /// Health monitor marks running jobs as Unknown when they don't send heartbeat for threshold time.
     /// </summary>
     Unknown,
+
+    /// <summary>
+    /// Job was never dispatched because a workflow step condition evaluated to false.
+    /// </summary>
+    Skipped,
 }

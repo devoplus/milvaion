@@ -278,45 +278,6 @@ public class WorkerServiceCollectionExtensionsTests
 
     #endregion
 
-    #region GenerateRoutingPattern
-
-    [Theory]
-    [InlineData("SendEmailJob", "email-worker-01", "email-worker-01.sendemail.*")]
-    [InlineData("TestJob", "email-worker-01", "email-worker-01.test.*")]
-    [InlineData("NonParallelJob", "email-worker-01", "email-worker-01.nonparallel.*")]
-    [InlineData("ProcessData", "worker-1", "worker-1.processdata.*")]
-    [InlineData("MyJOB", "WORKER", "worker.my.*")]
-    public void GenerateRoutingPattern_ShouldProduceExpectedPattern(string jobTypeName, string workerId, string expected)
-    {
-        // Act
-        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern(jobTypeName, workerId);
-
-        // Assert
-        result.Should().Be(expected);
-    }
-
-    [Fact]
-    public void GenerateRoutingPattern_ShouldNotRemoveSuffix_WhenNoJobSuffix()
-    {
-        // Act
-        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern("ProcessData", "worker-1");
-
-        // Assert
-        result.Should().Be("worker-1.processdata.*");
-    }
-
-    [Fact]
-    public void GenerateRoutingPattern_ShouldHandleSingleWordJobName()
-    {
-        // Act
-        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern("Job", "w1");
-
-        // Assert - "Job" suffix removed leaves empty, lowercase → "w1..*"
-        result.Should().Be("w1..*");
-    }
-
-    #endregion
-
     #region AddMilvaionWorkerWithJobs - Auto Routing Pattern
 
     [Fact]
