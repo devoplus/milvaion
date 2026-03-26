@@ -16,6 +16,7 @@ import { useModal } from '../../hooks/useModal'
 import './JobDetail.css'
 import CronDisplay from '../../components/CronDisplay'
 import OccurrenceTable from '../../components/OccurrenceTable'
+import AuditInfoCard from '../../components/AuditInfoCard'
 
 function JobDetail() {
 const { id } = useParams()
@@ -545,6 +546,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
               <span>Delete</span>
             </button>
           </div>
+          <AuditInfoCard auditInfo={job.auditInfo} />
         </div>
       </div>
 

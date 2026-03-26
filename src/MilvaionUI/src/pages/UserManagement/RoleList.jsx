@@ -6,6 +6,7 @@ import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
 import { getApiErrorMessage } from '../../utils/errorUtils'
+import AuditInfoCard from '../../components/AuditInfoCard'
 import './RoleList.css'
 
 function RoleList() {
@@ -438,6 +439,10 @@ function RoleList() {
                   </>
                 )}
               </div>
+
+              {editingRole?.auditInfo && (
+                <AuditInfoCard auditInfo={editingRole.auditInfo} inline />
+              )}
             </div>
 
             <div className="form-modal-footer">

@@ -4047,6 +4047,11 @@
             Last time the workflow was triggered by cron scheduler.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.AuditInfo">
+            <summary>
+            Information about record audit.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.Steps">
             <summary>
             Steps in this workflow.

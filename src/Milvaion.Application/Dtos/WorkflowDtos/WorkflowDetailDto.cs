@@ -60,6 +60,11 @@ public class WorkflowDetailDto : MilvaionBaseDto<Guid>
     public DateTime? LastScheduledRunAt { get; set; }
 
     /// <summary>
+    /// Information about record audit.
+    /// </summary>
+    public AuditDto<Guid> AuditInfo { get; set; }
+
+    /// <summary>
     /// Steps in this workflow.
     /// </summary>
     public List<WorkflowStepDto> Steps { get; set; } = [];

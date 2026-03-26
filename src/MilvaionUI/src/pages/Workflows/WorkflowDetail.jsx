@@ -8,6 +8,7 @@ import WorkflowDAG from '../../components/WorkflowDAG'
 import CronDisplay from '../../components/CronDisplay'
 import { formatDate } from '../../utils/dateUtils'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
+import AuditInfoCard from '../../components/AuditInfoCard'
 import './WorkflowDetail.css'
 
 const workflowStatusLabels = { 0: 'Pending', 1: 'Running', 2: 'Completed', 3: 'Failed', 4: 'Cancelled', 5: 'Partially Completed' }
@@ -201,6 +202,7 @@ function WorkflowDetail() {
           <button className="wfd-btn" onClick={handleDelete}>
             <Icon name="delete" size={18} /> Delete
           </button>
+          <AuditInfoCard auditInfo={workflow.auditInfo} />
         </div>
       </div>
 

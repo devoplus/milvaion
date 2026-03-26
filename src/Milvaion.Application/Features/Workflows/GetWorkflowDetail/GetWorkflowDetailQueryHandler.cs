@@ -50,6 +50,7 @@ public class GetWorkflowDetailQueryHandler(IMilvaionRepositoryBase<Workflow> wor
             CronExpression = workflow.CronExpression,
             LastScheduledRunAt = workflow.LastScheduledRunAt,
             WorkflowVersions = workflow.Versions?.OrderByDescending(i => i.Version).ToList(),
+            AuditInfo = new AuditDto<Guid>(workflow),
             Steps = workflow.Definition?.Steps?.Select(s => new WorkflowStepDto
             {
                 Id = s.Id,
