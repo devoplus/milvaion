@@ -53,6 +53,7 @@
   --bg-card: #0a0a0a;
   --card-bg: var(--bg-card);
   --sidebar-bg: #0a0a0a;
+  --surface-bg: #1a1a1a;
 
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
@@ -90,6 +91,7 @@
   --bg-card: #0a0a0a;
   --card-bg: var(--bg-card);
   --sidebar-bg: #0a0a0a;
+  --surface-bg: #1a1a1a;
 
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
@@ -121,6 +123,7 @@
   --bg-card: #ffffff;
   --card-bg: var(--bg-card);
   --sidebar-bg: #ffffff;
+  --surface-bg: #ececed;
 
   --text-primary: #09090b;
   --text-secondary: #52525b;

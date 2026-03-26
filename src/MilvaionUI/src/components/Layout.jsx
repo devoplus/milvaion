@@ -177,6 +177,12 @@ const user = authService.getCurrentUser()
               {!isSidebarCollapsed && <span>Tags</span>}
             </Link>
           </li>
+          <li className={isActive('/reports') ? 'active' : ''}>
+            <Link to="/reports" title="Reports">
+              <Icon name="analytics" size={20} />
+              {!isSidebarCollapsed && <span>Reports</span>}
+            </Link>
+          </li>
 
           {!isSidebarCollapsed && (
             <li className="nav-group">
@@ -267,6 +273,11 @@ const user = authService.getCurrentUser()
               <li className={isActive('/configuration') ? 'active' : ''}>
                 <Link to="/configuration" title="Configuration">
                   <Icon name="tune" size={20} />
+                </Link>
+              </li>
+              <li className={isActive('/reports') ? 'active' : ''}>
+                <Link to="/reports" title="Reports">
+                  <Icon name="analytics" size={20} />
                 </Link>
               </li>
             </>

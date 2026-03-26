@@ -11,4 +11,5 @@ public static class SchedulerTableNames
     public const string WorkflowEdges = nameof(WorkflowEdges);
     public const string WorkflowRuns = nameof(WorkflowRuns);
     public const string WorkflowStepRuns = nameof(WorkflowStepRuns);
+    public const string MetricReports = nameof(MetricReports);
 }

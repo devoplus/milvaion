@@ -4,6 +4,7 @@ using Milvaion.Domain.ContentManagement;
 using Milvaion.Domain.UI;
 using Milvasoft.DataAccess.EfCore.Bulk.DbContextBase;
 using Milvasoft.DataAccess.EfCore.Configuration;
+using Milvasoft.Milvaion.Sdk.Domain;
 
 namespace Milvaion.Infrastructure.Persistence.Context;
 
@@ -46,6 +47,7 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
     public DbSet<JobOccurrenceLog> JobOccurrenceLogs { get; set; }
     public DbSet<Workflow> Workflows { get; set; }
     public DbSet<WorkflowRun> WorkflowRuns { get; set; }
+    public DbSet<MetricReport> MetricReports { get; set; }
 
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
@@ -88,6 +90,7 @@ public class MilvaionDbContext(DbContextOptions options) : MilvaBulkDbContext(op
         modelBuilder.Entity<FailedOccurrence>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<Workflow>().Property(x => x.Id).ValueGeneratedNever();
         modelBuilder.Entity<WorkflowRun>().Property(x => x.Id).ValueGeneratedNever();
+        modelBuilder.Entity<MetricReport>().Property(x => x.Id).ValueGeneratedNever();
 
         base.OnModelCreating(modelBuilder);
     }

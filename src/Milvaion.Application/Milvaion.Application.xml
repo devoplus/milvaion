@@ -2539,6 +2539,91 @@
             Application uptime.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto">
+            <summary>
+            Detailed DTO for a single metric report. Contains the full JSON report data along with metadata.
+            Used by detail and latest-report endpoints.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Id">
+            <summary> Unique identifier (Guid v7). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.MetricType">
+            <summary> Report type key (e.g. FailureRateTrend, WorkerThroughput, JobHealthScore). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.DisplayName">
+            <summary> Human-readable report title for UI display. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Description">
+            <summary> Short description of what the report measures. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Data">
+            <summary> JSON-serialized report payload (stored as jsonb in PostgreSQL). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.PeriodStartTime">
+            <summary> Start of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.PeriodEndTime">
+            <summary> End of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.GeneratedAt">
+            <summary> Timestamp when the report was generated (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Tags">
+            <summary> Comma-separated tags for categorization and filtering. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.CreationDate">
+            <summary> Record creation timestamp populated by the auditing infrastructure. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.CreatorUserName">
+            <summary> Username of the creator populated by the auditing infrastructure. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Projection">
+            <summary>
+            EF Core projection expression that maps a <see cref="T:Milvasoft.Milvaion.Sdk.Domain.MetricReport"/> entity to this DTO.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto">
+            <summary>
+            Lightweight DTO used in paginated metric report lists.
+            Includes report metadata and the JSON data payload but omits creator details.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Id">
+            <summary> Unique identifier (Guid v7). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.MetricType">
+            <summary> Report type key (e.g. FailureRateTrend, WorkerThroughput, JobHealthScore). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.DisplayName">
+            <summary> Human-readable report title for UI display. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Description">
+            <summary> Short description of what the report measures. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Data">
+            <summary> JSON-serialized report payload (stored as jsonb in PostgreSQL). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.PeriodStartTime">
+            <summary> Start of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.PeriodEndTime">
+            <summary> End of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.GeneratedAt">
+            <summary> Timestamp when the report was generated (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Tags">
+            <summary> Comma-separated tags for categorization and filtering. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.CreationDate">
+            <summary> Record creation timestamp populated by the auditing infrastructure. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Projection">
+            <summary>
+            EF Core projection expression that maps a <see cref="T:Milvasoft.Milvaion.Sdk.Domain.MetricReport"/> entity to this DTO.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.MilvaionBaseDto`1">
             <summary>
             App pool base dto for attribute usage.
@@ -5870,6 +5955,161 @@
         </member>
         <member name="M:Milvaion.Application.Features.Languages.UpdateLanguage.UpdateLanguageCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommand">
+            <summary>
+            DeleteMetricReportCommand is a command that represents the action of deleting a metric report.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommand.Id">
+            <summary>
+            Id of the metric report to be deleted.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandHandler">
+            <summary>
+            Deletes metric report.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Deletes metric report.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandHandler.Handle(Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommand,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandValidator.#ctor">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommand">
+            <summary>
+            DeleteOldMetricReportsCommand is a command that represents the action of deleting old metric reports that are older than a specified number of days.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommand.OlderThanDays">
+            <summary>
+            Deletes metric reports that are older than the specified number of days. Default is 30 days.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler">
+            <summary>
+            Deletes old metric reports that are older than a specified number of days.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Deletes old metric reports that are older than a specified number of days.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler.Handle(Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommand,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandValidator.#ctor">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQuery">
+            <summary>
+            Gets latest metric report for a specified metric type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQuery.MetricType">
+            <summary>
+            Type of metric.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler">
+            <summary>
+            Gets latest metric report for a specified metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Gets latest metric report for a specified metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler.Handle(Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQuery,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryValidator.#ctor">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQuery">
+            <summary>
+            Gets metric report detail by its unique identifier.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQuery.Id">
+            <summary>
+            Id of metric report.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryHandler">
+            <summary>
+            Gets metric report detail.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Gets metric report detail.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryHandler.Handle(Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQuery,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryValidator.#ctor">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQuery">
+            <summary>
+            Gets a list of metric reports, optionally filtered by metric type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQuery.MetricType">
+            <summary>
+            Type of metric.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryHandler">
+            <summary>
+            Gets a list of metric reports, optionally filtered by metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Gets a list of metric reports, optionally filtered by metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryHandler.Handle(Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQuery,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryValidator.#ctor">
+            <inheritdoc />
         </member>
         <member name="T:Milvaion.Application.Features.Pages.GetPageAccessibilityForCurrentUser.GetPageAccessibilityForCurrentUserQuery">
             <summary>

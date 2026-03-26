@@ -33,7 +33,12 @@ The following workflows build and push Docker images to Docker Hub:
    - Version file: `src/Workers/MilvaionMaintenanceWorker/VERSION`
    - Image tags: `milvaion-maintenance-worker:latest`, `milvaion-maintenance-worker:{VERSION}`
 
-6. **SampleWorker** (`sampleworker-docker-build.yml`)
+6. **ReporterWorker** (`reporterworker-docker-build.yml`)
+   - Triggers on changes to: `src/Workers/ReporterWorker/`
+   - Version file: `src/Workers/ReporterWorker/VERSION`
+   - Image tags: `milvaion-reporter-worker:latest`, `milvaion-reporter-worker:{VERSION}`
+
+7. **SampleWorker** (`sampleworker-docker-build.yml`)
    - Triggers on changes to: `src/Workers/SampleWorker/`
    - Version file: `src/Workers/SampleWorker/VERSION`
    - Image tags: `milvaion-sample-worker:latest`, `milvaion-sample-worker:{VERSION}`

@@ -29,6 +29,7 @@ Welcome to the official Milvaion documentation. This documentation will help you
 | [06-configuration.md](06-configuration.md) | All configuration options for API and Workers |
 | [14-built-in-workers.md](14-built-in-workers.md) | Pre-built workers (HTTP Worker, etc.) |
 | [20-workflows.md](20-workflows.md) | Build multi-step job pipelines with DAG-based orchestration |
+| [21-reporter-worker.md](21-reporter-worker.md) | Automated metric report generation worker |
 
 ### Operations Guide
 
@@ -39,6 +40,7 @@ Welcome to the official Milvaion documentation. This documentation will help you
 | [09-scaling.md](09-scaling.md) | Horizontal scaling strategies |
 | [10-monitoring.md](10-monitoring.md) | Health checks, metrics, logging, alerting |
 | [11-maintenance.md](11-maintenance.md) | Database cleanup and retention policies |
+| [20-enterprise-features.md](20-enterprise-features.md) | User, role, permission management, activity tracking, auditing, and metric reports |
 
 ## Quick Links
 
