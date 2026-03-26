@@ -33,6 +33,7 @@
   gap: 1rem;
   border: 1px solid var(--border-color);
   transition: all 0.3s;
+  flex-direction: row !important;
 }
 
 .stat-card:hover {
