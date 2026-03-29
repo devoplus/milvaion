@@ -1459,6 +1459,450 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
         runs.Should().BeEmpty("inactive workflow should not be triggered by cron");
     }
 
+    [Fact]
+    public async Task WorkflowEngine_WithConditionNode_JsonFieldExpression_ShouldRouteToFalseBranch()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var sourceJob = await SeedScheduledJobAsync($"SourceJob_{Guid.CreateVersion7():N}");
+        var trueJob = await SeedScheduledJobAsync($"TrueJob_{Guid.CreateVersion7():N}");
+        var falseJob = await SeedScheduledJobAsync($"FalseJob_{Guid.CreateVersion7():N}");
+
+        var sourceStepId = Guid.CreateVersion7();
+        var conditionStepId = Guid.CreateVersion7();
+        var trueStepId = Guid.CreateVersion7();
+        var falseStepId = Guid.CreateVersion7();
+
+        // Condition: $.price > 50. Source will have price = 10, so condition evaluates to FALSE → false branch dispatched
+        var workflow = new Workflow
+        {
+            Id = Guid.CreateVersion7(),
+            Name = "JSON Field Condition Workflow",
+            IsActive = true,
+            FailureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
+            Definition = new WorkflowDefinition
+            {
+                Steps =
+                [
+                    new WorkflowStepDefinition { Id = sourceStepId, StepName = "Source", NodeType = WorkflowNodeType.Task, JobId = sourceJob.Id, Order = 1 },
+                    new WorkflowStepDefinition { Id = conditionStepId, StepName = "Price Check", NodeType = WorkflowNodeType.Condition, NodeConfigJson = @"{""expression"": ""$.price > 50""}", Order = 2 },
+                    new WorkflowStepDefinition { Id = trueStepId, StepName = "Expensive Path", NodeType = WorkflowNodeType.Task, JobId = trueJob.Id, Order = 3 },
+                    new WorkflowStepDefinition { Id = falseStepId, StepName = "Cheap Path", NodeType = WorkflowNodeType.Task, JobId = falseJob.Id, Order = 4 },
+                ],
+                Edges =
+                [
+                    new WorkflowEdgeDefinition { SourceStepId = sourceStepId, TargetStepId = conditionStepId, Order = 1 },
+                    new WorkflowEdgeDefinition { SourceStepId = conditionStepId, TargetStepId = trueStepId, SourcePort = "true", Order = 2 },
+                    new WorkflowEdgeDefinition { SourceStepId = conditionStepId, TargetStepId = falseStepId, SourcePort = "false", Order = 3 },
+                ]
+            }
+        };
+
+        var dbContext = GetDbContext();
+        dbContext.Workflows.Add(workflow);
+        await dbContext.SaveChangesAsync();
+
+        var mediator = _serviceProvider.GetRequiredService<MediatR.IMediator>();
+        var triggerResult = await mediator.Send(new Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            Reason = "JSON field condition test"
+        });
+
+        var runId = triggerResult.Data;
+
+        // Simulate source step completed with price = 10 (below threshold of 50)
+        var dbCtx = GetDbContext();
+        var sourceOcc = await dbCtx.JobOccurrences.FirstAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == sourceStepId);
+        sourceOcc.StepStatus = WorkflowStepStatus.Completed;
+        sourceOcc.Status = JobOccurrenceStatus.Completed;
+        sourceOcc.Result = @"{""price"": 10}";
+        dbCtx.JobOccurrences.Update(sourceOcc);
+
+        var run = await dbCtx.WorkflowRuns.FindAsync(runId);
+        run!.Status = WorkflowStatus.Running;
+        run.StartTime = DateTime.UtcNow;
+        dbCtx.WorkflowRuns.Update(run);
+        await dbCtx.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        // Act
+        var engine = CreateWorkflowEngineService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await engine.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Wait for false branch to be dispatched (condition evaluates to false since price < 50)
+        var falseDispatched = await WaitForConditionAsync(
+            async () =>
+            {
+                var db = GetDbContext();
+                var falseOcc = await db.JobOccurrences.FirstOrDefaultAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == falseStepId);
+                return falseOcc?.StepStatus == WorkflowStepStatus.Running || falseOcc?.Status == JobOccurrenceStatus.Queued;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        // Also check that true branch is skipped
+        var trueSkipped = await WaitForConditionAsync(
+            async () =>
+            {
+                var db = GetDbContext();
+                var trueOcc = await db.JobOccurrences.FirstOrDefaultAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == trueStepId);
+                return trueOcc?.StepStatus == WorkflowStepStatus.Skipped;
+            },
+            timeout: TimeSpan.FromSeconds(10),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await engine.StopAsync(cts.Token);
+
+        // Assert
+        falseDispatched.Should().BeTrue("false branch should be dispatched when $.price condition evaluates to false");
+        trueSkipped.Should().BeTrue("true branch should be skipped when $.price condition evaluates to false");
+    }
+
+    [Fact]
+    public async Task WorkflowEngine_WithConditionNode_SpecificStepStatusNotEquals_ShouldRouteToFalseBranch()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var sourceJob = await SeedScheduledJobAsync($"SourceJob_{Guid.CreateVersion7():N}");
+        var trueJob = await SeedScheduledJobAsync($"TrueJob_{Guid.CreateVersion7():N}");
+        var falseJob = await SeedScheduledJobAsync($"FalseJob_{Guid.CreateVersion7():N}");
+
+        var sourceStepId = Guid.CreateVersion7();
+        var conditionStepId = Guid.CreateVersion7();
+        var trueStepId = Guid.CreateVersion7();
+        var falseStepId = Guid.CreateVersion7();
+
+        // Condition targets specific step by ID: stepId:@status != 'Completed'
+        // Source step IS Completed, so != Completed evaluates to false → false branch dispatched
+        var workflow = new Workflow
+        {
+            Id = Guid.CreateVersion7(),
+            Name = "Specific Step Status Condition Workflow",
+            IsActive = true,
+            FailureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
+            Definition = new WorkflowDefinition
+            {
+                Steps =
+                [
+                    new WorkflowStepDefinition { Id = sourceStepId, StepName = "Source", NodeType = WorkflowNodeType.Task, JobId = sourceJob.Id, Order = 1 },
+                    new WorkflowStepDefinition { Id = conditionStepId, StepName = "Status Check", NodeType = WorkflowNodeType.Condition, NodeConfigJson = $@"{{""expression"": ""{sourceStepId}:@status != 'Completed'""}}", Order = 2 },
+                    new WorkflowStepDefinition { Id = trueStepId, StepName = "True Branch", NodeType = WorkflowNodeType.Task, JobId = trueJob.Id, Order = 3 },
+                    new WorkflowStepDefinition { Id = falseStepId, StepName = "False Branch", NodeType = WorkflowNodeType.Task, JobId = falseJob.Id, Order = 4 },
+                ],
+                Edges =
+                [
+                    new WorkflowEdgeDefinition { SourceStepId = sourceStepId, TargetStepId = conditionStepId, Order = 1 },
+                    new WorkflowEdgeDefinition { SourceStepId = conditionStepId, TargetStepId = trueStepId, SourcePort = "true", Order = 2 },
+                    new WorkflowEdgeDefinition { SourceStepId = conditionStepId, TargetStepId = falseStepId, SourcePort = "false", Order = 3 },
+                ]
+            }
+        };
+
+        var dbContext = GetDbContext();
+        dbContext.Workflows.Add(workflow);
+        await dbContext.SaveChangesAsync();
+
+        var mediator = _serviceProvider.GetRequiredService<MediatR.IMediator>();
+        var triggerResult = await mediator.Send(new Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            Reason = "Specific step status test"
+        });
+
+        var runId = triggerResult.Data;
+
+        // Simulate source step completed
+        var dbCtx = GetDbContext();
+        var sourceOcc = await dbCtx.JobOccurrences.FirstAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == sourceStepId);
+        sourceOcc.StepStatus = WorkflowStepStatus.Completed;
+        sourceOcc.Status = JobOccurrenceStatus.Completed;
+        sourceOcc.Result = @"{""status"": ""ok""}";
+        dbCtx.JobOccurrences.Update(sourceOcc);
+
+        var run = await dbCtx.WorkflowRuns.FindAsync(runId);
+        run!.Status = WorkflowStatus.Running;
+        run.StartTime = DateTime.UtcNow;
+        dbCtx.WorkflowRuns.Update(run);
+        await dbCtx.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        // Act
+        var engine = CreateWorkflowEngineService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await engine.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Condition: stepId:@status != 'Completed' → source IS Completed → condition false → false branch dispatched
+        var falseDispatched = await WaitForConditionAsync(
+            async () =>
+            {
+                var db = GetDbContext();
+                var falseOcc = await db.JobOccurrences.FirstOrDefaultAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == falseStepId);
+                return falseOcc?.StepStatus == WorkflowStepStatus.Running || falseOcc?.Status == JobOccurrenceStatus.Queued;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        var trueSkipped = await WaitForConditionAsync(
+            async () =>
+            {
+                var db = GetDbContext();
+                var trueOcc = await db.JobOccurrences.FirstOrDefaultAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == trueStepId);
+                return trueOcc?.StepStatus == WorkflowStepStatus.Skipped;
+            },
+            timeout: TimeSpan.FromSeconds(10),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await engine.StopAsync(cts.Token);
+
+        // Assert
+        falseDispatched.Should().BeTrue("false branch should be dispatched when @status != 'Completed' evaluates to false (source IS Completed)");
+        trueSkipped.Should().BeTrue("true branch should be skipped when condition evaluates to false");
+    }
+
+    [Fact]
+    public async Task WorkflowEngine_WithDataMappings_ShouldDispatchWithMappedData()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job1 = await SeedScheduledJobAsync($"SourceJob_{Guid.CreateVersion7():N}");
+        var job2 = await SeedScheduledJobAsync($"MappedJob_{Guid.CreateVersion7():N}");
+
+        var step1Id = Guid.CreateVersion7();
+        var step2Id = Guid.CreateVersion7();
+
+        // DataMappings: map from specific step (stepId:jsonPath) and from first completed parent (jsonPath)
+        var dataMappings = $@"{{""{step1Id}:Title"": ""MappedTitle"", ""Description"": ""MappedDescription""}}";
+
+        var workflow = new Workflow
+        {
+            Id = Guid.CreateVersion7(),
+            Name = "Data Mapping Workflow",
+            IsActive = true,
+            FailureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
+            Definition = new WorkflowDefinition
+            {
+                Steps =
+                [
+                    new WorkflowStepDefinition { Id = step1Id, StepName = "Source Step", NodeType = WorkflowNodeType.Task, JobId = job1.Id, Order = 1 },
+                    new WorkflowStepDefinition { Id = step2Id, StepName = "Mapped Step", NodeType = WorkflowNodeType.Task, JobId = job2.Id, Order = 2, DataMappings = dataMappings },
+                ],
+                Edges =
+                [
+                    new WorkflowEdgeDefinition { SourceStepId = step1Id, TargetStepId = step2Id, Order = 1 }
+                ]
+            }
+        };
+
+        var dbContext = GetDbContext();
+        dbContext.Workflows.Add(workflow);
+        await dbContext.SaveChangesAsync();
+
+        var mediator = _serviceProvider.GetRequiredService<MediatR.IMediator>();
+        var triggerResult = await mediator.Send(new Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            Reason = "Data mapping test"
+        });
+
+        var runId = triggerResult.Data;
+
+        // Complete step 1 with JSON result containing fields to map
+        var dbCtx = GetDbContext();
+        var step1Occ = await dbCtx.JobOccurrences.FirstAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == step1Id);
+        step1Occ.StepStatus = WorkflowStepStatus.Completed;
+        step1Occ.Status = JobOccurrenceStatus.Completed;
+        step1Occ.Result = @"{""Title"": ""Hello World"", ""Description"": ""Test description""}";
+        dbCtx.JobOccurrences.Update(step1Occ);
+
+        var run = await dbCtx.WorkflowRuns.FindAsync(runId);
+        run!.Status = WorkflowStatus.Running;
+        run.StartTime = DateTime.UtcNow;
+        dbCtx.WorkflowRuns.Update(run);
+        await dbCtx.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        // Act
+        var engine = CreateWorkflowEngineService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await engine.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        // Wait for step 2 to be dispatched (ApplyDataMappings is called during dispatch resolution)
+        var dispatched = await WaitForConditionAsync(
+            async () =>
+            {
+                var db = GetDbContext();
+                var step2Occ = await db.JobOccurrences.FirstOrDefaultAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == step2Id);
+                return step2Occ?.StepStatus == WorkflowStepStatus.Running || step2Occ?.Status == JobOccurrenceStatus.Queued;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await engine.StopAsync(cts.Token);
+
+        // Assert
+        dispatched.Should().BeTrue("step 2 should be dispatched with mapped data from step 1");
+    }
+
+    [Fact]
+    public async Task WorkflowEngine_WithStopOnFirstFailure_ShouldCancelRunningStepsOnFail()
+    {
+        // Arrange
+        await InitializeAsync();
+
+        var job1 = await SeedScheduledJobAsync($"RunningJob_{Guid.CreateVersion7():N}");
+        var job2 = await SeedScheduledJobAsync($"FailedJob_{Guid.CreateVersion7():N}");
+
+        var step1Id = Guid.CreateVersion7();
+        var step2Id = Guid.CreateVersion7();
+
+        // Two parallel root steps (no edges between them)
+        var workflow = new Workflow
+        {
+            Id = Guid.CreateVersion7(),
+            Name = "Fail Cancel Running Workflow",
+            IsActive = true,
+            FailureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
+            MaxStepRetries = 0,
+            Definition = new WorkflowDefinition
+            {
+                Steps =
+                [
+                    new WorkflowStepDefinition { Id = step1Id, StepName = "Running Step", NodeType = WorkflowNodeType.Task, JobId = job1.Id, Order = 1 },
+                    new WorkflowStepDefinition { Id = step2Id, StepName = "Failed Step", NodeType = WorkflowNodeType.Task, JobId = job2.Id, Order = 2 },
+                ],
+                Edges = []
+            }
+        };
+
+        var dbContext = GetDbContext();
+        dbContext.Workflows.Add(workflow);
+        await dbContext.SaveChangesAsync();
+
+        // Manually create run and occurrences to simulate mid-execution state
+        var runId = Guid.CreateVersion7();
+        var now = DateTime.UtcNow;
+
+        var workflowRun = new WorkflowRun
+        {
+            Id = runId,
+            WorkflowId = workflow.Id,
+            Status = WorkflowStatus.Running,
+            TriggerReason = "Fail cancel running test",
+            StartTime = now.AddSeconds(-5),
+        };
+        dbContext.WorkflowRuns.Add(workflowRun);
+
+        // Step 1: Running (already dispatched and being executed)
+        dbContext.JobOccurrences.Add(new JobOccurrence
+        {
+            Id = Guid.CreateVersion7(),
+            WorkflowRunId = runId,
+            WorkflowStepId = step1Id,
+            JobId = job1.Id,
+            StepStatus = WorkflowStepStatus.Running,
+            Status = JobOccurrenceStatus.Queued,
+            CreatedAt = now,
+            JobName = job1.JobNameInWorker
+        });
+
+        // Step 2: Failed (execution failed, retries exhausted since maxRetries=0)
+        dbContext.JobOccurrences.Add(new JobOccurrence
+        {
+            Id = Guid.CreateVersion7(),
+            WorkflowRunId = runId,
+            WorkflowStepId = step2Id,
+            JobId = job2.Id,
+            StepStatus = WorkflowStepStatus.Failed,
+            StepRetryCount = 0,
+            Status = JobOccurrenceStatus.Failed,
+            Exception = "Job execution failed",
+            CreatedAt = now,
+            JobName = job2.JobNameInWorker
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        // Act
+        var engine = CreateWorkflowEngineService();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await engine.StartAsync(cts.Token);
+                await Task.Delay(Timeout.Infinite, cts.Token);
+            }
+            catch (OperationCanceledException) { }
+        }, cts.Token);
+
+        var failed = await WaitForConditionAsync(
+            async () =>
+            {
+                var db = GetDbContext();
+                var updatedRun = await db.WorkflowRuns.FindAsync(runId);
+                return updatedRun?.Status == WorkflowStatus.Failed;
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            pollInterval: TimeSpan.FromMilliseconds(500),
+            cancellationToken: cts.Token);
+
+        await engine.StopAsync(cts.Token);
+
+        // Assert
+        failed.Should().BeTrue("workflow should fail when a step fails with StopOnFirstFailure");
+
+        var dbAssert = GetDbContext();
+        var finalRun = await dbAssert.WorkflowRuns.FindAsync(runId);
+        finalRun!.Status.Should().Be(WorkflowStatus.Failed);
+        finalRun.EndTime.Should().NotBeNull();
+        finalRun.DurationMs.Should().BeGreaterThan(0);
+
+        // Running step should be cancelled by FailRun
+        var step1Occ = await dbAssert.JobOccurrences.FirstAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == step1Id);
+        step1Occ.StepStatus.Should().Be(WorkflowStepStatus.Cancelled, "running step should be cancelled when workflow fails");
+        step1Occ.Status.Should().Be(JobOccurrenceStatus.Cancelled);
+        step1Occ.EndTime.Should().NotBeNull();
+
+        // Failed step should remain failed
+        var step2Occ = await dbAssert.JobOccurrences.FirstAsync(o => o.WorkflowRunId == runId && o.WorkflowStepId == step2Id);
+        step2Occ.StepStatus.Should().Be(WorkflowStepStatus.Failed, "failed step should remain failed");
+    }
+
     private WorkflowEngineService CreateWorkflowEngineService() => new(
         _serviceProvider,
         Options.Create(new WorkflowEngineOptions

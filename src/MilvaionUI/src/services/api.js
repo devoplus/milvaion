@@ -109,17 +109,17 @@ api.interceptors.response.use(
         return api(originalRequest)
       } else {
         processQueue(new Error('Token refresh failed'), null)
-        authService.logout()
+          authService.clearAuth()
 
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
 
-        return Promise.reject(error)
+          return Promise.reject(error)
       }
     } catch (refreshError) {
       processQueue(refreshError, null)
-      authService.logout()
+      authService.clearAuth()
 
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
