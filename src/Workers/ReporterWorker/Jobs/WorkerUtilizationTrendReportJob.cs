@@ -37,9 +37,11 @@ public class WorkerUtilizationTrendReportJob(IOptions<ReporterOptions> options) 
             GROUP BY DATE_TRUNC('hour', ""StartTime""), ""WorkerId""
             ORDER BY hour, ""WorkerId""";
 
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
+
         var hourlyStats = await connection.QueryAsync<(DateTime Hour, string WorkerId, int JobCount, long TotalDurationMs)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var groupedByHour = hourlyStats
             .GroupBy(s => s.Hour)
@@ -80,7 +82,7 @@ public class WorkerUtilizationTrendReportJob(IOptions<ReporterOptions> options) 
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -92,7 +94,7 @@ public class WorkerUtilizationTrendReportJob(IOptions<ReporterOptions> options) 
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Worker Utilization Trend Report generated with {data.DataPoints.Count} time points");
 

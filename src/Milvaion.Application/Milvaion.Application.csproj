@@ -24,7 +24,7 @@
 		</PackageReference>
 		<PackageReference Include="FluentValidation" Version="12.1.1" />
 		<PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-		<PackageReference Include="Mapster" Version="9.0.0-pre01" />
+		<PackageReference Include="Mapster" Version="10.0.6" />
 		<PackageReference Include="MediatR" Version="[12.5.0]" />
 		<PackageReference Include="Cronos" Version="0.11.1" />
 		<PackageReference Include="Milvasoft.Caching.InMemory" Version="10.0.1" />

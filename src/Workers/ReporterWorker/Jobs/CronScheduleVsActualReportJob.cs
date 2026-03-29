@@ -40,9 +40,11 @@ public class CronScheduleVsActualReportJob(IOptions<ReporterOptions> options) : 
             ORDER BY ABS(EXTRACT(EPOCH FROM (jo.""StartTime"" - jo.""CreatedAt""))) DESC
             LIMIT @TopN";
 
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
+
         var deviations = await connection.QueryAsync<(Guid OccurrenceId, Guid JobId, string JobName, DateTime ScheduledTime, DateTime ActualTime, double DeviationSeconds)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd, TopN = _options.ReportGeneration.MaxScheduleDeviations });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd, TopN = _options.ReportGeneration.MaxScheduleDeviations },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new CronScheduleVsActualData
         {
@@ -79,7 +81,7 @@ public class CronScheduleVsActualReportJob(IOptions<ReporterOptions> options) : 
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -91,7 +93,7 @@ public class CronScheduleVsActualReportJob(IOptions<ReporterOptions> options) : 
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Cron Schedule vs Actual Report generated with {data.Jobs.Count} deviations");
 

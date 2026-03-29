@@ -37,9 +37,11 @@ public class WorkerThroughputReportJob(IOptions<ReporterOptions> options) : IAsy
             GROUP BY ""WorkerId""
             ORDER BY job_count DESC";
 
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
+
         var workerStats = await connection.QueryAsync<(string WorkerId, int JobCount, int SuccessCount, int FailureCount, double AvgDuration)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new WorkerThroughputData
         {
@@ -75,7 +77,7 @@ public class WorkerThroughputReportJob(IOptions<ReporterOptions> options) : IAsy
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -87,7 +89,7 @@ public class WorkerThroughputReportJob(IOptions<ReporterOptions> options) : IAsy
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Worker Throughput Report generated for {data.Workers.Count} workers");
 

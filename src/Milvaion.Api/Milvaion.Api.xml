@@ -1287,6 +1287,18 @@
         <member name="M:Milvaion.Api.Migrations.AddMetricReportsTable.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:Milvaion.Api.Migrations.RowLevelAuditing">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.RowLevelAuditing.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.RowLevelAuditing.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.RowLevelAuditing.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">
             <summary>
             Applies migrations when the application starts.

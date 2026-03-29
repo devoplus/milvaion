@@ -39,11 +39,14 @@ public class WorkflowSuccessRateReportJob(IOptions<ReporterOptions> options) : I
                 AND wr.""StartTime"" < @PeriodEnd
                 AND wr.""Status"" IN (2, 3, 4, 5)
             GROUP BY wr.""WorkflowId"", w.""Name""
-            ORDER BY COUNT(*) DESC";
+            ORDER BY COUNT(*) DESC
+            LIMIT @MaxGroups";
+
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
 
         var stats = await connection.QueryAsync<(Guid WorkflowId, string WorkflowName, int TotalRuns, int CompletedCount, int FailedCount, int PartialCount, int CancelledCount, double? AvgDurationMs)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd, MaxGroups = _options.ReportGeneration.MaxGroupsPerReport },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new WorkflowSuccessRateData
         {
@@ -83,7 +86,7 @@ public class WorkflowSuccessRateReportJob(IOptions<ReporterOptions> options) : I
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -95,7 +98,7 @@ public class WorkflowSuccessRateReportJob(IOptions<ReporterOptions> options) : I
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Workflow Success Rate Report generated with {data.Workflows.Count} workflows");
 

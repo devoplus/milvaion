@@ -18,4 +18,8 @@ public class ReportGenerationSettings
     public int TopNLimit { get; set; } = 10;
 
     public int MaxScheduleDeviations { get; set; } = 500;
+
+    public int MaxGroupsPerReport { get; set; } = 500;
+
+    public int QueryTimeoutSeconds { get; set; } = 120;
 }

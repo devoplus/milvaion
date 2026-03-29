@@ -33,9 +33,11 @@ public class FailureRateTrendReportJob(IOptions<ReporterOptions> options) : IAsy
             GROUP BY DATE_TRUNC('hour', ""StartTime"")
             ORDER BY hour";
 
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
+
         var hourlyStats = await connection.QueryAsync<(DateTime Hour, int Total, int Failed)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new FailureRateTrendData
         {
@@ -69,7 +71,7 @@ public class FailureRateTrendReportJob(IOptions<ReporterOptions> options) : IAsy
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -81,7 +83,7 @@ public class FailureRateTrendReportJob(IOptions<ReporterOptions> options) : IAsy
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Failure Rate Trend Report generated with {data.DataPoints.Count} data points");
 

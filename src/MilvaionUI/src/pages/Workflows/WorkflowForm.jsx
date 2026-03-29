@@ -94,10 +94,11 @@ function WorkflowForm() {
 
       // Load steps
       if (data.steps && data.steps.length > 0) {
+
         setSteps(data.steps.map(s => ({
           tempId: s.id ? s.id.toString() : `step-${tempIdCounter.current++}`,
           nodeType: s.nodeType ?? 0,
-          jobId: s.jobId || '',
+          jobId: s.jobId || null,
           stepName: s.stepName || '',
           order: s.order || 0,
           nodeConfigJson: s.nodeConfigJson || '',
@@ -164,7 +165,7 @@ function WorkflowForm() {
       {
         tempId: `step-${tempIdCounter.current++}`,
         nodeType,
-        jobId: '',
+        jobId: null,
         stepName: '',
         order: prev.length + 1,
         nodeConfigJson: '',
@@ -295,15 +296,27 @@ function WorkflowForm() {
         cronExpression: form.cronExpression?.trim() || null,
         steps: steps.map(s => ({
           tempId: s.tempId,
+          nodeType: s.nodeType,
           jobId: s.jobId,
           stepName: s.stepName,
           order: s.order,
-          dependsOnTempIds: s.dependsOnTempIds || null,
-          condition: s.condition || null,
+          nodeConfigJson: s.nodeConfigJson || null,
           dataMappings: serializeMappings(s.dataMappings),
           delaySeconds: s.delaySeconds || 0,
           jobDataOverride: s.jobDataOverride || null,
-        }))
+          positionX: s.positionX ?? null,
+          positionY: s.positionY ?? null,
+        })),
+        edges: edges.map(e => ({
+          tempId: e.tempId,
+          sourceTempId: e.sourceTempId,
+          targetTempId: e.targetTempId,
+          sourcePort: e.sourcePort || null,
+          targetPort: e.targetPort || null,
+          label: e.label || null,
+          order: e.order,
+          edgeConfigJson: e.edgeConfigJson || null,
+        })),
       }
 
       let result

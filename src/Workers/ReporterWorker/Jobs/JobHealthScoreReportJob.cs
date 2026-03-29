@@ -34,11 +34,14 @@ public class JobHealthScoreReportJob(IOptions<ReporterOptions> options) : IAsync
                 AND ""StartTime"" < @PeriodEnd
             GROUP BY ""JobName""
             HAVING COUNT(*) >= 5
-            ORDER BY (CAST(SUM(CASE WHEN ""Status"" = 2 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*)) ASC";
+            ORDER BY (CAST(SUM(CASE WHEN ""Status"" = 2 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*)) ASC
+            LIMIT @MaxGroups";
+
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
 
         var jobStats = await connection.QueryAsync<(string JobName, int TotalOccurrences, int SuccessCount, int FailureCount)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd, MaxGroups = _options.ReportGeneration.MaxGroupsPerReport },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new JobHealthScoreData
         {
@@ -74,7 +77,7 @@ public class JobHealthScoreReportJob(IOptions<ReporterOptions> options) : IAsync
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -86,7 +89,7 @@ public class JobHealthScoreReportJob(IOptions<ReporterOptions> options) : IAsync
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Job Health Score Report generated for {data.Jobs.Count} jobs");
 

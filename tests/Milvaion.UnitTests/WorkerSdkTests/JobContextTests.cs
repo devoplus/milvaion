@@ -318,5 +318,261 @@ public class JobContextTests
         _loggerMock.Verify(x => x.Information(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
     }
 
+    #region GetData<T>
+
+    [Fact]
+    public void GetData_WithValidJson_ShouldDeserializeCorrectly()
+    {
+        // Arrange
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            JobNameInWorker = "TestJob",
+            JobData = """{"Name": "test", "Count": 42}"""
+        };
+
+        var context = new JobContext(_correlationId, job, _workerId, _loggerMock.Object, _outboxServiceMock.Object, _jobConsumerConfig, CancellationToken.None);
+
+        // Act
+        var data = context.GetData<TestJobData>();
+
+        // Assert
+        data.Should().NotBeNull();
+        data.Name.Should().Be("test");
+        data.Count.Should().Be(42);
+    }
+
+    [Fact]
+    public void GetData_WithNullJobData_ShouldReturnDefault()
+    {
+        // Arrange
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            JobNameInWorker = "TestJob",
+            JobData = null
+        };
+
+        var context = new JobContext(_correlationId, job, _workerId, _loggerMock.Object, _outboxServiceMock.Object, _jobConsumerConfig, CancellationToken.None);
+
+        // Act
+        var data = context.GetData<TestJobData>();
+
+        // Assert
+        data.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetData_WithEmptyJobData_ShouldReturnDefault()
+    {
+        // Arrange
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            JobNameInWorker = "TestJob",
+            JobData = ""
+        };
+
+        var context = new JobContext(_correlationId, job, _workerId, _loggerMock.Object, _outboxServiceMock.Object, _jobConsumerConfig, CancellationToken.None);
+
+        // Act
+        var data = context.GetData<TestJobData>();
+
+        // Assert
+        data.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetData_WithInvalidJson_ShouldReturnDefault_AndLogWarning()
+    {
+        // Arrange
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            JobNameInWorker = "TestJob",
+            JobData = "not-valid-json{{"
+        };
+
+        var context = new JobContext(_correlationId, job, _workerId, _loggerMock.Object, _outboxServiceMock.Object, _jobConsumerConfig, CancellationToken.None);
+
+        // Act
+        var data = context.GetData<TestJobData>();
+
+        // Assert
+        data.Should().BeNull();
+        _loggerMock.Verify(x => x.Warning(It.IsAny<Exception>(), It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+    }
+
+    [Fact]
+    public void GetData_WithNullJob_ShouldReturnDefault()
+    {
+        // Arrange
+        var context = new JobContext(_correlationId, null, _workerId, _loggerMock.Object, _outboxServiceMock.Object, _jobConsumerConfig, CancellationToken.None);
+
+        // Act
+        var data = context.GetData<TestJobData>();
+
+        // Assert
+        data.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetData_CaseInsensitive_ShouldDeserializeCorrectly()
+    {
+        // Arrange
+        var job = new ScheduledJob
+        {
+            Id = Guid.CreateVersion7(),
+            JobNameInWorker = "TestJob",
+            JobData = """{"name": "lower", "count": 99}"""
+        };
+
+        var context = new JobContext(_correlationId, job, _workerId, _loggerMock.Object, _outboxServiceMock.Object, _jobConsumerConfig, CancellationToken.None);
+
+        // Act
+        var data = context.GetData<TestJobData>();
+
+        // Assert
+        data.Should().NotBeNull();
+        data.Name.Should().Be("lower");
+        data.Count.Should().Be(99);
+    }
+
+    #endregion
+
+    #region Log method - LogLevel routing via Logger
+
+    [Fact]
+    public void Log_WithErrorLevel_WhenLogViaLoggerEnabled_ShouldCallLoggerError()
+    {
+        // Arrange
+        var config = new JobConsumerConfig { LogUserFriendlyLogsViaLogger = true };
+        var context = new JobContext(_correlationId, _scheduledJob, _workerId, _loggerMock.Object, _outboxServiceMock.Object, config, CancellationToken.None);
+
+        // Act
+        context.Log(LogLevel.Error, "Error message");
+
+        // Assert
+        _loggerMock.Verify(x => x.Error(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+    }
+
+    [Fact]
+    public void Log_WithWarningLevel_WhenLogViaLoggerEnabled_ShouldCallLoggerWarning()
+    {
+        // Arrange
+        var config = new JobConsumerConfig { LogUserFriendlyLogsViaLogger = true };
+        var context = new JobContext(_correlationId, _scheduledJob, _workerId, _loggerMock.Object, _outboxServiceMock.Object, config, CancellationToken.None);
+
+        // Act
+        context.Log(LogLevel.Warning, "Warning message");
+
+        // Assert
+        _loggerMock.Verify(x => x.Warning(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+    }
+
+    [Fact]
+    public void Log_WithDebugLevel_WhenLogViaLoggerEnabled_ShouldCallLoggerDebug()
+    {
+        // Arrange
+        var config = new JobConsumerConfig { LogUserFriendlyLogsViaLogger = true };
+        var context = new JobContext(_correlationId, _scheduledJob, _workerId, _loggerMock.Object, _outboxServiceMock.Object, config, CancellationToken.None);
+
+        // Act
+        context.Log(LogLevel.Debug, "Debug message");
+
+        // Assert
+        _loggerMock.Verify(x => x.Debug(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+    }
+
+    [Fact]
+    public void Log_WithDefaultLevel_WhenLogViaLoggerEnabled_ShouldCallLoggerInformation()
+    {
+        // Arrange — Trace is not explicitly handled, should fall to default case (Information)
+        var config = new JobConsumerConfig { LogUserFriendlyLogsViaLogger = true };
+        var context = new JobContext(_correlationId, _scheduledJob, _workerId, _loggerMock.Object, _outboxServiceMock.Object, config, CancellationToken.None);
+
+        // Act
+        context.Log(LogLevel.Trace, "Trace message");
+
+        // Assert — default case calls Information
+        _loggerMock.Verify(x => x.Information(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+    }
+
+    [Fact]
+    public void Log_WithNullLogger_WhenLogViaLoggerEnabled_ShouldNotThrow()
+    {
+        // Arrange — Logger is null, LogUserFriendlyLogsViaLogger is true
+        var config = new JobConsumerConfig { LogUserFriendlyLogsViaLogger = true };
+        var context = new JobContext(_correlationId, _scheduledJob, _workerId, null, _outboxServiceMock.Object, config, CancellationToken.None);
+
+        // Act & Assert — should write to Console.WriteLine instead of throwing
+        var act = () => context.Log(LogLevel.Information, "Should not throw");
+        act.Should().NotThrow();
+
+        // Verify log was still added
+        var logs = context.GetLogs();
+        logs.Should().ContainSingle();
+        logs[0].Message.Should().Be("Should not throw");
+    }
+
+    [Fact]
+    public void LogError_WhenLogViaLoggerEnabled_ShouldCallLoggerError()
+    {
+        // Arrange
+        var config = new JobConsumerConfig { LogUserFriendlyLogsViaLogger = true };
+        var context = new JobContext(_correlationId, _scheduledJob, _workerId, _loggerMock.Object, _outboxServiceMock.Object, config, CancellationToken.None);
+        var exception = new InvalidOperationException("Test error");
+
+        // Act
+        context.LogError("Error occurred", exception);
+
+        // Assert
+        _loggerMock.Verify(x => x.Error(It.IsAny<Exception>(), It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+    }
+
+    [Fact]
+    public void LogError_WithData_ShouldMergeExceptionInfoIntoData()
+    {
+        // Arrange
+        var context = CreateJobContext();
+        var exception = new InvalidOperationException("Test error");
+        var data = new Dictionary<string, object> { ["CustomKey"] = "CustomValue" };
+
+        // Act
+        context.LogError("Error with custom data", exception, data);
+
+        // Assert
+        var logs = context.GetLogs();
+        logs.Should().ContainSingle();
+        logs[0].Data.Should().ContainKey("CustomKey");
+        logs[0].Data["CustomKey"].Should().Be("CustomValue");
+        logs[0].Data.Should().ContainKey("ExceptionType");
+        logs[0].Data["ExceptionType"].Should().Be("InvalidOperationException");
+    }
+
+    [Fact]
+    public void Log_WithNoMessage_ShouldAddLogEntry()
+    {
+        // Arrange
+        var context = CreateJobContext();
+
+        // Act
+        context.Log("Simple message");
+
+        // Assert — Log(string) should use Information level
+        var logs = context.GetLogs();
+        logs.Should().ContainSingle();
+        logs[0].Level.Should().Be("Information");
+        logs[0].Message.Should().Be("Simple message");
+    }
+
+    #endregion
+
     private JobContext CreateJobContext() => new(_correlationId, _scheduledJob, _workerId, _loggerMock.Object, _outboxServiceMock.Object, _jobConsumerConfig, CancellationToken.None);
+
+    private class TestJobData
+    {
+        public string Name { get; set; }
+        public int Count { get; set; }
+    }
 }

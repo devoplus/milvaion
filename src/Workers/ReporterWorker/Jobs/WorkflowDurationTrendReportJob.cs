@@ -37,9 +37,11 @@ public class WorkflowDurationTrendReportJob(IOptions<ReporterOptions> options) :
             GROUP BY DATE_TRUNC('hour', wr.""StartTime""), w.""Name""
             ORDER BY hour";
 
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
+
         var rows = await connection.QueryAsync<(DateTime Hour, string WorkflowName, double AvgDurationMs)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new WorkflowDurationTrendData
         {
@@ -74,7 +76,7 @@ public class WorkflowDurationTrendReportJob(IOptions<ReporterOptions> options) :
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -86,7 +88,7 @@ public class WorkflowDurationTrendReportJob(IOptions<ReporterOptions> options) :
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Workflow Duration Trend Report generated with {data.DataPoints.Count} time points");
 

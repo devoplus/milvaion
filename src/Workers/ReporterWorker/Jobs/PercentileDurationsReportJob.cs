@@ -34,11 +34,15 @@ public class PercentileDurationsReportJob(IOptions<ReporterOptions> options) : I
                 AND ""StartTime"" < @PeriodEnd
                 AND ""DurationMs"" IS NOT NULL
             GROUP BY ""JobName""
-            HAVING COUNT(*) >= 10";
+            HAVING COUNT(*) >= 10
+            ORDER BY p99 DESC
+            LIMIT @MaxGroups";
+
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
 
         var jobStats = await connection.QueryAsync<(string JobName, double P50, double P95, double P99)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd, MaxGroups = _options.ReportGeneration.MaxGroupsPerReport },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new PercentileDurationsData
         {
@@ -74,7 +78,7 @@ public class PercentileDurationsReportJob(IOptions<ReporterOptions> options) : I
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -86,7 +90,7 @@ public class PercentileDurationsReportJob(IOptions<ReporterOptions> options) : I
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Percentile Durations Report generated for {data.Jobs.Count} jobs");
 

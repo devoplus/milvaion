@@ -41,11 +41,14 @@ public class WorkflowStepBottleneckReportJob(IOptions<ReporterOptions> options) 
                 AND jo.""StartTime"" < @PeriodEnd
                 AND jo.""WorkflowRunId"" IS NOT NULL
             GROUP BY wr.""WorkflowId"", w.""Name"", jo.""JobName""
-            ORDER BY wr.""WorkflowId"", AVG(jo.""DurationMs"") DESC";
+            ORDER BY wr.""WorkflowId"", AVG(jo.""DurationMs"") DESC
+            LIMIT @MaxGroups";
+
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
 
         var rows = await connection.QueryAsync<(Guid WorkflowId, string WorkflowName, string StepName, double? AvgDurationMs, long? MaxDurationMs, int ExecutionCount, int FailureCount, int SkippedCount, long RetryCount)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd, MaxGroups = _options.ReportGeneration.MaxGroupsPerReport },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new WorkflowStepBottleneckData
         {
@@ -89,7 +92,7 @@ public class WorkflowStepBottleneckReportJob(IOptions<ReporterOptions> options) 
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -101,7 +104,7 @@ public class WorkflowStepBottleneckReportJob(IOptions<ReporterOptions> options) 
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Workflow Step Bottleneck Report generated with {data.Workflows.Count} workflows");
 

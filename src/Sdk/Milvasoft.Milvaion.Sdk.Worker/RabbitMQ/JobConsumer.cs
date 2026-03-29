@@ -414,7 +414,7 @@ public class JobConsumer : BackgroundService
     /// <summary>
     /// Safely parse OccurrenceId from message headers.
     /// </summary>
-    private static Guid ParseCorrelationId(IReadOnlyBasicProperties properties)
+    internal static Guid ParseCorrelationId(IReadOnlyBasicProperties properties)
     {
         // Try OccurrenceId header first (new naming)
         if (properties.Headers != null && properties.Headers.TryGetValue("OccurrenceId", out var occurrenceIdObj))
@@ -454,7 +454,7 @@ public class JobConsumer : BackgroundService
     /// <summary>
     /// Safely parse retry count from message headers.
     /// </summary>
-    private static int ParseRetryCount(IReadOnlyBasicProperties properties)
+    internal static int ParseRetryCount(IReadOnlyBasicProperties properties)
     {
         if (properties.Headers == null || !properties.Headers.TryGetValue("x-retry-count", out var retryObj))
             return 0;

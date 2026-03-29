@@ -36,9 +36,11 @@ public class TopSlowJobsReportJob(IOptions<ReporterOptions> options) : IAsyncJob
             ORDER BY avg_duration DESC
             LIMIT @TopN";
 
+        var queryTimeout = _options.ReportGeneration.QueryTimeoutSeconds;
+
         var jobStats = await connection.QueryAsync<(string JobName, double AvgDuration, int OccurrenceCount)>(
-            sql,
-            new { PeriodStart = periodStart, PeriodEnd = periodEnd, TopN = _options.ReportGeneration.TopNLimit });
+            new CommandDefinition(sql, new { PeriodStart = periodStart, PeriodEnd = periodEnd, TopN = _options.ReportGeneration.TopNLimit },
+                commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         var data = new TopSlowJobsData
         {
@@ -72,7 +74,7 @@ public class TopSlowJobsReportJob(IOptions<ReporterOptions> options) : IAsyncJob
             (@Id, @MetricType, @DisplayName, @Description, @Data::jsonb,
              @PeriodStartTime, @PeriodEndTime, @GeneratedAt, @Tags, @CreationDate)";
 
-        await connection.ExecuteAsync(insertSql, new
+        await connection.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             report.Id,
             report.MetricType,
@@ -84,7 +86,7 @@ public class TopSlowJobsReportJob(IOptions<ReporterOptions> options) : IAsyncJob
             report.GeneratedAt,
             report.Tags,
             CreationDate = DateTime.UtcNow
-        });
+        }, commandTimeout: queryTimeout, cancellationToken: context.CancellationToken));
 
         context.LogInformation($"Top Slow Jobs Report generated with {data.Jobs.Count} jobs");
 

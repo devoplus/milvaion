@@ -130,11 +130,38 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         result!.IsSuccess.Should().BeTrue();
         result.Data.Should().NotBeEmpty();
 
-        // Verify workflow was created in database
+        // Verify workflow was created in database with correct definition
         var dbContext = GetDbContext();
         var createdWorkflow = await dbContext.Workflows.FindAsync(result.Data);
         createdWorkflow.Should().NotBeNull();
         createdWorkflow!.Name.Should().Be("Integration Test Workflow");
+        createdWorkflow.Description.Should().Be("Workflow created in integration test");
+        createdWorkflow.IsActive.Should().BeTrue();
+        createdWorkflow.FailureStrategy.Should().Be(WorkflowFailureStrategy.StopOnFirstFailure);
+        createdWorkflow.MaxStepRetries.Should().Be(3);
+        createdWorkflow.TimeoutSeconds.Should().Be(3600);
+        createdWorkflow.Tags.Should().Be("test,integration");
+
+        // Verify step definitions
+        createdWorkflow.Definition.Should().NotBeNull();
+        createdWorkflow.Definition!.Steps.Should().HaveCount(2);
+
+        var step1 = createdWorkflow.Definition.Steps.Single(s => s.StepName == "First Step");
+        step1.NodeType.Should().Be(WorkflowNodeType.Task);
+        step1.JobId.Should().Be(job1.Id);
+        step1.Order.Should().Be(1);
+
+        var step2 = createdWorkflow.Definition.Steps.Single(s => s.StepName == "Second Step");
+        step2.NodeType.Should().Be(WorkflowNodeType.Task);
+        step2.JobId.Should().Be(job2.Id);
+        step2.Order.Should().Be(2);
+
+        // Verify edges
+        createdWorkflow.Definition.Edges.Should().HaveCount(1);
+        var edge = createdWorkflow.Definition.Edges[0];
+        edge.SourceStepId.Should().Be(step1.Id);
+        edge.TargetStepId.Should().Be(step2.Id);
+        edge.Order.Should().Be(1);
     }
 
     [Fact]
@@ -216,11 +243,32 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue();
 
-        // Verify workflow was updated
+        // Verify workflow was updated with all properties
         var dbContext = GetDbContext();
         var updatedWorkflow = await dbContext.Workflows.FindAsync(workflow.Id);
         updatedWorkflow.Should().NotBeNull();
         updatedWorkflow!.Name.Should().Be("Updated Workflow");
+        updatedWorkflow.Description.Should().Be("Updated description");
+        updatedWorkflow.IsActive.Should().BeFalse();
+        updatedWorkflow.FailureStrategy.Should().Be(WorkflowFailureStrategy.ContinueOnFailure);
+        updatedWorkflow.MaxStepRetries.Should().Be(5);
+        updatedWorkflow.TimeoutSeconds.Should().Be(7200);
+        updatedWorkflow.Tags.Should().Be("updated,test");
+
+        // Verify step definition was replaced
+        updatedWorkflow.Definition.Should().NotBeNull();
+        updatedWorkflow.Definition!.Steps.Should().HaveCount(1);
+        var step = updatedWorkflow.Definition.Steps[0];
+        step.StepName.Should().Be("Updated Step");
+        step.NodeType.Should().Be(WorkflowNodeType.Task);
+        step.JobId.Should().Be(job.Id);
+        step.Order.Should().Be(1);
+
+        // Verify edges are empty
+        updatedWorkflow.Definition.Edges.Should().BeEmpty();
+
+        // Verify version was incremented (definition changed)
+        updatedWorkflow.Version.Should().BeGreaterThan(1);
     }
 
     [Fact]
@@ -440,11 +488,43 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue();
 
-        // Verify workflow was created
+        // Verify workflow was created with correct node types and edges
         var dbContext = GetDbContext();
         var createdWorkflow = await dbContext.Workflows.FindAsync(result.Data);
         createdWorkflow.Should().NotBeNull();
         createdWorkflow!.Name.Should().Be("Conditional Workflow");
+
+        createdWorkflow.Definition.Should().NotBeNull();
+        createdWorkflow.Definition!.Steps.Should().HaveCount(3);
+
+        // Verify condition node
+        var conditionStep = createdWorkflow.Definition.Steps.Single(s => s.StepName == "Check Condition");
+        conditionStep.NodeType.Should().Be(WorkflowNodeType.Condition);
+        conditionStep.JobId.Should().BeNull();
+        conditionStep.NodeConfigJson.Should().Contain("expression");
+        conditionStep.Order.Should().Be(1);
+
+        // Verify task nodes
+        var trueStep = createdWorkflow.Definition.Steps.Single(s => s.StepName == "True Path");
+        trueStep.NodeType.Should().Be(WorkflowNodeType.Task);
+        trueStep.JobId.Should().Be(job1.Id);
+
+        var falseStep = createdWorkflow.Definition.Steps.Single(s => s.StepName == "False Path");
+        falseStep.NodeType.Should().Be(WorkflowNodeType.Task);
+        falseStep.JobId.Should().Be(job2.Id);
+
+        // Verify edges with source ports
+        createdWorkflow.Definition.Edges.Should().HaveCount(2);
+
+        var trueEdge = createdWorkflow.Definition.Edges.Single(e => e.SourcePort == "true");
+        trueEdge.SourceStepId.Should().Be(conditionStep.Id);
+        trueEdge.TargetStepId.Should().Be(trueStep.Id);
+        trueEdge.Order.Should().Be(1);
+
+        var falseEdge = createdWorkflow.Definition.Edges.Single(e => e.SourcePort == "false");
+        falseEdge.SourceStepId.Should().Be(conditionStep.Id);
+        falseEdge.TargetStepId.Should().Be(falseStep.Id);
+        falseEdge.Order.Should().Be(2);
     }
 
     [Fact]
@@ -502,11 +582,402 @@ public class WorkflowsControllerTests(CustomWebApplicationFactory factory, ITest
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue();
 
-        // Verify workflow was created
+        // Verify workflow was created with data mappings
         var dbContext = GetDbContext();
         var createdWorkflow = await dbContext.Workflows.FindAsync(result.Data);
         createdWorkflow.Should().NotBeNull();
         createdWorkflow!.Name.Should().Be("Data Mapping Workflow");
+
+        createdWorkflow.Definition.Should().NotBeNull();
+        createdWorkflow.Definition!.Steps.Should().HaveCount(2);
+
+        // Verify extract step has no mappings
+        var extractStep = createdWorkflow.Definition.Steps.Single(s => s.StepName == "Extract Data");
+        extractStep.NodeType.Should().Be(WorkflowNodeType.Task);
+        extractStep.DataMappings.Should().BeNull();
+
+        // Verify transform step has data mappings
+        var transformStep = createdWorkflow.Definition.Steps.Single(s => s.StepName == "Transform Data");
+        transformStep.NodeType.Should().Be(WorkflowNodeType.Task);
+        transformStep.DataMappings.Should().NotBeNullOrEmpty();
+        transformStep.DataMappings.Should().Contain("inputUserId");
+        transformStep.DataMappings.Should().Contain("inputData");
+
+        // Verify edge
+        createdWorkflow.Definition.Edges.Should().HaveCount(1);
+        var edge = createdWorkflow.Definition.Edges[0];
+        edge.SourceStepId.Should().Be(extractStep.Id);
+        edge.TargetStepId.Should().Be(transformStep.Id);
+    }
+
+    [Fact]
+    public async Task CreateWorkflow_WithAllStepProperties_ShouldPersistAllFields()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var job = await SeedScheduledJobAsync($"FullPropsJob_{Guid.CreateVersion7():N}");
+
+        var command = new CreateWorkflowCommand
+        {
+            Name = "Full Properties Workflow",
+            Steps =
+            [
+                new CreateWorkflowStepDto
+                {
+                    TempId = "step1",
+                    StepName = "Full Step",
+                    NodeType = WorkflowNodeType.Task,
+                    JobId = job.Id,
+                    Order = 1,
+                    DelaySeconds = 30,
+                    JobDataOverride = @"{""key"": ""value""}",
+                    PositionX = 100.5,
+                    PositionY = 200.75,
+                    NodeConfigJson = @"{""timeout"": 60}"
+                }
+            ],
+            Edges = []
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeTrue();
+
+        var dbContext = GetDbContext();
+        var workflow = await dbContext.Workflows.FindAsync(result.Data);
+        workflow.Should().NotBeNull();
+
+        var step = workflow!.Definition!.Steps.Single();
+        step.NodeType.Should().Be(WorkflowNodeType.Task);
+        step.JobId.Should().Be(job.Id);
+        step.StepName.Should().Be("Full Step");
+        step.Order.Should().Be(1);
+        step.DelaySeconds.Should().Be(30);
+        step.JobDataOverride.Should().Contain("key");
+        step.PositionX.Should().Be(100.5);
+        step.PositionY.Should().Be(200.75);
+        step.NodeConfigJson.Should().Contain("timeout");
+    }
+
+    [Fact]
+    public async Task CreateWorkflow_WithMergeNode_ShouldPersistNodeType()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var job1 = await SeedScheduledJobAsync($"BranchA_{Guid.CreateVersion7():N}");
+        var job2 = await SeedScheduledJobAsync($"BranchB_{Guid.CreateVersion7():N}");
+        var job3 = await SeedScheduledJobAsync($"AfterMerge_{Guid.CreateVersion7():N}");
+
+        var command = new CreateWorkflowCommand
+        {
+            Name = "Merge Node Workflow",
+            Steps =
+            [
+                new CreateWorkflowStepDto { TempId = "a", StepName = "Branch A", NodeType = WorkflowNodeType.Task, JobId = job1.Id, Order = 1 },
+                new CreateWorkflowStepDto { TempId = "b", StepName = "Branch B", NodeType = WorkflowNodeType.Task, JobId = job2.Id, Order = 2 },
+                new CreateWorkflowStepDto { TempId = "merge", StepName = "Merge Point", NodeType = WorkflowNodeType.Merge, Order = 3 },
+                new CreateWorkflowStepDto { TempId = "after", StepName = "After Merge", NodeType = WorkflowNodeType.Task, JobId = job3.Id, Order = 4 },
+            ],
+            Edges =
+            [
+                new CreateWorkflowEdgeDto { TempId = "e1", SourceTempId = "a", TargetTempId = "merge", Order = 1 },
+                new CreateWorkflowEdgeDto { TempId = "e2", SourceTempId = "b", TargetTempId = "merge", Order = 2 },
+                new CreateWorkflowEdgeDto { TempId = "e3", SourceTempId = "merge", TargetTempId = "after", Order = 3 },
+            ]
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeTrue();
+
+        var dbContext = GetDbContext();
+        var workflow = await dbContext.Workflows.FindAsync(result.Data);
+        workflow!.Definition!.Steps.Should().HaveCount(4);
+
+        var mergeStep = workflow.Definition.Steps.Single(s => s.StepName == "Merge Point");
+        mergeStep.NodeType.Should().Be(WorkflowNodeType.Merge);
+        mergeStep.JobId.Should().BeNull();
+
+        // Verify edges converge into the merge node
+        workflow.Definition.Edges.Should().HaveCount(3);
+        var mergeIncomingEdges = workflow.Definition.Edges.Where(e => e.TargetStepId == mergeStep.Id).ToList();
+        mergeIncomingEdges.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task CreateWorkflow_WithEdgeLabelsAndConfig_ShouldPersistEdgeFields()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var job1 = await SeedScheduledJobAsync($"EdgeJob1_{Guid.CreateVersion7():N}");
+        var job2 = await SeedScheduledJobAsync($"EdgeJob2_{Guid.CreateVersion7():N}");
+
+        var command = new CreateWorkflowCommand
+        {
+            Name = "Edge Properties Workflow",
+            Steps =
+            [
+                new CreateWorkflowStepDto { TempId = "s1", StepName = "Step 1", NodeType = WorkflowNodeType.Task, JobId = job1.Id, Order = 1 },
+                new CreateWorkflowStepDto { TempId = "s2", StepName = "Step 2", NodeType = WorkflowNodeType.Task, JobId = job2.Id, Order = 2 },
+            ],
+            Edges =
+            [
+                new CreateWorkflowEdgeDto
+                {
+                    TempId = "e1",
+                    SourceTempId = "s1",
+                    TargetTempId = "s2",
+                    SourcePort = "output",
+                    TargetPort = "input",
+                    Label = "data-flow",
+                    Order = 1,
+                    EdgeConfigJson = @"{""weight"": 1}"
+                }
+            ]
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeTrue();
+
+        var dbContext = GetDbContext();
+        var workflow = await dbContext.Workflows.FindAsync(result.Data);
+        var edge = workflow!.Definition!.Edges.Single();
+        edge.SourcePort.Should().Be("output");
+        edge.TargetPort.Should().Be("input");
+        edge.Label.Should().Be("data-flow");
+        edge.EdgeConfigJson.Should().Contain("weight");
+        edge.Order.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task UpdateWorkflow_WithEdges_ShouldPersistEdgesAndCreateVersion()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var workflow = await SeedWorkflowAsync("Workflow Before Edge Update");
+        var job1 = await SeedScheduledJobAsync($"EdgeUpdateJob1_{Guid.CreateVersion7():N}");
+        var job2 = await SeedScheduledJobAsync($"EdgeUpdateJob2_{Guid.CreateVersion7():N}");
+
+        var command = new UpdateWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            Name = "Workflow After Edge Update",
+            Description = workflow.Description,
+            IsActive = true,
+            FailureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
+            MaxStepRetries = 3,
+            TimeoutSeconds = 3600,
+            Tags = "test",
+            Steps =
+            [
+                new CreateWorkflowStepDto { TempId = "s1", StepName = "Step A", NodeType = WorkflowNodeType.Task, JobId = job1.Id, Order = 1 },
+                new CreateWorkflowStepDto { TempId = "s2", StepName = "Step B", NodeType = WorkflowNodeType.Task, JobId = job2.Id, Order = 2 },
+            ],
+            Edges =
+            [
+                new CreateWorkflowEdgeDto
+                {
+                    TempId = "e1",
+                    SourceTempId = "s1",
+                    TargetTempId = "s2",
+                    Label = "updated-edge",
+                    Order = 1
+                }
+            ]
+        };
+
+        // Act
+        var response = await client.PutAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeTrue();
+
+        var dbContext = GetDbContext();
+        var updated = await dbContext.Workflows.FindAsync(workflow.Id);
+        updated.Should().NotBeNull();
+        updated!.Name.Should().Be("Workflow After Edge Update");
+
+        // Verify steps
+        updated.Definition!.Steps.Should().HaveCount(2);
+        updated.Definition.Steps.Should().Contain(s => s.StepName == "Step A" && s.NodeType == WorkflowNodeType.Task);
+        updated.Definition.Steps.Should().Contain(s => s.StepName == "Step B" && s.NodeType == WorkflowNodeType.Task);
+
+        // Verify edges persisted
+        updated.Definition.Edges.Should().HaveCount(1);
+        var edge = updated.Definition.Edges.Single();
+        edge.Label.Should().Be("updated-edge");
+
+        var stepA = updated.Definition.Steps.Single(s => s.StepName == "Step A");
+        var stepB = updated.Definition.Steps.Single(s => s.StepName == "Step B");
+        edge.SourceStepId.Should().Be(stepA.Id);
+        edge.TargetStepId.Should().Be(stepB.Id);
+
+        // Verify version snapshot was created
+        updated.Version.Should().BeGreaterThan(1);
+        updated.Versions.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task CreateWorkflow_WithCircularDependency_ShouldFail()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var job1 = await SeedScheduledJobAsync($"CycleJob1_{Guid.CreateVersion7():N}");
+        var job2 = await SeedScheduledJobAsync($"CycleJob2_{Guid.CreateVersion7():N}");
+
+        var command = new CreateWorkflowCommand
+        {
+            Name = "Circular Workflow",
+            Steps =
+            [
+                new CreateWorkflowStepDto { TempId = "s1", StepName = "Step 1", NodeType = WorkflowNodeType.Task, JobId = job1.Id, Order = 1 },
+                new CreateWorkflowStepDto { TempId = "s2", StepName = "Step 2", NodeType = WorkflowNodeType.Task, JobId = job2.Id, Order = 2 },
+            ],
+            Edges =
+            [
+                new CreateWorkflowEdgeDto { TempId = "e1", SourceTempId = "s1", TargetTempId = "s2", Order = 1 },
+                new CreateWorkflowEdgeDto { TempId = "e2", SourceTempId = "s2", TargetTempId = "s1", Order = 2 },
+            ]
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result.Should().NotBeNull();
+        result!.IsSuccess.Should().BeFalse();
+        result.Messages.Should().Contain(m => m.Message.Contains("circular", StringComparison.OrdinalIgnoreCase)
+                                             || m.Message.Contains("DAG", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CreateWorkflow_WithNonExistentJob_ShouldFail()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var command = new CreateWorkflowCommand
+        {
+            Name = "Bad Job Workflow",
+            Steps =
+            [
+                new CreateWorkflowStepDto
+                {
+                    TempId = "s1",
+                    StepName = "Step 1",
+                    NodeType = WorkflowNodeType.Task,
+                    JobId = Guid.CreateVersion7(),
+                    Order = 1
+                }
+            ],
+            Edges = []
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result.Should().NotBeNull();
+        result!.IsSuccess.Should().BeFalse();
+        result.Messages.Should().Contain(m => m.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                                             || m.Message.Contains("Jobs", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task UpdateWorkflow_WithNodeTypeChange_ShouldPersistNewNodeType()
+    {
+        // Arrange
+        await InitializeAsync();
+        var client = await GetClient();
+
+        var workflow = await SeedWorkflowAsync("NodeType Change Workflow");
+        var job = await SeedScheduledJobAsync($"NTJob_{Guid.CreateVersion7():N}");
+
+        // Update: replace the single Task step with a Condition + two Task steps
+        var command = new UpdateWorkflowCommand
+        {
+            WorkflowId = workflow.Id,
+            Name = workflow.Name,
+            Description = workflow.Description,
+            IsActive = true,
+            FailureStrategy = WorkflowFailureStrategy.StopOnFirstFailure,
+            MaxStepRetries = 3,
+            TimeoutSeconds = 3600,
+            Tags = "test",
+            Steps =
+            [
+                new CreateWorkflowStepDto
+                {
+                    TempId = "cond",
+                    StepName = "Condition Step",
+                    NodeType = WorkflowNodeType.Condition,
+                    NodeConfigJson = @"{""expression"": ""$.count > 0""}",
+                    Order = 1
+                },
+                new CreateWorkflowStepDto
+                {
+                    TempId = "task",
+                    StepName = "Task Step",
+                    NodeType = WorkflowNodeType.Task,
+                    JobId = job.Id,
+                    Order = 2
+                }
+            ],
+            Edges =
+            [
+                new CreateWorkflowEdgeDto { TempId = "e1", SourceTempId = "cond", TargetTempId = "task", SourcePort = "true", Order = 1 }
+            ]
+        };
+
+        // Act
+        var response = await client.PutAsJsonAsync("/api/v1/workflows/workflow", command);
+
+        // Assert
+        var result = await response.Content.ReadFromJsonAsync<Response<Guid>>();
+        result!.IsSuccess.Should().BeTrue();
+
+        var dbContext = GetDbContext();
+        var updated = await dbContext.Workflows.FindAsync(workflow.Id);
+
+        updated!.Definition!.Steps.Should().HaveCount(2);
+
+        var condStep = updated.Definition.Steps.Single(s => s.StepName == "Condition Step");
+        condStep.NodeType.Should().Be(WorkflowNodeType.Condition);
+        condStep.JobId.Should().BeNull();
+        condStep.NodeConfigJson.Should().Contain("$.count > 0");
+
+        var taskStep = updated.Definition.Steps.Single(s => s.StepName == "Task Step");
+        taskStep.NodeType.Should().Be(WorkflowNodeType.Task);
+        taskStep.JobId.Should().Be(job.Id);
+
+        // Verify edge with source port
+        updated.Definition.Edges.Should().HaveCount(1);
+        updated.Definition.Edges[0].SourcePort.Should().Be("true");
     }
 
     private async Task<HttpClient> GetClient()
