@@ -1168,6 +1168,26 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
         // Arrange
         await InitializeAsync();
 
+        // Act
+        // This ensures any leaked engines from prior tests have completed their last iteration before the Pending run exists in the database.
+        var disabledEngine = new WorkflowEngineService(
+            _serviceProvider,
+            Options.Create(new WorkflowEngineOptions
+            {
+                Enabled = false,
+                PollingIntervalSeconds = 1,
+            }),
+            _serviceProvider.GetRequiredService<ILoggerFactory>(),
+            null);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        await disabledEngine.StartAsync(cts.Token);
+
+        // Brief delay to let any residual engine iterations from prior tests drain
+        await Task.Delay(TimeSpan.FromSeconds(2), cts.Token);
+
+        // Now create the workflow run — no other enabled engine should be polling at this point
         var workflow = await SeedWorkflowWithSingleStepAsync("Disabled Engine Workflow");
 
         var mediator = _serviceProvider.GetRequiredService<MediatR.IMediator>();
@@ -1179,20 +1199,6 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
 
         var runId = triggerResult.Data;
 
-        // Act - Create engine with Enabled = false
-        var disabledEngine = new WorkflowEngineService(
-            _serviceProvider,
-            Options.Create(new WorkflowEngineOptions
-            {
-                Enabled = false,
-                PollingIntervalSeconds = 1,
-            }),
-            _serviceProvider.GetRequiredService<ILoggerFactory>(),
-            null);
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-
-        await disabledEngine.StartAsync(cts.Token);
         await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
         await disabledEngine.StopAsync(CancellationToken.None);
 
