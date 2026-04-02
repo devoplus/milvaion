@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Suvari.ScheduledTasks": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

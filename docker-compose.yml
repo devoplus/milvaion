@@ -6,7 +6,7 @@
     environment:
       POSTGRES_DB: MilvaionDb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: N4SQp.qW>6?xwWzg
+      POSTGRES_PASSWORD: "N4SQp.qW>6?xwWzg"
     ports:
       - "5432:5432"
     volumes:
@@ -179,7 +179,81 @@
     # Enable scaling: docker-compose up --scale test-worker=4 -d
     deploy:
       replicas: 1
-
+      
+  # SampleWorker for Devoplus (Job Executor) - Scalable
+  test-worker-devoplus:
+    build:
+      context: .
+      dockerfile: src/Workers/Devoplus.JobForge/Dockerfile
+    environment:
+      - Worker__WorkerId=test-worker-devoplus
+      - Worker__RabbitMQ__Host=rabbitmq
+      - Worker__RabbitMQ__Port=5672
+      - Worker__RabbitMQ__Username=guest
+      - Worker__RabbitMQ__Password=guest
+      - Worker__RabbitMQ__QueueName=scheduled_jobs_queue
+      - Worker__RabbitMQ__WorkerLogsQueueName=worker_logs_queue
+      - Worker__RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
+      - Worker__RabbitMQ__ExchangeName=jobs.topic
+      - Worker__Redis__ConnectionString=redis:6379
+      - "Worker__Redis__CancellationChannel=Milvaion:JobScheduler:cancellation_channel"
+      - Worker__Heartbeat__Enabled=true
+      - Worker__Heartbeat__IntervalSeconds=30
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvaion-api:
+        condition: service_started
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    mem_limit: 1024m
+    stop_grace_period: 60s  # Allow time for running jobs to complete
+    # Enable scaling: docker-compose up --scale test-worker=4 -d
+    deploy:
+      replicas: 1
+      
+  # SampleWorker for suvari (Job Executor) - Scalable
+  test-worker-suvari:
+    build:
+      context: .
+      dockerfile: src/Workers/Suvari.ScheduledTasks/Dockerfile
+    environment:
+      - Worker__WorkerId=test-worker-suvari
+      - Worker__RabbitMQ__Host=rabbitmq
+      - Worker__RabbitMQ__Port=5672
+      - Worker__RabbitMQ__Username=guest
+      - Worker__RabbitMQ__Password=guest
+      - Worker__RabbitMQ__QueueName=scheduled_jobs_queue
+      - Worker__RabbitMQ__WorkerLogsQueueName=worker_logs_queue
+      - Worker__RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
+      - Worker__RabbitMQ__ExchangeName=jobs.topic
+      - Worker__Redis__ConnectionString=redis:6379
+      - "Worker__Redis__CancellationChannel=Milvaion:JobScheduler:cancellation_channel"
+      - Worker__Heartbeat__Enabled=true
+      - Worker__Heartbeat__IntervalSeconds=30
+    extra_hosts:
+      - "DBP.suvari.local:10.20.65.7"
+      - "DBN:10.20.65.100"
+      - "DBN.suvari.local:10.20.65.100"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvaion-api:
+        condition: service_started
+    networks:
+      - milvaion-network
+    restart: unless-stopped
+    mem_limit: 1024m
+    stop_grace_period: 60s  # Allow time for running jobs to complete
+    # Enable scaling: docker-compose up --scale test-worker=4 -d
+    deploy:
+      replicas: 1
+      
   # Prometheus - Metrics Collector
   prometheus:
     image: prom/prometheus:latest

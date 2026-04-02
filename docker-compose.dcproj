@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.Docker.Sdk">
+  <PropertyGroup>
+    <ProjectVersion>2.1</ProjectVersion>
+    <DockerTargetOS>Linux</DockerTargetOS>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DockerLaunchAction>None</DockerLaunchAction>
+    <DockerServiceName>suvari-scheduledtasks</DockerServiceName>
+    <DockerComposeBaseFilePath>docker-compose</DockerComposeBaseFilePath>
+    <AdditionalComposeFiles>docker-compose.debug.yml</AdditionalComposeFiles>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="docker-compose.yml" />
+    <None Include="docker-compose.debug.yml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="src\Workers\Suvari.ScheduledTasks\Suvari.ScheduledTasks.csproj">
+      <DockerfileRelativePath>src\Workers\Suvari.ScheduledTasks\Dockerfile</DockerfileRelativePath>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

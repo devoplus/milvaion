@@ -1,0 +1,47 @@
+services:
+  suvari-scheduledtasks:
+    build:
+      context: .
+      dockerfile: src/Workers/Suvari.ScheduledTasks/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Debug
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      # Worker
+      - Worker__WorkerId=suvari-scheduledtasks-debug
+      - Worker__RabbitMQ__Host=rabbitmq
+      - Worker__RabbitMQ__Port=5672
+      - Worker__RabbitMQ__Username=guest
+      - Worker__RabbitMQ__Password=guest
+      - Worker__RabbitMQ__QueueName=scheduled_jobs_queue
+      - Worker__RabbitMQ__WorkerLogsQueueName=worker_logs_queue
+      - Worker__RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
+      - Worker__RabbitMQ__ExchangeName=jobs.topic
+      - Worker__Redis__ConnectionString=redis:6379
+      - "Worker__Redis__CancellationChannel=Milvaion:JobScheduler:cancellation_channel"
+      - Worker__Heartbeat__Enabled=true
+      - Worker__Heartbeat__IntervalSeconds=30
+      - Worker__HealthCheck__Enabled=false
+      # Brand & Settings
+      - SuvariConfig__Brand=${SUVARI_BRAND:-Suvari}
+      - SuvariConfig__UseFileBasedSettings=false
+      # MongoDB
+      - MongoDB__ConnectionString=${SUVARI_MONGO_CONNECTION_STRING}
+      - MongoDB__SettingsDbName=${SUVARI_MONGO_SETTINGS_DB:-Suvari}
+    extra_hosts:
+      - "DBP.suvari.local:10.20.65.7"
+      - "DBN:10.20.65.100"
+      - "DBN.suvari.local:10.20.65.100"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvaion-api:
+        condition: service_started
+    networks:
+      - milvaion-network
+
+networks:
+  milvaion-network:
+    external: true

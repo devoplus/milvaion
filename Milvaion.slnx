@@ -159,6 +159,20 @@
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
   </Folder>
+  <Folder Name="/src/Workers/Devoplus.JobForge/">
+    <Project Path="src/Workers/Devoplus.JobForge/Devoplus.JobForge.csproj">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+  </Folder>
+  <Folder Name="/src/Workers/Suvari.ScheduledTasks/">
+    <Project Path="src/Workers/Suvari.ScheduledTasks/Suvari.ScheduledTasks.csproj">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="docker-compose.dcproj">
+      <BuildType Solution="TemplateTest|*" Project="Release" />
+      <Build />
+    </Project>
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/IntegrationTests/">
     <Project Path="tests/Milvaion.IntegrationTests/Milvaion.IntegrationTests.csproj">

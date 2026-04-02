@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Devoplus.JobForge": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}
