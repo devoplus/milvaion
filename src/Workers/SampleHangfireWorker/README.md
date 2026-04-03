@@ -95,5 +95,4 @@ Add to `appsettings.json`:
 - [Worker SDK Guide](https://www.nuget.org/packages/Milvasoft.Milvaion.Sdk.Worker)
 
 ### License
-
 MIT License

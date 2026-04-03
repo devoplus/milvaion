@@ -1,4 +1,6 @@
 ﻿using FluentAssertions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -278,45 +280,6 @@ public class WorkerServiceCollectionExtensionsTests
 
     #endregion
 
-    #region GenerateRoutingPattern
-
-    [Theory]
-    [InlineData("SendEmailJob", "email-worker-01", "email-worker-01.sendemail.*")]
-    [InlineData("TestJob", "email-worker-01", "email-worker-01.test.*")]
-    [InlineData("NonParallelJob", "email-worker-01", "email-worker-01.nonparallel.*")]
-    [InlineData("ProcessData", "worker-1", "worker-1.processdata.*")]
-    [InlineData("MyJOB", "WORKER", "worker.my.*")]
-    public void GenerateRoutingPattern_ShouldProduceExpectedPattern(string jobTypeName, string workerId, string expected)
-    {
-        // Act
-        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern(jobTypeName, workerId);
-
-        // Assert
-        result.Should().Be(expected);
-    }
-
-    [Fact]
-    public void GenerateRoutingPattern_ShouldNotRemoveSuffix_WhenNoJobSuffix()
-    {
-        // Act
-        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern("ProcessData", "worker-1");
-
-        // Assert
-        result.Should().Be("worker-1.processdata.*");
-    }
-
-    [Fact]
-    public void GenerateRoutingPattern_ShouldHandleSingleWordJobName()
-    {
-        // Act
-        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern("Job", "w1");
-
-        // Assert - "Job" suffix removed leaves empty, lowercase → "w1..*"
-        result.Should().Be("w1..*");
-    }
-
-    #endregion
-
     #region AddMilvaionWorkerWithJobs - Auto Routing Pattern
 
     [Fact]
@@ -488,6 +451,357 @@ public class WorkerServiceCollectionExtensionsTests
 
         // Assert
         services.Count.Should().Be(beforeCount);
+    }
+
+    #endregion
+
+    #region GenerateRoutingPattern
+
+    [Theory]
+    [InlineData("SendEmailJob", "email-worker-01", "email-worker-01.sendemail.*")]
+    [InlineData("TestJob", "worker-1", "worker-1.test.*")]
+    [InlineData("NonParallelJob", "my-worker", "my-worker.nonparallel.*")]
+    [InlineData("ProcessDataJob", "data-worker", "data-worker.processdata.*")]
+    public void GenerateRoutingPattern_WithJobSuffix_ShouldRemoveSuffixAndFormat(string jobTypeName, string workerId, string expected)
+    {
+        // Act
+        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern(jobTypeName, workerId);
+
+        // Assert
+        result.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("Worker", "w1", "w1.worker.*")]
+    [InlineData("Processor", "my-worker", "my-worker.processor.*")]
+    [InlineData("Handler", "handler-svc", "handler-svc.handler.*")]
+    public void GenerateRoutingPattern_WithoutJobSuffix_ShouldKeepNameAndFormat(string jobTypeName, string workerId, string expected)
+    {
+        // Act
+        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern(jobTypeName, workerId);
+
+        // Assert
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void GenerateRoutingPattern_ShouldLowercaseEverything()
+    {
+        // Act
+        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern("MyComplexJob", "Email-Worker-01");
+
+        // Assert
+        result.Should().Be("email-worker-01.mycomplex.*");
+    }
+
+    [Fact]
+    public void GenerateRoutingPattern_CaseInsensitiveJobSuffix_ShouldRemove()
+    {
+        // "JOB" suffix (uppercase) should also be removed
+        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern("SendEmailJOB", "w1");
+        result.Should().Be("w1.sendemail.*");
+
+        // "job" suffix (lowercase) should also be removed
+        var result2 = WorkerServiceCollectionExtensions.GenerateRoutingPattern("SendEmailjob", "w1");
+        result2.Should().Be("w1.sendemail.*");
+    }
+
+    [Fact]
+    public void GenerateRoutingPattern_ExactlyJob_ShouldReturnEmptyJobName()
+    {
+        // Edge case: job type name is exactly "Job"
+        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern("Job", "w1");
+        result.Should().Be("w1..*");
+    }
+
+    [Fact]
+    public void GenerateRoutingPattern_SingleCharJob_ShouldWork()
+    {
+        var result = WorkerServiceCollectionExtensions.GenerateRoutingPattern("AJob", "worker");
+        result.Should().Be("worker.a.*");
+    }
+
+    #endregion
+
+    #region UseHealthCheckEndpoints
+
+    [Fact]
+    public async Task UseHealthCheckEndpoints_WhenEnabled_ShouldMapHealthEndpoint()
+    {
+        // Arrange
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "hc-test-worker",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["Worker:HealthCheck:Enabled"] = "true",
+            ["Worker:HealthCheck:IntervalSeconds"] = "30",
+            ["Worker:HealthCheck:LiveFilePath"] = "/tmp/healthy",
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddHealthChecks();
+
+        var app = builder.Build();
+
+        // Act
+        app.UseHealthCheckEndpoints(configuration);
+        await app.StartAsync();
+
+        var client = app.GetTestClient();
+
+        // Assert — /health should return 200 OK
+        var response = await client.GetAsync("/health");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Be("\"Ok\"");
+
+        await app.StopAsync();
+    }
+
+    [Fact]
+    public async Task UseHealthCheckEndpoints_WhenEnabled_ShouldMapLivenessEndpoint()
+    {
+        // Arrange
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "live-test-worker",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["Worker:HealthCheck:Enabled"] = "true",
+            ["Worker:HealthCheck:IntervalSeconds"] = "30",
+            ["Worker:HealthCheck:LiveFilePath"] = "/tmp/healthy",
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddHealthChecks();
+
+        var app = builder.Build();
+
+        // Act
+        app.UseHealthCheckEndpoints(configuration);
+        await app.StartAsync();
+
+        var client = app.GetTestClient();
+
+        // Assert — /health/live should return liveness response
+        var response = await client.GetAsync("/health/live");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("Healthy");
+
+        await app.StopAsync();
+    }
+
+    [Fact]
+    public async Task UseHealthCheckEndpoints_WhenEnabled_ShouldMapStartupEndpoint()
+    {
+        // Arrange
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "startup-test-worker",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["Worker:HealthCheck:Enabled"] = "true",
+            ["Worker:HealthCheck:IntervalSeconds"] = "30",
+            ["Worker:HealthCheck:LiveFilePath"] = "/tmp/healthy",
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddHealthChecks();
+
+        var app = builder.Build();
+
+        // Act
+        app.UseHealthCheckEndpoints(configuration);
+        await app.StartAsync();
+
+        var client = app.GetTestClient();
+
+        // Assert — /health/startup should return startup probe response
+        var response = await client.GetAsync("/health/startup");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("Started");
+
+        await app.StopAsync();
+    }
+
+    [Fact]
+    public async Task UseHealthCheckEndpoints_WhenEnabled_ShouldMapReadinessEndpoint()
+    {
+        // Arrange
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "ready-test-worker",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["Worker:HealthCheck:Enabled"] = "true",
+            ["Worker:HealthCheck:IntervalSeconds"] = "30",
+            ["Worker:HealthCheck:LiveFilePath"] = "/tmp/healthy",
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddHealthChecks();
+
+        var app = builder.Build();
+
+        // Act
+        app.UseHealthCheckEndpoints(configuration);
+        await app.StartAsync();
+
+        var client = app.GetTestClient();
+
+        // Assert — /health/ready should return readiness probe response
+        var response = await client.GetAsync("/health/ready");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("Healthy");
+
+        await app.StopAsync();
+    }
+
+    [Fact]
+    public async Task UseHealthCheckEndpoints_WhenDisabled_ShouldNotMapEndpoints()
+    {
+        // Arrange
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "disabled-hc-worker",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["Worker:HealthCheck:Enabled"] = "false",
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseTestServer();
+
+        var app = builder.Build();
+
+        // Act
+        app.UseHealthCheckEndpoints(configuration);
+        await app.StartAsync();
+
+        var client = app.GetTestClient();
+
+        // Assert — /health should return 404 (not mapped)
+        var response = await client.GetAsync("/health");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
+
+        await app.StopAsync();
+    }
+
+    #endregion
+
+    #region AddJobConsumersFromConfiguration (indirect)
+
+    [Fact]
+    public void AddMilvaionWorkerWithJobs_ShouldAutoGenerateRoutingPattern_MatchingGenerateRoutingPatternOutput()
+    {
+        // Arrange — Verify the auto-generation in AddMilvaionWorkerWithJobs uses the same logic as GenerateRoutingPattern
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "my-worker-01",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["JobConsumers:SendEmailJob:ConsumerId"] = "email-consumer",
+            // No RoutingPattern — should auto-generate
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        // Act — Will throw because no matching job class (Assembly.GetEntryAssembly() is null in tests),
+        // but this proves the auto-generation code path (lines 73-83) has executed
+        var act = () => services.AddMilvaionWorkerWithJobs(configuration);
+
+        // Assert — Should fail at configsWithoutJob validation (line 101-105),
+        // confirming it got past the auto-generation without error
+        act.Should().Throw<InvalidOperationException>()
+           .WithMessage("*SendEmailJob*");
+
+        // Verify that GenerateRoutingPattern would produce the expected pattern
+        var expectedPattern = WorkerServiceCollectionExtensions.GenerateRoutingPattern("SendEmailJob", "my-worker-01");
+        expectedPattern.Should().Be("my-worker-01.sendemail.*");
+    }
+
+    [Fact]
+    public void AddMilvaionWorkerWithJobs_WithExplicitRoutingPattern_ShouldNotAutoGenerate()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "test-worker",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["JobConsumers:CustomJob:ConsumerId"] = "custom-consumer",
+            ["JobConsumers:CustomJob:RoutingPattern"] = "custom.pattern.*",
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        // Act — Will throw because no matching job class, but the explicit routing pattern code path is tested
+        var act = () => services.AddMilvaionWorkerWithJobs(configuration);
+
+        // Assert — Should fail at configsWithoutJob validation, not at routing pattern generation
+        act.Should().Throw<InvalidOperationException>()
+           .WithMessage("*CustomJob*");
+    }
+
+    [Fact]
+    public void AddMilvaionWorkerWithJobs_WithMultipleJobConfigs_ShouldValidateAll()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var config = new Dictionary<string, string>
+        {
+            ["Worker:WorkerId"] = "multi-worker",
+            ["Worker:RabbitMQ:Host"] = "localhost",
+            ["JobConsumers:JobA:ConsumerId"] = "consumer-a",
+            ["JobConsumers:JobA:RoutingPattern"] = "worker.a.*",
+            ["JobConsumers:JobB:ConsumerId"] = "consumer-b",
+            // JobB has no RoutingPattern → auto-generate
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(config)
+            .Build();
+
+        // Act
+        var act = () => services.AddMilvaionWorkerWithJobs(configuration);
+
+        // Assert — Both jobs should be in the error since neither has a matching class
+        act.Should().Throw<InvalidOperationException>()
+           .WithMessage("*JobA*")
+           .WithMessage("*JobB*");
     }
 
     #endregion

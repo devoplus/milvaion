@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from '../components/Icon'
 import api from '../services/api'
+import { getApiErrorMessage } from '../utils/errorUtils'
 import './Tags.css'
 
 function Tags() {
@@ -18,7 +19,7 @@ function Tags() {
       const tagList = response?.data?.data || response?.data || []
       setTags(tagList)
     } catch (err) {
-      setError('Failed to load tags')
+      setError(getApiErrorMessage(err, 'Failed to load tags'))
       console.error(err)
     } finally {
       setLoading(false)

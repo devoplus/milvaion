@@ -301,7 +301,7 @@ public static partial class StartupExtensions
                                          .AddProcessInstrumentation()
                                          .AddNpgsqlInstrumentation()
                                          .AddMeter(diagnosticsMetrics)
-                                         .AddMeter(Milvaion.Infrastructure.Telemetry.BackgroundServiceMetrics.MeterName) // Custom background service metrics
+                                         .AddMeter(Infrastructure.Telemetry.BackgroundServiceMetrics.MeterName) // Custom background service metrics
                                          .AddPrometheusExporter(); // Expose metrics via HTTP endpoint
                         })
                         .WithTracing(tracingBuilder =>
@@ -344,6 +344,12 @@ public static partial class StartupExtensions
 
         loggerConfig.Filter.ByExcluding(logEvent => logEvent.Properties.ContainsKey("RequestPath") &&
                                                     GlobalConstant.IgnoringLogPaths.Any(p => logEvent.Properties["RequestPath"].ToString().Contains(p)));
+
+        loggerConfig.Filter.ByExcluding(logEvent =>
+            logEvent.Properties.TryGetValue("SourceContext", out var sourceContext)
+            && sourceContext.ToString().Contains("JwtBearerHandler")
+            && logEvent.Properties.TryGetValue("EventId", out var eventId)
+            && eventId.ToString().Contains("ProcessingMessageFailed"));
 
         return loggerConfig;
     }

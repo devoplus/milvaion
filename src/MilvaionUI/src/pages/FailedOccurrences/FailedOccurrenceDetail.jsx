@@ -6,6 +6,7 @@ import Modal from '../../components/Modal'
 import Icon from '../../components/Icon'
 import { SkeletonDetail } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './FailedOccurrenceDetail.css'
 
 function FailedOccurrenceDetail() {
@@ -24,7 +25,7 @@ function FailedOccurrenceDetail() {
       const response = await failedOccurrenceService.getById(id)
       setJob(response.data)
     } catch (err) {
-      setError('Failed to load job details')
+      setError(getApiErrorMessage(err, 'Failed to load job details'))
       console.error(err)
     } finally {
       setLoading(false)
@@ -194,7 +195,7 @@ function FailedOccurrenceDetail() {
               Mark as Resolved
             </button>
           )}
-          <button onClick={handleDelete} className="btn btn-danger" style={{ opacity: 0.3, color: '#ffff' }}>
+          <button onClick={handleDelete} className="btn btn-secondary" style={{ opacity: 0.3, color: '#ffff' }}>
             <Icon name="delete" size={18} />
             Delete
           </button>

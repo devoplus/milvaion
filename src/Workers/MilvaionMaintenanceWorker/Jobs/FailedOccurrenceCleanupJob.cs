@@ -12,7 +12,7 @@ namespace MilvaionMaintenanceWorker.Jobs;
 /// These are occurrences that exceeded max retry attempts.
 /// Recommended schedule: Weekly.
 /// </summary>
-public class FailedOccurrenceCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult
+public class FailedOccurrenceCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult<string>
 {
     private readonly MaintenanceOptions _options = options.Value;
 

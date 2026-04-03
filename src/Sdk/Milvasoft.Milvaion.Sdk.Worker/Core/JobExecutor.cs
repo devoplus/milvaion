@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Milvasoft.Core.Abstractions;
+using Milvasoft.Core.Helpers;
 using Milvasoft.Milvaion.Sdk.Models;
 using Milvasoft.Milvaion.Sdk.Utils;
 using Milvasoft.Milvaion.Sdk.Worker.Abstractions;
@@ -7,6 +8,7 @@ using Milvasoft.Milvaion.Sdk.Worker.Exceptions;
 using Milvasoft.Milvaion.Sdk.Worker.Options;
 using Milvasoft.Milvaion.Sdk.Worker.Persistence;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace Milvasoft.Milvaion.Sdk.Worker.Core;
 
@@ -262,11 +264,29 @@ public class JobExecutor(ILoggerFactory loggerFactory)
         return formatted;
     }
 
-    private static async Task<string> InvokeJobAsync(object jobInstance, JobContext context)
+    private static async ValueTask<string> InvokeJobAsync(object jobInstance, JobContext context)
     {
-        if (jobInstance is IAsyncJobWithResult asyncWithResult)
+        var type = jobInstance.GetType();
+
+        if (type.CanAssignableTo(typeof(IAsyncJobWithResult<>)))
         {
-            return await asyncWithResult.ExecuteAsync(context);
+            var asyncJobWithResultInterface = type.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAsyncJobWithResult<>));
+
+            if (asyncJobWithResultInterface != null)
+            {
+                var executeMethod = asyncJobWithResultInterface.GetMethod("ExecuteAsync");
+                var task = executeMethod!.Invoke(jobInstance, [context]) as Task;
+                await task!;
+
+                var resultProperty = task.GetType().GetProperty("Result");
+                var result = resultProperty!.GetValue(task);
+
+                if (result == null)
+                    return null;
+
+                return result is string str ? str : JsonSerializer.Serialize(result);
+            }
         }
 
         if (jobInstance is IAsyncJob asyncJob)
@@ -275,9 +295,21 @@ public class JobExecutor(ILoggerFactory loggerFactory)
             return null;
         }
 
-        if (jobInstance is IJobWithResult syncWithResult)
+        if (type.CanAssignableTo(typeof(IJobWithResult<>)))
         {
-            return await Task.Run(() => syncWithResult.Execute(context), context.CancellationToken);
+            var jobWithResultInterface = type.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IJobWithResult<>));
+
+            if (jobWithResultInterface != null)
+            {
+                var executeMethod = jobWithResultInterface.GetMethod("Execute");
+                var result = executeMethod!.Invoke(jobInstance, [context]);
+
+                if (result == null)
+                    return null;
+
+                return result is string str ? str : JsonSerializer.Serialize(result);
+            }
         }
 
         if (jobInstance is IJob syncJob)

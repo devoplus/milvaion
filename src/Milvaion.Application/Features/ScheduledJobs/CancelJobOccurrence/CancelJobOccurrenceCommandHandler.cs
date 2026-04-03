@@ -31,7 +31,7 @@ public record CancelJobOccurrenceCommandHandler(IMilvaionRepositoryBase<JobOccur
     public async Task<Response<bool>> Handle(CancelJobOccurrenceCommand request, CancellationToken cancellationToken)
     {
         // Find the running occurrence by CorrelationId
-        var occurrence = await _occurenceRepository.GetFirstOrDefaultAsync(o => o.CorrelationId == request.OccurrenceId, cancellationToken: cancellationToken);
+        var occurrence = await _occurenceRepository.GetFirstOrDefaultAsync(o => o.Id == request.OccurrenceId, cancellationToken: cancellationToken);
 
         if (occurrence == null)
             return Response<bool>.Error(false, "Occurrence not found");

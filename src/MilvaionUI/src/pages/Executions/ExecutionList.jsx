@@ -6,6 +6,7 @@ import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import { SkeletonTable } from '../../components/Skeleton'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './ExecutionList.css'
 import OccurrenceTable from '../../components/OccurrenceTable'
 
@@ -13,7 +14,6 @@ function ExecutionList() {
   const location = useLocation()
   const [occurrences, setOccurrences] = useState([])
   const [loading, setLoading] = useState(true)
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
@@ -68,20 +68,15 @@ function ExecutionList() {
       setOccurrences(data)
       setTotalCount(total)
     } catch (err) {
-      setError('Failed to load executions')
+      setError(getApiErrorMessage(err, 'Failed to load executions'))
       console.error(err)
     } finally {
-      if (showLoading) {
-        setLoading(false)
-        setIsInitialLoad(false)
-      }
+      setLoading(false)
     }
   }, [currentPage, pageSize, debouncedSearchTerm, filterStatus])
 
   useEffect(() => {
-    // Show loading on initial load OR when page/filter/search changes
-    const shouldShowLoading = isInitialLoad || !occurrences.length
-    loadOccurrences(true) // Always show loading on navigation
+    loadOccurrences(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, debouncedSearchTerm, filterStatus])
 

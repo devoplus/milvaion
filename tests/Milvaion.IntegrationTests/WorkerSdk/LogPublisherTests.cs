@@ -44,7 +44,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
             var log = msg?.Logs.FirstOrDefault();
-            if (log?.CorrelationId == correlationId)
+            if (log?.OccurrenceId == correlationId)
                 receivedMessage = log;
         }, correlationId, cts.Token);
 
@@ -52,7 +52,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
 
         // Act
         await publisher.PublishLogAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             workerId: workerId,
             log: log,
             cancellationToken: cts.Token);
@@ -72,7 +72,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
         // Assert
         found.Should().BeTrue("log message should be received");
         receivedMessage.Should().NotBeNull();
-        receivedMessage!.CorrelationId.Should().Be(correlationId);
+        receivedMessage!.OccurrenceId.Should().Be(correlationId);
         receivedMessage.WorkerId.Should().Be(workerId);
         receivedMessage.Log.Should().NotBeNull();
         receivedMessage.Log.Level.Should().Be("Information");
@@ -107,7 +107,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
             var log = msg?.Logs.FirstOrDefault();
-            if (log?.CorrelationId == correlationId)
+            if (log?.OccurrenceId == correlationId)
                 receivedMessage = log;
         }, correlationId, cts.Token);
 
@@ -115,7 +115,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
 
         // Act
         await publisher.PublishLogAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             workerId: workerId,
             log: log,
             cancellationToken: cts.Token);
@@ -162,7 +162,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
             var log = msg?.Logs.FirstOrDefault();
-            if (log?.CorrelationId == correlationId)
+            if (log?.OccurrenceId == correlationId)
                 receivedMessage = log;
         }, correlationId, cts.Token);
 
@@ -170,7 +170,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
 
         // Act
         await publisher.PublishLogAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             workerId: workerId,
             log: log,
             cancellationToken: cts.Token);
@@ -216,7 +216,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
             var log = msg?.Logs.FirstOrDefault();
-            if (log?.CorrelationId == correlationId)
+            if (log?.OccurrenceId == correlationId)
                 receivedMessage = log;
         }, correlationId, cts.Token);
 
@@ -224,7 +224,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
 
         // Act
         await publisher.PublishLogAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             workerId: workerId,
             log: log,
             cancellationToken: cts.Token);
@@ -278,7 +278,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
             var log = msg?.Logs.FirstOrDefault();
-            if (log?.CorrelationId == correlationId)
+            if (log?.OccurrenceId == correlationId)
                 receivedMessage = log;
         }, correlationId, cts.Token);
 
@@ -286,7 +286,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
 
         // Act
         await publisher.PublishLogAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             workerId: workerId,
             log: log,
             cancellationToken: cts.Token);
@@ -334,7 +334,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
         (IChannel channel, IConnection connection) = await SetupLogConsumerAsync(msg =>
         {
             var log = msg?.Logs.FirstOrDefault();
-            if (log?.CorrelationId == correlationId)
+            if (log?.OccurrenceId == correlationId)
                 receivedMessage = log;
         }, correlationId, cts.Token);
 
@@ -342,7 +342,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
 
         // Act
         await publisher.PublishLogAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             workerId: "test-worker",
             log: log,
             cancellationToken: cts.Token);
@@ -398,7 +398,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
             };
 
             await publisher.PublishLogAsync(
-                correlationId: correlationId,
+                occurrenceId: correlationId,
                 workerId: workerId,
                 log: log,
                 cancellationToken: cts.Token);
@@ -487,7 +487,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
 
         // Buffer a log without flushing
         await publisher.PublishLogAsync(
-            correlationId: correlationId,
+            occurrenceId: correlationId,
             workerId: workerId,
             log: new OccurrenceLog
             {
@@ -550,7 +550,7 @@ public class LogPublisherTests(WorkerSdkContainerFixture fixture, ITestOutputHel
                 var json = Encoding.UTF8.GetString(body);
                 var message = JsonSerializer.Deserialize<WorkerLogBatchMessage>(json, _jsonOptions);
 
-                if (message?.Logs?.Any(l => l.CorrelationId == correlationId) ?? true)
+                if (message?.Logs?.Any(l => l.OccurrenceId == correlationId) ?? true)
                 {
                     await channel.BasicAckAsync(ea.DeliveryTag, false);
 

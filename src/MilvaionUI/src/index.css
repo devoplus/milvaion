@@ -1,39 +1,80 @@
-/* ===== Theme Variables ===== */
+/* ===== Design System — Vercel-style ===== */
+@import './design-system.css';
+
 :root {
-  /* Font settings */
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Typography */
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01', 'calt';
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Border radius scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-full: 9999px;
+
+  /* Transition scale */
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms ease;
+  --transition-slow: 300ms ease;
+
+  /* Typography scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
 
   /* Default to dark theme */
-  --bg-primary: #242424;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #2a2a2a;
-  --bg-hover: rgba(100, 108, 255, 0.05);
-  --bg-card: #1a1a1a;
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-tertiary: #1a1a1a;
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-card: #0a0a0a;
+  --card-bg: var(--bg-card);
+  --sidebar-bg: #0a0a0a;
+  --surface-bg: #1a1a1a;
 
-  --text-primary: rgba(255, 255, 255, 0.87);
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --text-muted: #999;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
 
-  --border-color: #333;
-  --border-light: #444;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.16);
 
-  --accent-color: #646cff;
-  --accent-hover: #535bf2;
+  --accent-color: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-gradient: linear-gradient(90deg, #6366f1, #8b5cf6);
+  --accent-glow: rgba(99, 102, 241, 0.25);
 
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --error-color: #ef4444;
   --info-color: #3b82f6;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
 
   /* Apply theme colors */
   color-scheme: dark;
@@ -41,27 +82,32 @@
   background-color: var(--bg-primary);
 }
 
-/* Dark Theme - explicit selector */
+/* Dark Theme */
 [data-theme="dark"] {
-  --bg-primary: #242424;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #2a2a2a;
-  --bg-hover: rgba(100, 108, 255, 0.05);
-  --bg-card: #1a1a1a;
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-tertiary: #1a1a1a;
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-card: #0a0a0a;
+  --card-bg: var(--bg-card);
+  --sidebar-bg: #0a0a0a;
+  --surface-bg: #1a1a1a;
 
-  --text-primary: rgba(255, 255, 255, 0.87);
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --text-muted: #999;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
 
-  --border-color: #333;
-  --border-light: #444;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.16);
 
-  --accent-color: #646cff;
-  --accent-hover: #535bf2;
+  --accent-color: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-gradient: linear-gradient(90deg, #6366f1, #8b5cf6);
+  --accent-glow: rgba(99, 102, 241, 0.25);
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
 
   color-scheme: dark;
   color: var(--text-primary);
@@ -70,25 +116,30 @@
 
 /* Light Theme */
 [data-theme="light"] {
-  --bg-primary: #f5f5f5;
+  --bg-primary: #f4f4f5;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f0f0f0;
-  --bg-hover: rgba(100, 108, 255, 0.05);
+  --bg-tertiary: #ececed;
+  --bg-hover: rgba(0, 0, 0, 0.04);
   --bg-card: #ffffff;
+  --card-bg: var(--bg-card);
+  --sidebar-bg: #ffffff;
+  --surface-bg: #ececed;
 
-  --text-primary: #213547;
-  --text-secondary: #4a5568;
-  --text-muted: #666;
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
+  --text-muted: #a1a1aa;
 
-  --border-color: #ddd;
-  --border-light: #e0e0e0;
+  --border-color: rgba(0, 0, 0, 0.09);
+  --border-light: rgba(0, 0, 0, 0.15);
 
-  --accent-color: #646cff;
-  --accent-hover: #535bf2;
+  --accent-color: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-gradient: linear-gradient(90deg, #6366f1, #8b5cf6);
+  --accent-glow: rgba(99, 102, 241, 0.15);
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
 
   color-scheme: light;
   color: var(--text-primary);
@@ -178,44 +229,46 @@ a:hover {
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  padding: 0.5em 1em;
+  font-size: var(--text-sm);
   font-weight: 500;
   font-family: inherit;
+  letter-spacing: -0.01em;
   background-color: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
-  transition: border-color 0.25s, background-color 0.3s, color 0.3s;
+  transition: background-color var(--transition-base), border-color var(--transition-base), color var(--transition-base), box-shadow var(--transition-base);
 }
 button:hover {
-  border-color: var(--accent-color);
   background-color: var(--bg-tertiary);
+  border-color: var(--border-light);
 }
-button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 
 input,
 textarea,
 select {
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  padding: 0.5em;
-  font-size: 1em;
+  padding: 0.5em 0.75em;
+  font-size: var(--text-sm);
   font-family: inherit;
   background-color: var(--bg-secondary);
   color: var(--text-primary);
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+  transition: background-color var(--transition-base), color var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 2px solid var(--accent-color);
+  outline: none;
   border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 table {
@@ -226,18 +279,23 @@ table {
 
 table th,
 table td {
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
+  font-size: var(--text-sm);
 }
 
 table th {
   background-color: var(--bg-secondary);
   font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: var(--text-xs);
 }
 
-table tr:hover {
-  background-color: var(--bg-tertiary);
+table tr:hover td {
+  background-color: var(--bg-hover);
 }
 
 /* Remove old media query - we now use data-theme attribute */

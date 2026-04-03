@@ -12,7 +12,7 @@ namespace MilvaionMaintenanceWorker.Jobs;
 /// Prevents database bloat from accumulating historical data.
 /// Recommended schedule: Daily at 2 AM.
 /// </summary>
-public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult
+public class OccurrenceRetentionJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult<string>
 {
     private readonly MaintenanceOptions _options = options.Value;
 

@@ -8,6 +8,7 @@ function NotificationPanel({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [pageIndex, setPageIndex] = useState(0)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const panelRef = useRef(null)
   const PAGE_SIZE = 20
 
@@ -92,6 +93,8 @@ function NotificationPanel({ isOpen, onClose }) {
       }
     } catch {
       // silently ignore
+    } finally {
+      setShowDeleteConfirm(false)
     }
   }
 
@@ -116,6 +119,15 @@ function NotificationPanel({ isOpen, onClose }) {
     const diffD = Math.floor(diffH / 24)
     if (diffD < 7) return `${diffD}d ago`
     return date.toLocaleDateString()
+  }
+
+  const formatFullDate = (dateStr) => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    return date.toLocaleString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
   }
 
   const getTypeIcon = (type) => {
@@ -164,7 +176,7 @@ function NotificationPanel({ isOpen, onClose }) {
             {notifications.length > 0 && (
               <button
                 className="notification-header-btn danger"
-                onClick={handleDeleteAll}
+                onClick={() => setShowDeleteConfirm(true)}
                 title="Delete all"
               >
                 <Icon name="delete_sweep" size={18} />
@@ -179,6 +191,17 @@ function NotificationPanel({ isOpen, onClose }) {
             </button>
           </div>
         </div>
+
+        {showDeleteConfirm && (
+          <div className="notification-confirm">
+            <Icon name="warning" size={20} />
+            <span>Are you sure you want to delete all notifications?</span>
+            <div className="notification-confirm-actions">
+              <button className="confirm-btn cancel" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+              <button className="confirm-btn delete" onClick={handleDeleteAll}>Delete All</button>
+            </div>
+          </div>
+        )}
 
         <div className="notification-panel-body">
           {loading && notifications.length === 0 ? (
@@ -196,7 +219,10 @@ function NotificationPanel({ isOpen, onClose }) {
               {notifications.map(n => (
                 <div
                   key={n.id}
-                  className={`notification-item ${!n.seenDate ? 'unseen' : ''}`}
+                  className={`notification-item ${!n.seenDate ? 'unseen' : ''} ${n.actionLink ? 'clickable' : ''}`}
+                  onClick={() => {
+                    if (n.actionLink) window.open(n.actionLink, '_blank', 'noopener,noreferrer')
+                  }}
                 >
                   <div className={`notification-icon ${getTypeClass(n.type)}`}>
                     <Icon name={getTypeIcon(n.type)} size={20} />
@@ -205,15 +231,24 @@ function NotificationPanel({ isOpen, onClose }) {
                     <p className="notification-text">
                       {n.text || n.typeDescription || 'Notification'}
                     </p>
-                    <span className="notification-time">
-                      {formatTime(n.creationDate)}
+                    <span className="notification-time" title={formatFullDate(n.creationDate)}>
+                      {formatTime(n.creationDate)} · {formatFullDate(n.creationDate)}
                     </span>
                   </div>
                   <div className="notification-actions">
+                    {n.actionLink && (
+                      <button
+                        className="notification-action-btn"
+                        onClick={(e) => { e.stopPropagation(); window.open(n.actionLink, '_blank', 'noopener,noreferrer') }}
+                        title="Open link"
+                      >
+                        <Icon name="open_in_new" size={16} />
+                      </button>
+                    )}
                     {!n.seenDate && (
                       <button
                         className="notification-action-btn"
-                        onClick={() => handleMarkSeen(n.id)}
+                        onClick={(e) => { e.stopPropagation(); handleMarkSeen(n.id) }}
                         title="Mark as read"
                       >
                         <Icon name="check" size={16} />
@@ -221,7 +256,7 @@ function NotificationPanel({ isOpen, onClose }) {
                     )}
                     <button
                       className="notification-action-btn danger"
-                      onClick={() => handleDelete(n.id)}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(n.id) }}
                       title="Delete"
                     >
                       <Icon name="close" size={16} />

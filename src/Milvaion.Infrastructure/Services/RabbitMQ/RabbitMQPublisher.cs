@@ -35,7 +35,7 @@ public class RabbitMQPublisher : IRabbitMQPublisher
     }
 
     /// <inheritdoc/>
-    public async Task<bool> PublishJobAsync(ScheduledJob job, Guid correlationId, CancellationToken cancellationToken = default)
+    public async Task<bool> PublishJobAsync(ScheduledJob job, Guid occurrenceId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -75,7 +75,7 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                 Persistent = true, // Survive broker restart
                 ContentType = "application/json",
                 MessageId = job.Id.ToString(),
-                CorrelationId = correlationId.ToString(), // Distributed tracing
+                CorrelationId = occurrenceId.ToString(), // Unique occurrence ID sent to worker
                 Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
                 Priority = 0,
                 Headers = new Dictionary<string, object>
@@ -83,7 +83,7 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                     ["JobType"] = job.JobNameInWorker,
                     ["ExecuteAt"] = job.ExecuteAt.ToString("O"),
                     ["IsRecurring"] = job.CronExpression != null,
-                    ["CorrelationId"] = correlationId.ToString(),
+                    ["OccurrenceId"] = occurrenceId.ToString(),
                     ["RoutingKey"] = routingKey,
                     ["WorkerId"] = job.WorkerId ?? "any"
                 }
@@ -97,13 +97,13 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                                             body: body,
                                             cancellationToken: cancellationToken);
 
-            _logger.Debug("Job {JobId} ({JobType}) published to exchange {ExchangeName} with routing key '{RoutingKey}' and CorrelationId {CorrelationId}", job.Id, job.JobNameInWorker, WorkerConstant.ExchangeName, routingKey, correlationId);
+            _logger.Debug("Job {JobId} ({JobType}) published to exchange {ExchangeName} with routing key '{RoutingKey}' and OccurrenceId {OccurrenceId}", job.Id, job.JobNameInWorker, WorkerConstant.ExchangeName, routingKey, occurrenceId);
 
             return true;
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to publish job {JobId} with CorrelationId {CorrelationId} to RabbitMQ", job.Id, correlationId);
+            _logger.Error(ex, "Failed to publish job {JobId} with OccurrenceId {OccurrenceId} to RabbitMQ", job.Id, occurrenceId);
 
             return false;
         }
@@ -149,9 +149,9 @@ public class RabbitMQPublisher : IRabbitMQPublisher
         {
             var publishedCount = 0;
 
-            foreach (var (job, correlationId) in jobsWithCorrelation)
+            foreach (var (job, occurrenceId) in jobsWithCorrelation)
             {
-                var success = await PublishJobAsync(job, correlationId, cancellationToken);
+                var success = await PublishJobAsync(job, occurrenceId, cancellationToken);
                 if (success)
                     publishedCount++;
             }

@@ -160,6 +160,7 @@ public static class InfraServiceCollectionExtensions
                 .AddRabbitMQ(configuration)
                 .AddAlerting(configuration)
                 .AddJobDispatcher(configuration)
+                .AddWorkflowEngine(configuration)
                 .AddZombieOccurrenceDetector(configuration)
                 .AddFailedOccurrenceHandler(configuration)
                 .AddWorkerAutoDiscovery(configuration)
@@ -202,6 +203,21 @@ public static class InfraServiceCollectionExtensions
         services.AddOptions<ZombieOccurrenceDetectorOptions>().Bind(configuration.GetSection(ZombieOccurrenceDetectorOptions.SectionKey)).ValidateDataAnnotations();
 
         services.AddHostedService<ZombieOccurrenceDetectorService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers workflow engine background service for DAG execution.
+    /// </summary>
+    /// <param name="services">Service collection</param>
+    /// <param name="configuration">Configuration</param>
+    /// <returns>Service collection for chaining</returns>
+    public static IServiceCollection AddWorkflowEngine(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<WorkflowEngineOptions>().Bind(configuration.GetSection(WorkflowEngineOptions.SectionKey)).ValidateDataAnnotations();
+
+        services.AddHostedService<WorkflowEngineService>();
 
         return services;
     }

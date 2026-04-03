@@ -18,8 +18,8 @@ ON "Users" USING gin ("AllowedNotifications");
 -- CRITICAL: Unique index for StatusTrackerService batch lookups
 -- StatusTrackerService does: WHERE CorrelationId IN (...) - this is HIGHEST frequency query
 -- Also used by FailedOccurrenceHandler: WHERE CorrelationId = X
-CREATE UNIQUE INDEX IF NOT EXISTS "IX_JobOccurrences_CorrelationId_Unique"
-ON "JobOccurrences" ("CorrelationId" DESC);
+-- UPDATE: CorrelationId is not unique due to workflow, so we cannot enforce uniqueness.
+DROP INDEX IF EXISTS "IX_JobOccurrences_CorrelationId_Unique";
 
 -- CRITICAL: Composite index for UI listing (default view)
 -- UI pattern: ORDER BY CreatedAt DESC with optional Status filter

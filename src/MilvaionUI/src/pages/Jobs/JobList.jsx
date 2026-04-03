@@ -9,6 +9,7 @@ import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonJobList } from '../../components/Skeleton'
 import { useModal } from '../../hooks/useModal'
 import { useTriggerJob } from '../../hooks/useTriggerJob'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './JobList.css'
 
 function JobList() {
@@ -41,8 +42,6 @@ function JobList() {
   const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = useModal()
   const { triggerJob, triggering, modalProps: triggerModalProps } = useTriggerJob()
 
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
-
   // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -65,19 +64,17 @@ function JobList() {
         rowCount: pageSize
       }
 
-      // Add search term if provided
       if (debouncedSearchTerm) {
         requestBody.searchTerm = debouncedSearchTerm
       }
 
-      // Add tag filtering if filterTag is set
       if (filterTag) {
         requestBody.filtering = {
           criterias: [
             {
               filterBy: "Tags",
               value: filterTag,
-              type: 1 // Contains
+              type: 1
             }
           ]
         }
@@ -85,7 +82,6 @@ function JobList() {
 
       const response = await jobService.getAll(requestBody)
 
-      // Handle paginated response
       const data = response?.data?.data || response?.data || []
       const total = response?.data?.totalDataCount || response?.totalDataCount || 0
 
@@ -93,25 +89,21 @@ function JobList() {
       setTotalCount(total)
       setLastRefreshTime(new Date())
     } catch (err) {
-      setError('Failed to load jobs')
+      setError(getApiErrorMessage(err, 'Failed to load jobs'))
       console.error(err)
     } finally {
-      if (showLoading) {
-        setLoading(false)
-        setIsInitialLoad(false)
-      }
+      setLoading(false)
     }
   }, [filterTag, currentPage, pageSize, debouncedSearchTerm])
 
   useEffect(() => {
-    loadJobs(true) // Always show loading on navigation
+    loadJobs(true)
 
-    // Auto-refresh every 30 seconds (seamless data refresh)
     const refreshInterval = setInterval(() => {
       if (autoRefreshEnabled) {
-        loadJobs(false) // Don't show loading on auto-refresh
+        loadJobs(false)
       }
-    }, 30000) // 30 seconds
+    }, 30000)
 
     return () => clearInterval(refreshInterval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,7 +243,6 @@ function JobList() {
         />
       )}
 
-      {/* Page Header */}
       <div className="page-header">
         <div className="header-content">
           <h1>
@@ -308,7 +299,6 @@ function JobList() {
         </div>
       </div>
 
-      {/* Filter Tag Display - Separate from header */}
       {filterTag && (
         <div className="filter-tag-display">
           <Icon name="filter_alt" size={18} />
@@ -513,98 +503,98 @@ function JobList() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination - inside table container */}
+              <div className="pagination-container">
+                <div className="pagination">
+                  {(() => {
+                    const totalPages = Math.ceil(totalCount / pageSize)
+                    if (totalPages <= 1) return null
+
+                    const maxVisiblePages = 5
+                    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+                    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+
+                    if (endPage - startPage + 1 < maxVisiblePages) {
+                      startPage = Math.max(1, endPage - maxVisiblePages + 1)
+                    }
+
+                    return (
+                      <>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => setCurrentPage(1)}
+                          disabled={currentPage === 1}
+                        >
+                          <Icon name="first_page" size={18} />
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => setCurrentPage(currentPage - 1)}
+                          disabled={currentPage === 1}
+                        >
+                          <Icon name="chevron_left" size={18} />
+                        </button>
+
+                        {startPage > 1 && <span className="page-ellipsis">...</span>}
+
+                        {Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => (
+                          <button
+                            key={page}
+                            className={'btn btn-sm' + (page === currentPage ? ' btn-primary' : '')}
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </button>
+                        ))}
+
+                        {endPage < totalPages && <span className="page-ellipsis">...</span>}
+
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => setCurrentPage(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                        >
+                          <Icon name="chevron_right" size={18} />
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => setCurrentPage(totalPages)}
+                          disabled={currentPage === totalPages}
+                        >
+                          <Icon name="last_page" size={18} />
+                        </button>
+
+                        <span className="page-info">
+                          Page {currentPage} of {totalPages} ({totalCount} total)
+                        </span>
+                      </>
+                    )
+                  })()}
+                </div>
+
+                <div className="page-size-selector">
+                  <label htmlFor="pageSize">Rows per page:</label>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(parseInt(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="page-size-select"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={500}>500</option>
+                    <option value={1000}>1000</option>
+                  </select>
+                </div>
+              </div>
             </div>
           )}
-
-          {/* Pagination */}
-          <div className="pagination-container">
-            <div className="pagination">
-              {(() => {
-                const totalPages = Math.ceil(totalCount / pageSize)
-                if (totalPages <= 1) return null
-
-                const maxVisiblePages = 5
-                let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-                let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-
-                if (endPage - startPage + 1 < maxVisiblePages) {
-                  startPage = Math.max(1, endPage - maxVisiblePages + 1)
-                }
-
-                return (
-                  <>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                    >
-                      <Icon name="first_page" size={18} />
-                    </button>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      <Icon name="chevron_left" size={18} />
-                    </button>
-
-                    {startPage > 1 && <span className="page-ellipsis">...</span>}
-
-                    {Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => (
-                      <button
-                        key={page}
-                        className={'btn btn-sm' + (page === currentPage ? ' btn-primary' : '')}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </button>
-                    ))}
-
-                    {endPage < totalPages && <span className="page-ellipsis">...</span>}
-
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      <Icon name="chevron_right" size={18} />
-                    </button>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                    >
-                      <Icon name="last_page" size={18} />
-                    </button>
-
-                    <span className="page-info">
-                      Page {currentPage} of {totalPages} ({totalCount} total)
-                    </span>
-                  </>
-                )
-              })()}
-            </div>
-
-            <div className="page-size-selector">
-              <label htmlFor="pageSize">Rows per page:</label>
-              <select
-                id="pageSize"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(parseInt(e.target.value))
-                  setCurrentPage(1)
-                }}
-                className="page-size-select"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={500}>500</option>
-                <option value={1000}>1000</option>
-              </select>
-            </div>
-          </div>
         </>
       )}
 

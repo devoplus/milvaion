@@ -406,16 +406,31 @@ public class JobConsumer : BackgroundService
         catch (Exception ex)
         {
             var loggerToUse = logger ?? _logger;
-            loggerToUse?.Error(ex, "Failed to process job {JobId} (CorrelationId: {CorrelationId}). NACK-ing message.", jobId, correlationId);
+            loggerToUse?.Error(ex, "Failed to process job {JobId} (OccurrenceId: {OccurrenceId}). NACK-ing message.", jobId, correlationId);
             await SafeNackAsync(ea.DeliveryTag, loggerToUse, correlationId);
         }
     }
 
     /// <summary>
-    /// Safely parse CorrelationId from message headers.
+    /// Safely parse OccurrenceId from message headers.
     /// </summary>
-    private static Guid ParseCorrelationId(IReadOnlyBasicProperties properties)
+    internal static Guid ParseCorrelationId(IReadOnlyBasicProperties properties)
     {
+        // Try OccurrenceId header first (new naming)
+        if (properties.Headers != null && properties.Headers.TryGetValue("OccurrenceId", out var occurrenceIdObj))
+        {
+            var occurrenceIdStr = occurrenceIdObj switch
+            {
+                byte[] bytes => Encoding.UTF8.GetString(bytes),
+                string str => str,
+                _ => null
+            };
+
+            if (Guid.TryParse(occurrenceIdStr, out var occurrenceId))
+                return occurrenceId;
+        }
+
+        // Fallback to CorrelationId header (backward compatibility)
         if (properties.Headers != null && properties.Headers.TryGetValue("CorrelationId", out var correlationIdObj))
         {
             var correlationIdStr = correlationIdObj switch
@@ -429,6 +444,7 @@ public class JobConsumer : BackgroundService
                 return correlationId;
         }
 
+        // Fallback to CorrelationId property (contains OccurrenceId value)
         if (!string.IsNullOrEmpty(properties.CorrelationId) && Guid.TryParse(properties.CorrelationId, out var fallbackId))
             return fallbackId;
 
@@ -438,7 +454,7 @@ public class JobConsumer : BackgroundService
     /// <summary>
     /// Safely parse retry count from message headers.
     /// </summary>
-    private static int ParseRetryCount(IReadOnlyBasicProperties properties)
+    internal static int ParseRetryCount(IReadOnlyBasicProperties properties)
     {
         if (properties.Headers == null || !properties.Headers.TryGetValue("x-retry-count", out var retryObj))
             return 0;

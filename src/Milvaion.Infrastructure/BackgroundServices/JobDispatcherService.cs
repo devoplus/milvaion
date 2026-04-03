@@ -828,8 +828,8 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     {
         try
         {
-            // Publish to RabbitMQ with CorrelationId
-            var published = await _rabbitMQPublisher.PublishJobAsync(job, occurrence.CorrelationId, cancellationToken);
+            // Publish to RabbitMQ with OccurrenceId (unique identifier for this execution)
+            var published = await _rabbitMQPublisher.PublishJobAsync(job, occurrence.Id, cancellationToken);
 
             if (!published)
             {
@@ -857,7 +857,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
             // Reschedule recurring job after successful publish
             await HandleRecurringJobAsync(job, cancellationToken);
 
-            _logger.Debug("Job {JobId} ({JobType}) dispatched successfully with CorrelationId {CorrelationId}", job.Id, job.JobNameInWorker, occurrence.Id);
+            _logger.Debug("Job {JobId} ({JobType}) dispatched successfully with OccurrenceId {OccurrenceId}", job.Id, job.JobNameInWorker, occurrence.Id);
 
             return true;
         }

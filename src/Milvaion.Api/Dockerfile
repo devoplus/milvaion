@@ -8,10 +8,10 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 
 # Copy package files
-COPY ["src/MilvaionUI/package.json", "src/MilvaionUI/package-lock.json*", "./"]
+COPY ["src/MilvaionUI/package.json", "./"]
 
-# Install dependencies
-RUN npm ci --silent
+# Install dependencies (npm install is more flexible than npm ci)
+RUN npm install --silent --legacy-peer-deps
 
 # Copy source files
 COPY ["src/MilvaionUI/", "./"]

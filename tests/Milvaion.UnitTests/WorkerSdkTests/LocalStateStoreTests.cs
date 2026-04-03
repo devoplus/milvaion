@@ -76,7 +76,7 @@ public class LocalStateStoreTests : IAsyncDisposable
         // Assert
         var pendingUpdates = await _localStateStore.GetPendingStatusUpdatesAsync(100, CancellationToken.None);
         pendingUpdates.Should().ContainSingle();
-        pendingUpdates[0].CorrelationId.Should().Be(correlationId);
+        pendingUpdates[0].OccurrenceId.Should().Be(correlationId);
         pendingUpdates[0].JobId.Should().Be(jobId);
         pendingUpdates[0].WorkerId.Should().Be(workerId);
         pendingUpdates[0].Status.Should().Be(status);
@@ -195,7 +195,7 @@ public class LocalStateStoreTests : IAsyncDisposable
         // Assert
         var pendingLogs = await _localStateStore.GetPendingLogsAsync(100, CancellationToken.None);
         pendingLogs.Should().ContainSingle();
-        pendingLogs[0].CorrelationId.Should().Be(correlationId);
+        pendingLogs[0].OccurrenceId.Should().Be(correlationId);
         pendingLogs[0].WorkerId.Should().Be(workerId);
         pendingLogs[0].Log.Message.Should().Be("Test log message");
     }

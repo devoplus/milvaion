@@ -1,33 +1,29 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import PropTypes from 'prop-types'
 
-const ThemeContext = createContext();
+const ThemeContext = createContext()
 
 export const THEMES = {
   LIGHT: 'light',
   DARK: 'dark',
-};
+}
 
 export function ThemeProvider({ children }) {
-  // Initialize theme from localStorage or system preference
   const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem('milvaion-theme');
+    const savedTheme = localStorage.getItem('milvaion-theme')
     if (savedTheme) {
-      return savedTheme;
+      return savedTheme
     }
-    // Check system preference
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-      return THEMES.LIGHT;
+      return THEMES.LIGHT
     }
-    return THEMES.DARK;
-  });
+    return THEMES.DARK
+  })
 
-  // Apply theme to document
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('milvaion-theme', theme);
-  }, [theme]);
-
-  // Listen for system theme changes
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('milvaion-theme', theme)
+  }, [theme])
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
     const handleChange = (e) => {
@@ -81,8 +77,8 @@ export function ThemeProvider({ children }) {
     // Start the view transition
     document.startViewTransition(() => {
       setTheme(newTheme);
-    });
-  }, [theme]);
+    })
+  }, [theme])
 
   const value = {
     theme,
@@ -90,21 +86,25 @@ export function ThemeProvider({ children }) {
     toggleTheme,
     isDark: theme === THEMES.DARK,
     isLight: theme === THEMES.LIGHT,
-  };
+  }
 
   return (
     <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
-  );
+  )
+}
+
+ThemeProvider.propTypes = {
+  children: PropTypes.node.isRequired
 }
 
 export function useTheme() {
-  const context = useContext(ThemeContext);
+  const context = useContext(ThemeContext)
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    throw new Error('useTheme must be used within a ThemeProvider')
   }
-  return context;
+  return context
 }
 
-export default ThemeContext;
+export default ThemeContext

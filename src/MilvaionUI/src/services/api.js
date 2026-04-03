@@ -9,7 +9,6 @@ const api = axios.create({
   },
 })
 
-// Flag to prevent multiple refresh attempts
 let isRefreshing = false
 let failedQueue = []
 
@@ -25,10 +24,8 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
-// Request interceptor for adding auth token
 api.interceptors.request.use(
   (config) => {
-    // Skip auth only for the login endpoint itself (not refresh)
     if (config.url?.endsWith('/account/login')) {
       return config
     }
@@ -45,32 +42,44 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor for handling 419 (token expired) with automatic refresh
 api.interceptors.response.use(
-  (response) => response.data, // Extract data for convenience
+  (response) => {
+    const data = response.data
+
+    if (data && typeof data.isSuccess === 'boolean' && data.isSuccess === false) {
+      const errorMessages = data.messages?.map(m => m.message).join('\n') || 'Request failed'
+      const error = new Error(errorMessages)
+      error.response = response
+      error.isValidationError = true
+      error.validationMessages = data.messages
+      return Promise.reject(error)
+    }
+
+    return data
+  },
   async (error) => {
     const originalRequest = error.config
 
-    // 401 = truly unauthorized → redirect to login, no refresh attempt
     if (error.response?.status === 401) {
-      authService.logout()
+      authService.clearAuth()
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
       }
       return Promise.reject(error)
     }
 
-    // Only attempt refresh on 419 (token expired)
     if (error.response?.status !== 419 || originalRequest._retry) {
       return Promise.reject(error)
     }
 
-    // Skip refresh for login/refresh endpoints themselves
-    if (originalRequest.url?.includes('/account/login')) {
+    if (originalRequest.url === '/account/login' || originalRequest.url === '/account/login/refresh') {
+      authService.clearAuth()
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
       return Promise.reject(error)
     }
 
-    // If already refreshing, queue this request
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject })
@@ -93,29 +102,24 @@ api.interceptors.response.use(
       if (refreshed) {
         const newToken = authService.getAccessToken()
 
-        // Update original request with new token
         originalRequest.headers.Authorization = `Bearer ${newToken}`
 
-        // Process queued requests
         processQueue(null, newToken)
 
-        // Retry original request
         return api(originalRequest)
       } else {
-        // Refresh failed - logout user
         processQueue(new Error('Token refresh failed'), null)
-        authService.logout()
+          authService.clearAuth()
 
-        // Redirect to login page
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
 
-        return Promise.reject(error)
+          return Promise.reject(error)
       }
     } catch (refreshError) {
       processQueue(refreshError, null)
-      authService.logout()
+      authService.clearAuth()
 
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'

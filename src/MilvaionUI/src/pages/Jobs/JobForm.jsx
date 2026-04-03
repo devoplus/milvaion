@@ -6,6 +6,7 @@ import Icon from '../../components/Icon'
 import CronExpressionInput from '../../components/CronExpressionInput'
 import JsonStringConverter from '../../components/JsonStringConverter'
 import JsonEditor from '../../components/JsonEditor'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import './JobForm.css'
 
 // Helper function to generate example JSON from JSON Schema
@@ -65,7 +66,8 @@ function generateExampleFromSchema(schema) {
   return example
 }
 
-// Schema Viewer Component
+import PropTypes from 'prop-types'
+
 function SchemaViewer({ schema }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -126,6 +128,10 @@ function SchemaViewer({ schema }) {
   )
 }
 
+SchemaViewer.propTypes = {
+  schema: PropTypes.oneOfType([PropTypes.string, PropTypes.object])
+}
+
 function JobForm() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -147,7 +153,8 @@ function JobForm() {
     // Auto-disable settings
     autoDisableSettings: {
       enabled: true,
-      threshold: ''
+      threshold: '',
+      failureWindowMinutes: ''
     },
     // External job info (read-only)
     externalJobInfo: null
@@ -182,7 +189,7 @@ function JobForm() {
       return activeInternalWorkers
     } catch (err) {
       console.error('Failed to load workers:', err)
-      setError('Failed to load workers. Check console for details.')
+      setError(getApiErrorMessage(err, 'Failed to load workers.'))
       return []
     }
   }, [])
@@ -208,14 +215,15 @@ function JobForm() {
         executionTimeoutSeconds: data.executionTimeoutSeconds || '',
         autoDisableSettings: {
           enabled: data.autoDisableSettings?.enabled ?? true,
-          threshold: data.autoDisableSettings?.threshold || ''
+          threshold: data.autoDisableSettings?.threshold || '',
+          failureWindowMinutes: data.autoDisableSettings?.failureWindowMinutes || ''
         },
         externalJobInfo: data.externalJobInfo || null
       })
 
       setScheduleType(data.cronExpression ? 'cron' : 'once')
     } catch (err) {
-      setError('Failed to load job')
+      setError(getApiErrorMessage(err, 'Failed to load job'))
       console.error(err)
     } finally {
       setLoading(false)
@@ -329,7 +337,8 @@ function JobForm() {
         executionTimeoutSeconds: formData.executionTimeoutSeconds ? parseInt(formData.executionTimeoutSeconds) : null,
         autoDisableSettings: {
           enabled: formData.autoDisableSettings.enabled,
-          threshold: formData.autoDisableSettings.threshold ? parseInt(formData.autoDisableSettings.threshold) : null
+          threshold: formData.autoDisableSettings.threshold ? parseInt(formData.autoDisableSettings.threshold) : null,
+          failureWindowMinutes: formData.autoDisableSettings.failureWindowMinutes ? parseInt(formData.autoDisableSettings.failureWindowMinutes) : null
         }
       }
 
@@ -339,13 +348,21 @@ function JobForm() {
         payload.executeAt = new Date(formData.executeAt).toISOString()
       }
 
-      if (isEditMode) {
-        await jobService.update(id, payload)
-      } else {
-        await jobService.create(payload)
+      const response = isEditMode
+        ? await jobService.update(id, payload)
+        : await jobService.create(payload)
+
+      if (response && response.isSuccess === false) {
+        const messages = response.messages
+        if (Array.isArray(messages) && messages.length > 0) {
+          setError(messages.map(m => m.message).join(' '))
+        } else {
+          setError('Failed to save job')
+        }
+        return
       }
 
-      navigate('/jobs')
+      navigate(isEditMode ? `/jobs/${id}` : '/jobs')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save job')
       console.error(err)
@@ -510,11 +527,12 @@ function JobForm() {
           </div>
 
           {/* Worker & Job Type Card */}
-          <div className={`form-card ${isExternalJob ? 'disabled-section' : ''}`}>
+          <div className={`form-card ${isExternalJob || isEditMode ? 'disabled-section' : ''}`}>
             <div className="form-section">
               <h3 className="form-section-title">
                 Worker Configuration
                 {isExternalJob && <span className="external-label">Managed by external scheduler</span>}
+                {!isExternalJob && isEditMode && <span className="external-label">Cannot be changed after creation</span>}
               </h3>
 
               <div className="form-row">
@@ -528,8 +546,8 @@ function JobForm() {
                     value={formData.workerId}
                     onChange={handleWorkerChange}
                     required
-                    disabled={isExternalJob}
-                    title={isExternalJob ? "External jobs cannot change worker" : ""}
+                    disabled={isExternalJob || isEditMode}
+                    title={isExternalJob ? "External jobs cannot change worker" : isEditMode ? "Worker cannot be changed after creation" : ""}
                   >
                     <option value="">Select a worker...</option>
                     {workers.map(worker => (
@@ -551,8 +569,8 @@ function JobForm() {
                     value={formData.selectedJobName}
                     onChange={handleChange}
                     required
-                    disabled={!selectedWorker || isExternalJob}
-                    title={isExternalJob ? "External jobs cannot change job type" : ""}
+                    disabled={!selectedWorker || isExternalJob || isEditMode}
+                    title={isExternalJob ? "External jobs cannot change job type" : isEditMode ? "Job type cannot be changed after creation" : ""}
                   >
                     <option value="">
                       {!selectedWorker ? 'Select a worker first...' : 'Select job type...'}
@@ -824,34 +842,54 @@ function JobForm() {
             </div>
 
             {formData.autoDisableSettings.enabled && (
-              <div className="form-group">
-                <label htmlFor="threshold">
-                  Failure Threshold
-                </label>
-                <input
-                  type="number"
-                  id="threshold"
-                  name="threshold"
-                  value={formData.autoDisableSettings.threshold}
-                  onChange={handleAutoDisableChange}
-                  min="1"
-                  max="100"
-                  placeholder="Default: 5 (if not changed)"
-                  disabled={isExternalJob}
-                />
-                <small>Number of consecutive failures before auto-disable (default: 5)</small>
-              </div>
+              <>
+                <div className="form-group">
+                  <label htmlFor="threshold">
+                    Failure Threshold
+                  </label>
+                  <input
+                    type="number"
+                    id="threshold"
+                    name="threshold"
+                    value={formData.autoDisableSettings.threshold}
+                    onChange={handleAutoDisableChange}
+                    min="1"
+                    max="100"
+                    placeholder="Default: 5 (if not changed)"
+                    disabled={isExternalJob}
+                  />
+                  <small>Number of consecutive failures before auto-disable (default: 5)</small>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="failureWindowMinutes">
+                    Failure Window (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    id="failureWindowMinutes"
+                    name="failureWindowMinutes"
+                    value={formData.autoDisableSettings.failureWindowMinutes}
+                    onChange={handleAutoDisableChange}
+                    min="1"
+                    max="10080"
+                    placeholder="Default: 60 (if not changed)"
+                    disabled={isExternalJob}
+                  />
+                  <small>Time window for counting consecutive failures. Older failures are ignored (default: 60 min)</small>
+                </div>
+              </>
             )}
           </div>
 
           {/* Help Card */}
           <div className="sidebar-card">
             <h4 className="sidebar-card-title">Tips</h4>
-            <p><strong>Execution Timeout:</strong> Max time a job can run before being cancelled. Leave empty to use worker's default (1 hour).</p>
+            <p><strong>Execution Timeout:</strong> Max time a job can run before being cancelled. Leave empty to use worker&apos;s default (1 hour).</p>
             <p><strong>Zombie Timeout:</strong> Max time in Queued status before marked as failed. Leave empty for default (10 min).</p>
             <p><strong>Concurrent Policies:</strong></p>
             <ul>
-              <li><strong>Skip:</strong> Don't create execution if already executing</li>
+              <li><strong>Skip:</strong> Don&apos;t create execution if already executing</li>
               <li><strong>Queue:</strong> Create execution and wait for previous execution to complete</li>
             </ul>
             <p><strong>Auto-Disable:</strong> Automatically disables job after consecutive failures to prevent resource waste. Admin notification will be sent.</p>

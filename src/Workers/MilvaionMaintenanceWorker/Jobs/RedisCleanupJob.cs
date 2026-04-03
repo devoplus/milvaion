@@ -15,7 +15,7 @@ namespace MilvaionMaintenanceWorker.Jobs;
 /// - Orphaned running job states
 /// Recommended schedule: Daily.
 /// </summary>
-public class RedisCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult
+public class RedisCleanupJob(IOptions<MaintenanceOptions> options) : IAsyncJobWithResult<string>
 {
     private readonly MaintenanceOptions _options = options.Value;
 

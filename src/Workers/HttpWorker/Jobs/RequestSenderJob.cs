@@ -18,7 +18,7 @@ namespace HttpWorker.Jobs;
 /// Returns response summary as result for chaining/debugging.
 /// Uses hybrid HttpClient strategy: IHttpClientFactory for standard requests, custom handler for special cases.
 /// </summary>
-public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) : IAsyncJobWithResult<HttpJobData>
+public partial class HttpRequestSenderJob(IHttpClientFactory httpClientFactory) : IAsyncJobWithResult<HttpJobData, string>
 {
     /// <summary>
     /// Named client for standard HTTP requests with connection pooling.

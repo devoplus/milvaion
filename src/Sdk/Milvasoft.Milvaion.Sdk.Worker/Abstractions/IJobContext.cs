@@ -10,9 +10,9 @@ namespace Milvasoft.Milvaion.Sdk.Worker.Abstractions;
 public interface IJobContext
 {
     /// <summary>
-    /// Unique correlation ID for this job execution (links to JobOccurrence).
+    /// Unique identifier for this specific job execution (Occurrence.Id in database).
     /// </summary>
-    Guid CorrelationId { get; }
+    Guid OccurrenceId { get; }
 
     /// <summary>
     /// Parent scheduled job definition.

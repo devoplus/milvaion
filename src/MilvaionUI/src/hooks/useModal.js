@@ -10,20 +10,19 @@ export function useModal() {
     cancelText: 'Cancel',
     showCancel: false,
     onConfirm: null,
-    className: '' // Add className state
+    className: ''
   })
+
+  const closeModal = useCallback(() => {
+    setModal(prev => ({ ...prev, isOpen: false }))
+  }, [])
 
   const showModal = useCallback((messageOrConfig, title, confirmText, cancelText) => {
     return new Promise((resolve) => {
-      // Support both formats:
-      // 1. showModal({ message, title, confirmText, cancelText, ... })
-      // 2. showModal(message, title, confirmText, cancelText)
       let config
       if (typeof messageOrConfig === 'object' && messageOrConfig.message !== undefined) {
-        // Object format
         config = messageOrConfig
       } else {
-        // Positional arguments format
         config = {
           message: messageOrConfig,
           title: title || 'Modal',
@@ -42,19 +41,19 @@ export function useModal() {
         confirmText: config.confirmText || 'OK',
         cancelText: config.cancelText || 'Cancel',
         showCancel: config.showCancel !== undefined ? config.showCancel : !!config.cancelText,
-        className: config.className || '', // Support custom className
+        className: config.className || '',
         onConfirm: () => {
           if (config.onConfirm) config.onConfirm()
           resolve(true)
           closeModal()
         },
-        onCancel: () => { // Add onCancel handler
+        onCancel: () => {
           resolve(false)
           closeModal()
         }
       })
     })
-  }, [])
+  }, [closeModal])
 
   const showAlert = useCallback((message, title = 'Alert', type = 'info') => {
     return showModal({
@@ -92,22 +91,18 @@ export function useModal() {
           resolve(true)
           closeModal()
         },
-        onCancel: () => { // Add onCancel for showConfirm too
+        onCancel: () => {
           resolve(false)
           closeModal()
         }
       })
     })
-  }, [])
-
-  const closeModal = useCallback(() => {
-    setModal(prev => ({ ...prev, isOpen: false }))
-  }, [])
+  }, [closeModal])
 
   return {
     modalProps: {
       isOpen: modal.isOpen,
-      onClose: modal.onCancel || closeModal, // Use onCancel if available
+      onClose: modal.onCancel || closeModal,
       onConfirm: modal.onConfirm,
       title: modal.title,
       message: modal.message,

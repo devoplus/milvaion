@@ -82,6 +82,9 @@
     <File Path="docs/portaldocs/17-maintenance-worker.md" />
     <File Path="docs/portaldocs/18-external-scheduler.md" />
     <File Path="docs/portaldocs/19-alerting.md" />
+    <File Path="docs/portaldocs/20-workflows.md" />
+    <File Path="docs/portaldocs/21-reporter-worker.md" />
+    <File Path="docs/portaldocs/22-reports.md" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/MilvaionUI/" Type="Website" DisplayName="MilvaionUI">
@@ -144,6 +147,9 @@
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
     <Project Path="src/Workers/MilvaionMaintenanceWorker/MilvaionMaintenanceWorker.csproj" Id="362332d9-cbf0-44a9-a624-c34247fadcf0">
+      <BuildType Solution="TemplateTest|*" Project="Debug" />
+    </Project>
+    <Project Path="src/Workers/ReporterWorker/ReporterWorker.csproj" Id="4827b588-a73f-453e-a516-a24fc9c8654a">
       <BuildType Solution="TemplateTest|*" Project="Debug" />
     </Project>
     <Project Path="src/Workers/SampleHangfireWorker/SampleHangfireWorker.csproj" Id="1f9d05b1-d49a-459b-b02d-611c29dacbf8">

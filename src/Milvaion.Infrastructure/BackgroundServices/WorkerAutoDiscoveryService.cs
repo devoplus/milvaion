@@ -105,6 +105,21 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         _registrationChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
         _heartbeatChannel = await _rabbitMQFactory.CreateChannelAsync(stoppingToken);
 
+        // Track channel health — if either channel dies, break out of Delay(Infinite) to trigger retry
+        var channelDiedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+
+        _registrationChannel.ChannelShutdownAsync += async (sender, args) =>
+        {
+            _logger.Warning("WorkerAutoDiscovery registration channel shutdown. Reason: {Reason}", args.ReplyText);
+            await channelDiedCts.CancelAsync();
+        };
+
+        _heartbeatChannel.ChannelShutdownAsync += async (sender, args) =>
+        {
+            _logger.Warning("WorkerAutoDiscovery heartbeat channel shutdown. Reason: {Reason}", args.ReplyText);
+            await channelDiedCts.CancelAsync();
+        };
+
         // Declare queues
         await _registrationChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerRegistration, true, false, false, null, cancellationToken: stoppingToken);
         await _heartbeatChannel.QueueDeclareAsync(WorkerConstant.Queues.WorkerHeartbeat, true, false, false, null, cancellationToken: stoppingToken);
@@ -142,7 +157,21 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
         // Start zombie worker cleanup task (detect dead workers and cleanup their consumer counts)
         _ = Task.Run(async () => await CleanupZombieWorkersAsync(stoppingToken), stoppingToken);
 
-        await Task.Delay(Timeout.Infinite, stoppingToken);
+        // Keep running until cancellation OR channel death
+        try
+        {
+            await Task.Delay(Timeout.Infinite, channelDiedCts.Token);
+        }
+        catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+        {
+            // Channel died, not graceful shutdown — throw to trigger retry loop
+            _logger.Warning("WorkerAutoDiscovery channel died. Will reconnect...");
+            throw new InvalidOperationException("RabbitMQ channel closed unexpectedly. Reconnecting...");
+        }
+
+        // Cleanup channels before retry
+        await _registrationChannel.SafeCloseAsync(_logger, default);
+        await _heartbeatChannel.SafeCloseAsync(_logger, default);
     }
 
     private async Task ProcessRegistrationAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
@@ -394,7 +423,8 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                             continue;
 
                         var now = DateTime.UtcNow;
-                        var deadInstances = worker.Instances.Where(i => i.LastHeartbeat != default && (now - i.LastHeartbeat).TotalSeconds > 60).ToList();
+                        var heartbeatTimeoutSeconds = worker.Metadata.HeartbeatInterval * 3;
+                        var deadInstances = worker.Instances.Where(i => i.LastHeartbeat != default && (now - i.LastHeartbeat).TotalSeconds > heartbeatTimeoutSeconds).ToList();
 
                         foreach (var deadInstance in deadInstances)
                         {

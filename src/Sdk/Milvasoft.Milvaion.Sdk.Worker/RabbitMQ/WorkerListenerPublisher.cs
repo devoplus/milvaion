@@ -159,6 +159,7 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
             IpAddress = _ipAddress,
             RoutingPatterns = _jobConfigs.ToDictionary(c => c.Key, c => c.Value.RoutingPattern),
             JobDataDefinitions = GetJobDataDefinitions(),
+            JobResultDefinitions = GetJobResultDefinitions(),
             JobTypes = allJobTypes,
             MaxParallelJobs = _options.MaxParallelJobs,
             Version = _version,
@@ -169,6 +170,7 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
                 ProcessorCount = Environment.ProcessorCount,
                 OSVersion = Environment.OSVersion.ToString(),
                 RuntimeVersion = Environment.Version.ToString(),
+                HeartbeatInterval = _options.Heartbeat?.IntervalSeconds ?? 30,
                 JobConfigs = _jobConfigs?.Select(kv => new JobConfigMetadata
                 {
                     JobType = kv.Key,
@@ -284,10 +286,43 @@ public class WorkerListenerPublisher(IOptions<WorkerOptions> options,
 
             var jobDataInfo = JobDataTypeHelper.GetJobDataInfo(jobType);
 
-            if (jobDataInfo != null)
+            if (jobDataInfo?.SchemaJson != null)
             {
                 result[jobTypeName] = jobDataInfo.SchemaJson;
                 _logger.Debug("Discovered JobData schema for {JobType}: {TypeName}", jobTypeName, jobDataInfo.TypeShortName);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Extracts job result definitions from registered job types using reflection.
+    /// Uses result-producing interfaces (IJobWithResult, IAsyncJobWithResult) to discover result types.
+    /// </summary>
+    private Dictionary<string, string> GetJobResultDefinitions()
+    {
+        var result = new Dictionary<string, string>();
+
+        foreach (var config in _jobConfigs)
+        {
+            var jobTypeName = config.Key;
+            var jobType = config.Value.JobType;
+
+            if (jobType == null)
+                continue;
+
+            var resultType = JobDataTypeHelper.GetJobResultType(jobType);
+
+            if (resultType == null)
+                continue;
+
+            var schemaJson = JobDataTypeHelper.GenerateSchemaJson(resultType);
+
+            if (schemaJson != null)
+            {
+                result[jobTypeName] = schemaJson;
+                _logger.Debug("Discovered JobResult schema for {JobType}: {TypeName}", jobTypeName, resultType.Name);
             }
         }
 

@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback } from 'react'
 import Icon from '../components/Icon'
 import configurationService from '../services/configurationService'
 import { SkeletonCard } from '../components/Skeleton'
+import { getApiErrorMessage } from '../utils/errorUtils'
 import './Configuration.css'
 
 function Configuration() {
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const loadConfiguration = useCallback(async () => {
     try {
@@ -17,7 +19,8 @@ function Configuration() {
       const configData = response?.data || response
       setConfig(configData)
     } catch (err) {
-      console.error('Failed to load configuration:', err)
+      setError(getApiErrorMessage(err, 'Failed to load configuration'))
+      console.error(err)
     } finally {
       setLoading(false)
     }
@@ -58,8 +61,8 @@ function Configuration() {
     )
   }
 
-  if (!config) {
-    return <div className="error">Failed to load configuration</div>
+  if (error || !config) {
+    return <div className="error">{error || 'Failed to load configuration'}</div>
   }
 
   return (

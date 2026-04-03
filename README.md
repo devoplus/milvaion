@@ -22,6 +22,7 @@ A distributed job scheduling system built on .NET 10
 [![GitHub release](https://img.shields.io/github/v/release/Milvasoft/milvaion?include_prereleases&style=flat-square)](https://github.com/Milvasoft/milvaion/releases)
 
 
+[🌐 Website](https://www.milvaion.com/) |
 [📚 Documentation](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/milvaion-doc-guide) |
 [🚀 Getting Started](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/quick-start) |
 [📦 Packages](https://www.nuget.org/packages?q=Milvaion&includeComputedFrameworks=true&prerel=true) |
@@ -42,6 +43,7 @@ Milvaion is a **distributed job scheduling system** that separates the *schedule
 │ • REST API      │        │ • Job messages  │       │ • IJob classes  │
 │ • Dashboard     │        │ • Status queues │       │ • Retry logic   │
 │ • Cron parsing  │<───────│ • Log streams   │<──────│ • DI support    │
+│ • Workflow DAG  │        │                 │       │                 │
 └─────────────────┘        └─────────────────┘       └─────────────────┘
 ```
 
@@ -86,6 +88,15 @@ Milvaion solves these problems by **completely separating scheduling from execut
 - **Auto-discovery** - jobs registered automatically
 - **Cancellation support** - graceful shutdown
 - **Project templates** - get started quickly with `dotnet new`
+
+### Workflow Engine
+- **DAG-based orchestration** - Chain jobs into directed acyclic graphs
+- **Conditional branching** - Route execution through `true`/`false` ports based on step results or statuses
+- **Merge nodes** - Wait for all parallel branches before continuing
+- **Data mappings** - Pass output fields from upstream steps into downstream job data
+- **Failure strategies** - Stop on first failure or continue on failure
+- **Cron & manual triggers** - Schedule workflows with cron or trigger on demand
+- **Visual builder** - Drag-and-drop DAG editor in the dashboard
 
 ### Built-in Workers
 - **HTTP Worker** - Call REST APIs on schedule
@@ -288,6 +299,78 @@ public class MyCustomJob : IAsyncJob
 
 ---
 
+## Workflows
+
+Milvaion's workflow engine lets you chain multiple jobs into a **directed acyclic graph (DAG)** where the engine coordinates execution order, data passing, conditional branching, and failure handling automatically.
+
+### Key Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Task Node** | Dispatches a scheduled job — the primary building block |
+| **Condition Node** | Evaluates an expression and routes to a `true` or `false` branch |
+| **Merge Node** | Waits for all incoming branches to complete before continuing |
+| **Edge** | Directed connection between steps defining execution order |
+| **Data Mapping** | Passes an output field from one step as input to another |
+
+### Example: Conditional Pipeline
+
+```
+┌───────────┐      ┌───────────┐      ┌─────────────┐
+│  Extract  │────► │ Price > 50│──T──►│ Send Invoice│
+│  Prices   │      │(Condition)│      └─────────────┘
+└───────────┘      └────┬──────┘
+                        │ F
+                  ┌─────▼─────┐
+                  │  Log Skip │
+                  └───────────┘
+```
+
+### Condition Expressions
+
+Conditions support status checks, JSON field comparisons, and logical operators:
+
+```
+# All parents completed
+@status == 'Completed'
+
+# JSON field check
+$.price > 100
+
+# Combined with AND/OR
+@status == 'Completed' && $.price > 50
+
+# Target a specific parent step
+019d...83f7:@status == 'Completed'
+```
+
+### Data Mappings
+
+Pass results between steps using source path → target key mappings:
+
+```
+Step 1 (ExtractPrices) → result: { "price": 99, "item": { "name": "Widget" } }
+
+Mapping on Step 2:
+  step1Id:price      → amount
+  step1Id:item.name  → title
+
+Step 2 receives: { "amount": 99, "title": "Widget" }
+```
+
+### Failure Handling
+
+| Strategy | Behavior |
+|----------|----------|
+| **Stop on First Failure** | Workflow stops immediately; pending steps are skipped |
+| **Continue on Failure** | Independent branches keep running; only dependent steps are skipped |
+
+Each workflow can also configure **Max Step Retries** and a **Timeout** (auto-cancel if exceeded).
+
+📖 **[Full Workflows Guide →](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/workflows)**
+
+---
+
 ## Documentation
 
 ### User Documentation (Portal Docs)
@@ -304,6 +387,7 @@ public class MyCustomJob : IAsyncJob
 | [Reliability](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/reliability) | Retry, DLQ, zombie detection |
 | [Scaling](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/scaling) | Horizontal scaling strategies |
 | [Monitoring](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/monitoring) | Health checks, metrics, logging |
+| [Workflows](https://portal.milvasoft.com/docs/1.0.1/open-source-libs/milvaion/workflows) | DAG-based job pipelines with conditional branching and data passing |
 
 ### Developer Documentation (GitHub Docs)
 

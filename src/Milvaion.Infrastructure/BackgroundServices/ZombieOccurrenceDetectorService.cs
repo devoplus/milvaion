@@ -168,7 +168,8 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
     private async Task<(List<JobOccurrence> occurrences, List<JobOccurrenceLog> logs)> DetectZombieQueuedAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
     {
         var queuedOccurrences = await dbContext.JobOccurrences
-                                               .Where(o => o.Status == JobOccurrenceStatus.Queued)
+                                               .Where(o => o.Status == JobOccurrenceStatus.Queued
+                                                        && (o.WorkflowRunId == null || o.StepStatus != WorkflowStepStatus.Pending))
                                                .Select(JobOccurrence.Projections.DetectZombie)
                                                .ToListAsync(cancellationToken);
 

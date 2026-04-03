@@ -33,7 +33,7 @@ public class OutboxService(ILocalStateStore localStore,
     /// 1. Try to publish to RabbitMQ first
     /// 2. If fails, store locally for later sync
     /// </summary>
-    public async Task PublishStatusUpdateAsync(Guid correlationId,
+    public async Task PublishStatusUpdateAsync(Guid occurrenceId,
                                                Guid jobId,
                                                string workerId,
                                                string instanceId,
@@ -50,7 +50,7 @@ public class OutboxService(ILocalStateStore localStore,
         {
             try
             {
-                await _statusPublisher.PublishStatusAsync(correlationId,
+                await _statusPublisher.PublishStatusAsync(occurrenceId,
                                                           jobId,
                                                           workerId,
                                                           instanceId,
@@ -62,7 +62,7 @@ public class OutboxService(ILocalStateStore localStore,
                                                           exception,
                                                           cancellationToken);
 
-                _logger?.Debug("Status update published successfully for CorrelationId {CorrelationId}, Status: {Status}", correlationId, status);
+                _logger?.Debug("Status update published successfully for OccurrenceId {OccurrenceId}, Status: {Status}", occurrenceId, status);
 
                 // SUCCESS - Don't store locally, direct publish succeeded
                 return;
@@ -70,12 +70,12 @@ public class OutboxService(ILocalStateStore localStore,
             catch (Exception ex)
             {
                 // Log warning and continue to local storage
-                _logger?.Warning(ex, "Failed to publish status update for CorrelationId {CorrelationId}. Will store locally for retry.", correlationId);
+                _logger?.Warning(ex, "Failed to publish status update for OccurrenceId {OccurrenceId}. Will store locally for retry.", occurrenceId);
             }
         }
 
         // STEP 2: Store locally only if direct publish failed or connection unhealthy
-        await _localStore.StoreStatusUpdateAsync(correlationId,
+        await _localStore.StoreStatusUpdateAsync(occurrenceId,
                                                  jobId,
                                                  workerId,
                                                  instanceId,
@@ -87,7 +87,7 @@ public class OutboxService(ILocalStateStore localStore,
                                                  exception,
                                                  cancellationToken);
 
-        _logger?.Warning("Status update stored locally for CorrelationId {CorrelationId} (RabbitMQ: {Status}). Will sync later.", correlationId, _connectionMonitor.IsRabbitMQHealthy ? "failed" : "unhealthy");
+        _logger?.Warning("Status update stored locally for OccurrenceId {OccurrenceId} (RabbitMQ: {Status}). Will sync later.", occurrenceId, _connectionMonitor.IsRabbitMQHealthy ? "failed" : "unhealthy");
     }
 
     #endregion
@@ -99,7 +99,7 @@ public class OutboxService(ILocalStateStore localStore,
     /// 1. Try to publish to RabbitMQ first
     /// 2. If fails, store locally for later sync
     /// </summary>
-    public async Task PublishLogAsync(Guid correlationId,
+    public async Task PublishLogAsync(Guid occurrenceId,
                                       string workerId,
                                       OccurrenceLog log,
                                       CancellationToken cancellationToken = default)
@@ -109,7 +109,7 @@ public class OutboxService(ILocalStateStore localStore,
         {
             try
             {
-                await _logPublisher.PublishLogAsync(correlationId, workerId, log, cancellationToken);
+                await _logPublisher.PublishLogAsync(occurrenceId, workerId, log, cancellationToken);
 
                 // SUCCESS - Don't store locally, direct publish succeeded
                 return;
@@ -117,14 +117,14 @@ public class OutboxService(ILocalStateStore localStore,
             catch (Exception ex)
             {
                 // Log warning and continue to local storage
-                _logger?.Warning(ex, "Failed to publish log for CorrelationId {CorrelationId}. Will store locally for retry. Message: {Message}", correlationId, log.Message);
+                _logger?.Warning(ex, "Failed to publish log for OccurrenceId {OccurrenceId}. Will store locally for retry. Message: {Message}", occurrenceId, log.Message);
             }
         }
 
         // STEP 2: Store locally only if direct publish failed or connection unhealthy
-        await _localStore.StoreLogAsync(correlationId, workerId, log, cancellationToken);
+        await _localStore.StoreLogAsync(occurrenceId, workerId, log, cancellationToken);
 
-        _logger?.Debug("Log stored locally for CorrelationId {CorrelationId} (RabbitMQ: {Status}). Will sync later. Message: {Message}", correlationId, _connectionMonitor.IsRabbitMQHealthy ? "failed" : "unhealthy", log.Message);
+        _logger?.Debug("Log stored locally for OccurrenceId {OccurrenceId} (RabbitMQ: {Status}). Will sync later. Message: {Message}", occurrenceId, _connectionMonitor.IsRabbitMQHealthy ? "failed" : "unhealthy", log.Message);
     }
 
     #endregion
@@ -135,7 +135,7 @@ public class OutboxService(ILocalStateStore localStore,
     /// Publishes a heartbeat for a running job to prevent zombie detection.
     /// Updates LastHeartbeat field in JobOccurrence via StatusTracker.
     /// </summary>
-    public async Task PublishJobHeartbeatAsync(Guid correlationId,
+    public async Task PublishJobHeartbeatAsync(Guid occurrenceId,
                                                Guid jobId,
                                                string workerId,
                                                string instanceId,
@@ -144,26 +144,26 @@ public class OutboxService(ILocalStateStore localStore,
         // Only attempt if connection is healthy - heartbeat is not critical enough to store locally
         if (!_connectionMonitor.IsRabbitMQHealthy)
         {
-            _logger?.Debug("Skipping job heartbeat for CorrelationId {CorrelationId} - RabbitMQ unhealthy", correlationId);
+            _logger?.Debug("Skipping job heartbeat for OccurrenceId {OccurrenceId} - RabbitMQ unhealthy", occurrenceId);
             return;
         }
 
         try
         {
             // Publish a status update with Running status to refresh LastHeartbeat
-            await _statusPublisher.PublishStatusAsync(correlationId,
+            await _statusPublisher.PublishStatusAsync(occurrenceId,
                                                       jobId,
                                                       workerId,
                                                       instanceId,
                                                       JobOccurrenceStatus.Running,
                                                       cancellationToken: cancellationToken);
 
-            _logger?.Debug("Job heartbeat published for CorrelationId {CorrelationId}", correlationId);
+            _logger?.Debug("Job heartbeat published for OccurrenceId {OccurrenceId}", occurrenceId);
         }
         catch (Exception ex)
         {
             // Non-critical - just log and continue
-            _logger?.Debug(ex, "Failed to publish job heartbeat for CorrelationId {CorrelationId}", correlationId);
+            _logger?.Debug(ex, "Failed to publish job heartbeat for OccurrenceId {OccurrenceId}", occurrenceId);
         }
     }
 
@@ -216,7 +216,7 @@ public class OutboxService(ILocalStateStore localStore,
                 try
                 {
                     // Publish to RabbitMQ
-                    await _statusPublisher.PublishStatusAsync(update.CorrelationId,
+                    await _statusPublisher.PublishStatusAsync(update.OccurrenceId,
                                                               update.JobId,
                                                               update.WorkerId,
                                                               update.InstanceId,
@@ -235,7 +235,7 @@ public class OutboxService(ILocalStateStore localStore,
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning(ex, "Failed to sync status update {Id} for CorrelationId {CorrelationId}. Will retry.", update.Id, update.CorrelationId);
+                    _logger?.Warning(ex, "Failed to sync status update {Id} for OccurrenceId {OccurrenceId}. Will retry.", update.Id, update.OccurrenceId);
 
                     // Increment retry count
                     await _localStore.IncrementStatusUpdateRetryAsync(update.Id, cancellationToken);
@@ -304,7 +304,7 @@ public class OutboxService(ILocalStateStore localStore,
                 try
                 {
                     // Publish to RabbitMQ
-                    await _logPublisher.PublishLogAsync(storedLog.CorrelationId, storedLog.WorkerId, storedLog.Log, cancellationToken);
+                    await _logPublisher.PublishLogAsync(storedLog.OccurrenceId, storedLog.WorkerId, storedLog.Log, cancellationToken);
 
                     // Mark as synced
                     await _localStore.MarkLogAsSyncedAsync(storedLog.Id, cancellationToken);
@@ -313,7 +313,7 @@ public class OutboxService(ILocalStateStore localStore,
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Debug(ex, "Failed to sync log {Id} for CorrelationId {CorrelationId}. Will retry.", storedLog.Id, storedLog.CorrelationId);
+                    _logger?.Debug(ex, "Failed to sync log {Id} for OccurrenceId {OccurrenceId}. Will retry.", storedLog.Id, storedLog.OccurrenceId);
 
                     // Increment retry count
                     await _localStore.IncrementLogRetryAsync(storedLog.Id, cancellationToken);

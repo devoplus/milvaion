@@ -81,7 +81,8 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         nameof(JobOccurrence.Result),
         nameof(JobOccurrence.Exception),
         nameof(JobOccurrence.LastHeartbeat),
-        nameof(JobOccurrence.StatusChangeLogs)
+        nameof(JobOccurrence.StatusChangeLogs),
+        nameof(JobOccurrence.StepStatus),
     ];
 
     private readonly static List<string> _jobCircuitBreakerUpdateProps =
@@ -110,14 +111,32 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(_options.BatchIntervalMs, stoppingToken);
+                using var _ = _metrics.MeasureDuration(ServiceName);
 
-                await ProcessBatchAsync(stoppingToken);
+                try
+                {
+                    await Task.Delay(_options.BatchIntervalMs, stoppingToken);
 
-                // Retry failed Redis completions independently of batch processing.
-                await DrainPendingRedisCompletionsAsync(stoppingToken);
+                    await ProcessBatchAsync(stoppingToken);
 
-                TrackMemoryAfterIteration();
+                    // Retry failed Redis completions independently of batch processing.
+                    await DrainPendingRedisCompletionsAsync(stoppingToken);
+
+                    _metrics.RecordServiceIteration(ServiceName);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _metrics.RecordServiceError(ServiceName, ex.GetType().Name);
+                    _logger.Error(ex, "Error in batch processor loop");
+                }
+                finally
+                {
+                    TrackMemoryAfterIteration();
+                }
             }
         }, stoppingToken);
 
@@ -143,6 +162,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             {
                 retryCount++;
 
+                _metrics.RecordServiceError(ServiceName, "RabbitMQ_Connection_Failed");
                 _logger.Error(ex, "StatusTrackerService connection failed (attempt {Retry}/{MaxRetries})", retryCount, maxRetries);
 
                 if (retryCount >= maxRetries)
@@ -202,7 +222,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error in StatusTracker consumer handler for CorrelationId: {CorrelationId}", ea.BasicProperties?.CorrelationId);
+                _logger.Error(ex, "Error in StatusTracker consumer handler for OccurrenceId: {OccurrenceId}", ea.BasicProperties?.CorrelationId);
             }
         };
 
@@ -253,6 +273,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             if (message == null)
             {
                 _logger.Debug("Failed to deserialize status update message");
+                _metrics.RecordStatusUpdateFailure("Deserialization_Failed");
 
                 await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
 
@@ -264,8 +285,8 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             {
                 try
                 {
-                    await _redisScheduler.TryMarkJobAsRunningAsync(message.JobId, message.CorrelationId, cancellationToken);
-                    _logger.Debug("Job {JobId} immediately marked as running in Redis (CorrelationId: {CorrelationId})", message.JobId, message.CorrelationId);
+                    await _redisScheduler.TryMarkJobAsRunningAsync(message.JobId, message.OccurrenceId, cancellationToken);
+                    _logger.Debug("Job {JobId} immediately marked as running in Redis (OccurrenceId: {OccurrenceId})", message.JobId, message.OccurrenceId);
                 }
                 catch (Exception ex)
                 {
@@ -285,6 +306,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
         }
         catch (Exception ex)
         {
+            _metrics.RecordStatusUpdateFailure(ex.GetType().Name);
             _logger.Error(ex, "Failed to process status update message");
 
             await _channel.SafeNackAsync(ea.DeliveryTag, _channelLock, _logger, cancellationToken);
@@ -328,23 +350,23 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                     await using var scope = _serviceProvider.CreateAsyncScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-                    // Deduplicate by CorrelationId (last update wins)
-                    var statusByCorrelation = DeduplicateByCorrelationId(batch);
-                    var correlationIds = statusByCorrelation.Keys.ToList();
+                    // Deduplicate by OccurrenceId (message.OccurrenceId is Occurrence.Id)
+                    var statusByOccurrenceId = DeduplicateByOccurrenceId(batch);
+                    var occurrenceIds = statusByOccurrenceId.Keys.ToList();
 
-                    _logger.Debug("Processing batch: {Count} unique status updates. Sample CorrelationIds: {Samples}", correlationIds.Count, string.Join(", ", correlationIds.Take(3)));
+                    _logger.Debug("Processing batch: {Count} unique status updates. Sample OccurrenceIds: {Samples}", occurrenceIds.Count, string.Join(", ", occurrenceIds.Take(3)));
 
                     //  Single query for all occurrences (ORDER BY Id to prevent deadlock)
-                    var occurrences = await FetchOccurrencesAsync(dbContext, correlationIds, cancellationToken);
+                    var occurrences = await FetchOccurrencesAsync(dbContext, occurrenceIds, cancellationToken);
 
                     if (occurrences.IsNullOrEmpty())
                     {
-                        _logger.Warning("No matching occurrences found for {Count} status updates. CorrelationIds: {Ids}", batch.Count, string.Join(", ", correlationIds.Take(5)));
+                        _logger.Warning("No matching occurrences found for {Count} status updates. OccurrenceIds: {Ids}", batch.Count, string.Join(", ", occurrenceIds.Take(5)));
                         return;
                     }
 
                     // Apply status updates and collect side effects
-                    var updateResult = await ApplyStatusUpdatesAsync(occurrences, statusByCorrelation, cancellationToken);
+                    var updateResult = await ApplyStatusUpdatesAsync(occurrences, statusByOccurrenceId, cancellationToken);
 
                     // Persist changes to database
                     await PersistOccurrenceChangesAsync(dbContext, occurrences, cancellationToken);
@@ -380,6 +402,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
                     if (retryCount >= maxRetries)
                     {
+                        _metrics.RecordStatusUpdateFailure("Concurrency_Conflict_Max_Retries");
                         _logger.Error(concurrencyEx, "Concurrency conflict after {MaxRetries} retries. Status updates will be retried in next batch.", maxRetries);
 
                         // Re-queue failed messages for next batch
@@ -396,6 +419,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 }
                 catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "40P01") // Deadlock
                 {
+                    _metrics.RecordStatusUpdateFailure("Database_Deadlock");
                     _logger.Warning(pgEx, "Deadlock detected in status batch processing. Updates will be retried in next batch.");
 
                     // Re-queue messages for next batch
@@ -405,6 +429,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 }
                 catch (Exception ex)
                 {
+                    _metrics.RecordStatusUpdateFailure(ex.GetType().Name);
                     _logger.Error(ex, "Failed to process status update batch");
 
                     // Re-queue messages for next batch
@@ -445,26 +470,27 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     }
 
     /// <summary>
-    /// Deduplicates messages by CorrelationId (last update wins).
+    /// Deduplicates messages by OccurrenceId (message.OccurrenceId is Occurrence.Id).
+    /// Last update wins for same occurrence.
     /// </summary>
-    private static Dictionary<Guid, JobStatusUpdateMessage> DeduplicateByCorrelationId(List<JobStatusUpdateMessage> batch)
+    private static Dictionary<Guid, JobStatusUpdateMessage> DeduplicateByOccurrenceId(List<JobStatusUpdateMessage> batch)
     {
-        var statusByCorrelation = new Dictionary<Guid, JobStatusUpdateMessage>(batch.Count);
+        var statusByOccurrenceId = new Dictionary<Guid, JobStatusUpdateMessage>(batch.Count);
 
         // Last update wins - overwrite if already exists
         foreach (var message in batch)
-            statusByCorrelation[message.CorrelationId] = message;
+            statusByOccurrenceId[message.OccurrenceId] = message;
 
-        return statusByCorrelation;
+        return statusByOccurrenceId;
     }
 
     /// <summary>
-    /// Fetches occurrences from database by correlation IDs.
+    /// Fetches occurrences from database by occurrence IDs (message.OccurrenceId is Occurrence.Id).
     /// </summary>
-    private static Task<List<JobOccurrence>> FetchOccurrencesAsync(MilvaionDbContext dbContext, List<Guid> correlationIds, CancellationToken cancellationToken)
+    private static Task<List<JobOccurrence>> FetchOccurrencesAsync(MilvaionDbContext dbContext, List<Guid> occurrenceIds, CancellationToken cancellationToken)
         => dbContext.JobOccurrences
                     .AsNoTracking()
-                    .Where(o => correlationIds.Contains(o.CorrelationId))
+                    .Where(o => occurrenceIds.Contains(o.Id))
                     .OrderBy(o => o.Id) // Consistent lock order
                     .Select(JobOccurrence.Projections.UpdateStatus)
                     .ToListAsync(cancellationToken: cancellationToken);
@@ -473,17 +499,17 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
     /// Applies status updates to occurrences in memory and collects side effects.
     /// Returns circuit breaker updates and consumer counter updates for batch processing.
     /// </summary>
-    private async Task<StatusUpdateResult> ApplyStatusUpdatesAsync(List<JobOccurrence> occurrences, Dictionary<Guid, JobStatusUpdateMessage> statusByCorrelation, CancellationToken cancellationToken)
+    private async Task<StatusUpdateResult> ApplyStatusUpdatesAsync(List<JobOccurrence> occurrences, Dictionary<Guid, JobStatusUpdateMessage> statusByOccurrenceId, CancellationToken cancellationToken)
     {
-        var occurrenceDict = occurrences.ToDictionary(o => o.CorrelationId);
+        var occurrenceDict = occurrences.ToDictionary(o => o.Id); // Match by Occurrence.Id
         var result = new StatusUpdateResult();
 
         //  Update in memory (NO foreach DB operation!)
-        foreach (var kvp in statusByCorrelation)
+        foreach (var kvp in statusByOccurrenceId)
         {
             if (!occurrenceDict.TryGetValue(kvp.Key, out var occurrence))
             {
-                _logger.Debug("JobOccurrence not found for CorrelationId: {CorrelationId}", kvp.Key);
+                _logger.Debug("JobOccurrence not found for OccurrenceId: {OccurrenceId}", kvp.Key);
                 continue;
             }
 
@@ -509,7 +535,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             {
                 occurrence.LastHeartbeat = DateTime.UtcNow;
 
-                _logger.Debug("Heartbeat received for CorrelationId: {CorrelationId}", kvp.Key);
+                _logger.Debug("Heartbeat received for OccurrenceId: {OccurrenceId}", kvp.Key);
 
                 // No need to update Redis counters for heartbeat (status hasn't changed)
                 continue; // Skip other processing
@@ -544,7 +570,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "Failed to update Redis stats counters. Dashboard stats may be stale. Status: {Old} -> {New}, CorrelationId: {CorrelationId}", previousStatus, newStatus, occurrence.CorrelationId);
+                    _logger.Warning(ex, "Failed to update Redis stats counters. Dashboard stats may be stale. Status: {Old} -> {New}, OccurrenceId: {OccurrenceId}", previousStatus, newStatus, occurrence.Id);
                 }
             }
 
@@ -554,7 +580,7 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
                 result.CircuitBreakerUpdates[occurrence.JobId] = new CircuitBreakerUpdate(true, message.Exception ?? "Unknown error");
 
                 // Send job execution failed alert
-                result.FailedOccurrences.Add(new FailedOccurrenceInfo(occurrence.JobId, occurrence.JobName, message.CorrelationId, message.Exception));
+                result.FailedOccurrences.Add(new FailedOccurrenceInfo(occurrence.JobId, occurrence.JobName, message.OccurrenceId, message.Exception));
             }
             else if (newStatus == JobOccurrenceStatus.Completed)
             {
@@ -607,6 +633,19 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
             }
 
             occurrence.LastHeartbeat = DateTime.UtcNow;
+
+            // Mirror orchestration status for workflow step occurrences so WorkflowEngineService
+            // can read StepStatus directly without a separate sync query.
+            if (occurrence.WorkflowRunId != null)
+            {
+                occurrence.StepStatus = newStatus switch
+                {
+                    JobOccurrenceStatus.Completed => WorkflowStepStatus.Completed,
+                    JobOccurrenceStatus.Failed or JobOccurrenceStatus.TimedOut or JobOccurrenceStatus.Unknown => WorkflowStepStatus.Failed,
+                    JobOccurrenceStatus.Cancelled => WorkflowStepStatus.Cancelled,
+                    _ => occurrence.StepStatus
+                };
+            }
         }
 
         return result;
@@ -804,10 +843,10 @@ public class StatusTrackerService(IServiceProvider serviceProvider,
 
             var jobsToUpdate = new List<ScheduledJob>();
             var autoDisabledJobs = new List<ScheduledJob>();
-            var failureWindowThreshold = DateTime.UtcNow.AddMinutes(-_autoDisableOptions.FailureWindowMinutes);
 
             foreach (var job in jobs)
             {
+                var failureWindowThreshold = DateTime.UtcNow.AddMinutes(-(job.AutoDisableSettings.FailureWindowMinutes ?? _autoDisableOptions.FailureWindowMinutes));
                 var update = jobUpdates[job.Id];
 
                 // Check if auto-disable is enabled for this job

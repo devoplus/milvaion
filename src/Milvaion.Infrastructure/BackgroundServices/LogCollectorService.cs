@@ -286,13 +286,13 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                     await using var scope = _serviceProvider.CreateAsyncScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-                    // Group by CorrelationId
-                    var logsByCorrelation = batch.GroupBy(m => m.CorrelationId).ToList();
+                    // Group by OccurrenceId
+                    var logsByOccurrence = batch.GroupBy(m => m.OccurrenceId).ToList();
 
                     var logsToInsert = batch.Where(l => l?.Log != null).Select(l => new JobOccurrenceLog
                     {
                         Id = Guid.CreateVersion7(),
-                        OccurrenceId = l.CorrelationId,
+                        OccurrenceId = l.OccurrenceId,
                         Level = l.Log.Level,
                         Category = l.Log.Category,
                         ExceptionType = l.Log.ExceptionType,
@@ -315,7 +315,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                         var publishTasks = new List<Task>(batch.Count);
 
                         foreach (var logToInsert in batch)
-                            publishTasks.Add(eventPublisher.PublishLogAddedAsync(logToInsert.CorrelationId, logToInsert.Log, cancellationToken));
+                            publishTasks.Add(eventPublisher.PublishLogAddedAsync(logToInsert.OccurrenceId, logToInsert.Log, cancellationToken));
 
                         // Wait for all events to complete (with timeout)
                         var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
@@ -441,10 +441,10 @@ public class LogCollectorService(IServiceProvider serviceProvider,
             var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
             // Check which occurrences exist now
-            var correlationIds = logsToRetry.Select(l => l.CorrelationId).Distinct().ToList();
+            var occurrenceIds = logsToRetry.Select(l => l.OccurrenceId).Distinct().ToList();
             var existingOccurrences = await dbContext.JobOccurrences
-                .Where(o => correlationIds.Contains(o.CorrelationId))
-                .Select(o => o.CorrelationId)
+                .Where(o => occurrenceIds.Contains(o.Id))
+                .Select(o => o.Id)
                 .ToListAsync(cancellationToken);
 
             var existingSet = existingOccurrences.ToHashSet();
@@ -457,7 +457,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 var log = logsToRetry[i];
                 var pending = logsToPutBack[i];
 
-                if (existingSet.Contains(log.CorrelationId))
+                if (existingSet.Contains(log.OccurrenceId))
                     logsWithOccurrence.Add(log);
                 else
                     logsWithoutOccurrence.Add(pending);
@@ -473,7 +473,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 var logsToInsert = logsWithOccurrence.Where(l => l.Log != null).Select(l => new JobOccurrenceLog
                 {
                     Id = Guid.CreateVersion7(),
-                    OccurrenceId = l.CorrelationId,
+                    OccurrenceId = l.OccurrenceId,
                     Level = l.Log.Level,
                     Category = l.Log.Category,
                     ExceptionType = l.Log.ExceptionType,
@@ -491,7 +491,7 @@ public class LogCollectorService(IServiceProvider serviceProvider,
                 if (eventPublisher != null)
                 {
                     foreach (var log in logsWithOccurrence)
-                        _ = eventPublisher.PublishLogAddedAsync(log.CorrelationId, log.Log, cancellationToken);
+                        _ = eventPublisher.PublishLogAddedAsync(log.OccurrenceId, log.Log, cancellationToken);
                 }
             }
         }

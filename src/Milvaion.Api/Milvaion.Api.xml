@@ -847,6 +847,60 @@
             <param name="enumName"></param>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Api.Controllers.MetricReportsController">
+            <summary>
+            Manages metric report operations including listing, retrieving, and deleting generated performance reports.
+            Reports are produced by ReporterWorker and stored in MilvaionDb.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.MetricReportsController.#ctor(MediatR.IMediator)">
+            <summary>
+            Manages metric report operations including listing, retrieving, and deleting generated performance reports.
+            Reports are produced by ReporterWorker and stored in MilvaionDb.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.MetricReportsController.GetReportsAsync(Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Returns a paginated and filterable list of metric reports. Supports sorting and optional filtering by metric type.
+            </summary>
+            <param name="request">Pagination, sorting, and optional MetricType filter parameters.</param>
+            <param name="cancellationToken"></param>
+            <returns>Paginated list of <see cref="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto"/>.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.MetricReportsController.GetReportByIdAsync(Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Returns full details of a specific metric report by its unique identifier.
+            </summary>
+            <param name="request">Contains the report Id.</param>
+            <param name="cancellationToken"></param>
+            <returns>Detailed <see cref="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto"/> including the JSON report data.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.MetricReportsController.GetLatestReportByTypeAsync(Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQuery,System.Threading.CancellationToken)">
+            <summary>
+            Returns the most recently generated report for the specified metric type
+            (e.g. FailureRateTrend, WorkerThroughput, JobHealthScore).
+            </summary>
+            <param name="request">Contains the MetricType to look up.</param>
+            <param name="cancellationToken"></param>
+            <returns>Latest <see cref="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto"/> for the given type, or an error if none exists.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.MetricReportsController.DeleteReportAsync(Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommand,System.Threading.CancellationToken)">
+            <summary>
+            Permanently deletes a single metric report by its unique identifier.
+            </summary>
+            <param name="request">Contains the report Id to delete.</param>
+            <param name="cancellationToken"></param>
+            <returns>The Id of the deleted report.</returns>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.MetricReportsController.DeleteOldReportsAsync(Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommand,System.Threading.CancellationToken)">
+            <summary>
+            Bulk-deletes metric reports older than the specified number of days.
+            Intended for periodic data retention cleanup.
+            </summary>
+            <param name="request">Contains the olderThanDays threshold.</param>
+            <param name="cancellationToken"></param>
+            <returns>The number of reports deleted.</returns>
+        </member>
         <member name="T:Milvaion.Api.Controllers.PermissionsController">
             <summary>
             Permission endpoints.
@@ -1039,6 +1093,61 @@
             <param name="cancellation"></param>
             <returns></returns>
         </member>
+        <member name="T:Milvaion.Api.Controllers.WorkflowsController">
+            <summary>
+            Workflow (Job Chaining / DAG) endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.#ctor(MediatR.IMediator)">
+            <summary>
+            Workflow (Job Chaining / DAG) endpoints.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowsAsync(Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflows.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowAsync(Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflow detail with steps.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.CreateWorkflowAsync(Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Creates a new workflow with steps (DAG definition).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.UpdateWorkflowAsync(Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Updates an existing workflow's settings.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.DeleteWorkflowAsync(Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Deletes a workflow.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.TriggerWorkflowAsync(Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Triggers a workflow run (creates a WorkflowRun and dispatches root steps).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.CancelWorkflowAsync(Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommand,System.Threading.CancellationToken)">
+            <summary>
+            Cancels a running workflow (cancels running steps, skips pending steps).
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowRunsAsync(Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflow runs with optional workflow filter.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Api.Controllers.WorkflowsController.GetWorkflowRunDetailAsync(Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets workflow run detail with step run states (for DAG visualization).
+            </summary>
+        </member>
         <member name="T:Milvaion.Api.Hubs.JobsHub">
             <summary>
             SignalR hub for real-time job updates to dashboard.
@@ -1140,6 +1249,54 @@
             <inheritdoc />
         </member>
         <member name="M:Milvaion.Api.Migrations.AddExternalJobSupport.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.WorkflowEngine">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEngine.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEngine.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEngine.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.WorkflowEnhance">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEnhance.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEnhance.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowEnhance.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.AddMetricReportsTable">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddMetricReportsTable.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddMetricReportsTable.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.AddMetricReportsTable.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.RowLevelAuditing">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.RowLevelAuditing.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.RowLevelAuditing.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.RowLevelAuditing.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">

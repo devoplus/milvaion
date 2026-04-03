@@ -319,7 +319,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 1,
-                CorrelationId = Guid.CreateVersion7(),
+                OccurrenceId = Guid.CreateVersion7(),
                 JobId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Status = JobOccurrenceStatus.Completed,
@@ -328,7 +328,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 2,
-                CorrelationId = Guid.CreateVersion7(),
+                OccurrenceId = Guid.CreateVersion7(),
                 JobId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Status = JobOccurrenceStatus.Failed,
@@ -377,7 +377,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 1,
-                CorrelationId = Guid.CreateVersion7(),
+                OccurrenceId = Guid.CreateVersion7(),
                 JobId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Status = JobOccurrenceStatus.Completed,
@@ -459,7 +459,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 1,
-                CorrelationId = Guid.CreateVersion7(),
+                OccurrenceId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Log = new OccurrenceLog { Level = "Information", Message = "Test log 1", Timestamp = DateTime.UtcNow },
                 RetryCount = 0
@@ -467,7 +467,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 2,
-                CorrelationId = Guid.CreateVersion7(),
+                OccurrenceId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Log = new OccurrenceLog { Level = "Warning", Message = "Test log 2", Timestamp = DateTime.UtcNow },
                 RetryCount = 0
@@ -605,8 +605,8 @@ public class OutboxServiceTests
         // Arrange
         var pendingUpdates = new List<StoredStatusUpdate>
         {
-            new() { Id = 1, CorrelationId = Guid.CreateVersion7(), JobId = Guid.CreateVersion7(), WorkerId = "w", Status = JobOccurrenceStatus.Completed, RetryCount = 0 },
-            new() { Id = 2, CorrelationId = Guid.CreateVersion7(), JobId = Guid.CreateVersion7(), WorkerId = "w", Status = JobOccurrenceStatus.Failed, RetryCount = 0 }
+            new() { Id = 1, OccurrenceId = Guid.CreateVersion7(), JobId = Guid.CreateVersion7(), WorkerId = "w", Status = JobOccurrenceStatus.Completed, RetryCount = 0 },
+            new() { Id = 2, OccurrenceId = Guid.CreateVersion7(), JobId = Guid.CreateVersion7(), WorkerId = "w", Status = JobOccurrenceStatus.Failed, RetryCount = 0 }
         };
 
         _connectionMonitorMock.Setup(x => x.IsRabbitMQHealthy).Returns(true);
@@ -647,7 +647,7 @@ public class OutboxServiceTests
         // Arrange
         var pendingUpdates = new List<StoredStatusUpdate>
         {
-            new() { Id = 1, CorrelationId = Guid.CreateVersion7(), JobId = Guid.CreateVersion7(), WorkerId = "w", Status = JobOccurrenceStatus.Running, RetryCount = 0 }
+            new() { Id = 1, OccurrenceId = Guid.CreateVersion7(), JobId = Guid.CreateVersion7(), WorkerId = "w", Status = JobOccurrenceStatus.Running, RetryCount = 0 }
         };
 
         _connectionMonitorMock.Setup(x => x.IsRabbitMQHealthy).Returns(true);
@@ -686,7 +686,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 1,
-                CorrelationId = Guid.CreateVersion7(),
+                OccurrenceId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Log = new OccurrenceLog { Level = "Error", Message = "Stuck log", Timestamp = DateTime.UtcNow },
                 RetryCount = 5
@@ -722,7 +722,7 @@ public class OutboxServiceTests
             new()
             {
                 Id = 1,
-                CorrelationId = Guid.CreateVersion7(),
+                OccurrenceId = Guid.CreateVersion7(),
                 WorkerId = "test-worker",
                 Log = new OccurrenceLog { Level = "Error", Message = "Failing log", Timestamp = DateTime.UtcNow },
                 RetryCount = 0

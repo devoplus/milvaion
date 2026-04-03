@@ -22,6 +22,20 @@ public static class JobDataTypeHelper
         typeof(IAsyncJobWithResult<>)
     ];
 
+    // 1-arg result-only interfaces: IJobWithResult<TResult>, IAsyncJobWithResult<TResult>
+    private static readonly Type[] _resultOnlyJobInterfaces =
+    [
+        typeof(IJobWithResult<>),
+        typeof(IAsyncJobWithResult<>)
+    ];
+
+    // 2-arg data+result interfaces: IJobWithResult<TData, TResult>, IAsyncJobWithResult<TData, TResult>
+    private static readonly Type[] _dataAndResultJobInterfaces =
+    [
+        typeof(IJobWithResult<,>),
+        typeof(IAsyncJobWithResult<,>)
+    ];
+
     /// <summary>
     /// Dynamic enum values storage. Key is configuration key, value is list of allowed values.
     /// Populated at startup from worker configuration.
@@ -57,6 +71,14 @@ public static class JobDataTypeHelper
 
             var genericDef = iface.GetGenericTypeDefinition();
 
+            // Check 2-arg interfaces first: IJobWithResult<TData, TResult> / IAsyncJobWithResult<TData, TResult>
+            // Data is at index 0
+            if (_dataAndResultJobInterfaces.Contains(genericDef))
+            {
+                return iface.GetGenericArguments()[0];
+            }
+
+            // Then check 1-arg interfaces: IJob<TData> / IAsyncJob<TData>
             if (_genericJobInterfaces.Contains(genericDef))
             {
                 return iface.GetGenericArguments()[0];
@@ -105,23 +127,64 @@ public static class JobDataTypeHelper
     }
 
     /// <summary>
-    /// Gets job data information for a job type including type name and schema.
+    /// Gets the result type from a job type if it implements a result-producing interface.
+    /// Checks 2-arg interfaces (IJobWithResult&lt;TData, TResult&gt;) first, then 1-arg (IJobWithResult&lt;TResult&gt;).
     /// </summary>
     /// <param name="jobType">The job implementation type</param>
-    /// <returns>Job data info or null if no typed JobData</returns>
+    /// <returns>The result type, or null if the job does not produce a typed result</returns>
+    public static Type GetJobResultType(Type jobType)
+    {
+        var interfaces = jobType.GetInterfaces();
+
+        // Check 2-arg interfaces first: IJobWithResult<TData, TResult> / IAsyncJobWithResult<TData, TResult>
+        // Result is at index 1
+        foreach (var iface in interfaces)
+        {
+            if (!iface.IsGenericType)
+                continue;
+
+            if (_dataAndResultJobInterfaces.Contains(iface.GetGenericTypeDefinition()))
+                return iface.GetGenericArguments()[1];
+        }
+
+        // Then 1-arg interfaces: IJobWithResult<TResult> / IAsyncJobWithResult<TResult>
+        // Result is at index 0
+        foreach (var iface in interfaces)
+        {
+            if (!iface.IsGenericType)
+                continue;
+
+            if (_resultOnlyJobInterfaces.Contains(iface.GetGenericTypeDefinition()))
+                return iface.GetGenericArguments()[0];
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets job data information for a job type including type name and schema.
+    /// Also populates result schema fields when the job produces a typed result.
+    /// </summary>
+    /// <param name="jobType">The job implementation type</param>
+    /// <returns>Job data info or null if the job has neither typed JobData nor a typed result</returns>
     public static JobDataInfo GetJobDataInfo(Type jobType)
     {
         var jobDataType = GetJobDataType(jobType);
+        var jobResultType = GetJobResultType(jobType);
 
-        if (jobDataType == null)
+        if (jobDataType == null && jobResultType == null)
             return null;
 
         return new JobDataInfo
         {
-            TypeName = jobDataType.FullName,
-            TypeShortName = jobDataType.Name,
+            TypeName = jobDataType?.FullName,
+            TypeShortName = jobDataType?.Name,
             Schema = GenerateSchema(jobDataType),
-            SchemaJson = GenerateSchemaJson(jobDataType)
+            SchemaJson = GenerateSchemaJson(jobDataType),
+            ResultTypeName = jobResultType?.FullName,
+            ResultTypeShortName = jobResultType?.Name,
+            ResultSchema = GenerateSchema(jobResultType),
+            ResultSchemaJson = GenerateSchemaJson(jobResultType),
         };
     }
 
@@ -340,6 +403,7 @@ public static class JobDataTypeHelper
 
 /// <summary>
 /// Contains job data type information and schema.
+/// Also carries result schema when the job produces a typed result.
 /// </summary>
 public class JobDataInfo
 {
@@ -362,4 +426,24 @@ public class JobDataInfo
     /// JSON Schema as string.
     /// </summary>
     public string SchemaJson { get; set; }
+
+    /// <summary>
+    /// Full type name of the result class (null when job has no typed result).
+    /// </summary>
+    public string ResultTypeName { get; set; }
+
+    /// <summary>
+    /// Short type name of the result class.
+    /// </summary>
+    public string ResultTypeShortName { get; set; }
+
+    /// <summary>
+    /// JSON Schema of the result type as dictionary.
+    /// </summary>
+    public Dictionary<string, object> ResultSchema { get; set; }
+
+    /// <summary>
+    /// JSON Schema of the result type as string.
+    /// </summary>
+    public string ResultSchemaJson { get; set; }
 }

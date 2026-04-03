@@ -13,7 +13,7 @@ namespace Milvasoft.Milvaion.Sdk.Domain;
 /// </summary>
 [Table(SchedulerTableNames.ScheduledJobs)]
 [DontIndexCreationDate]
-public class ScheduledJob : CreationAuditableEntity<Guid>
+public class ScheduledJob : AuditableEntity<Guid>
 {
     /// <summary>
     /// Display name of the scheduled job.

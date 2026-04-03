@@ -13,6 +13,7 @@ public static class MilvaionSdkExtensions
         => status is JobOccurrenceStatus.Completed
                   or JobOccurrenceStatus.Failed
                   or JobOccurrenceStatus.Cancelled
+                  or JobOccurrenceStatus.Skipped
                   or JobOccurrenceStatus.TimedOut
                   or JobOccurrenceStatus.Unknown;
 

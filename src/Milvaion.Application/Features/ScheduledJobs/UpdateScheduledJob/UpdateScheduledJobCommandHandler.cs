@@ -72,6 +72,7 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
             {
                 Enabled = existingJob.AutoDisableSettings.Enabled,
                 Threshold = existingJob.AutoDisableSettings.Threshold,
+                FailureWindowMinutes = existingJob.AutoDisableSettings.FailureWindowMinutes,
                 LastFailureTime = existingJob.AutoDisableSettings.LastFailureTime
             };
         }
@@ -81,14 +82,14 @@ public record UpdateScheduledJobCommandHandler(IMilvaionRepositoryBase<Scheduled
             existingJob.AutoDisableSettings = new()
             {
                 Enabled = request.AutoDisableSettings.Value.Enabled,
-                Threshold = request.AutoDisableSettings.Value.Threshold
+                Threshold = request.AutoDisableSettings.Value.Threshold,
+                FailureWindowMinutes = request.AutoDisableSettings.Value.FailureWindowMinutes
             };
 
             setPropertyBuilder = setPropertyBuilder.SetPropertyValue(sj => sj.AutoDisableSettings, existingJob.AutoDisableSettings);
         }
 
         // Check if job definition changed
-
         if (jobDefinitionChanged)
         {
             existingJob.JobVersions.Add(JsonSerializer.Serialize(existingJob));

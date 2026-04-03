@@ -7,6 +7,7 @@ Built-in worker for executing SQL queries/stored procedures from Milvaion schedu
 Executes SQL commands against configured database (PostgreSQL, SQL Server, MySQL).
 
 **Configuration:**
+
 ```json
 "SqlWorkerOptions": {
   "DefaultConnectionString": "Host=localhost;Database=mydb;Username=user;Password=pass",

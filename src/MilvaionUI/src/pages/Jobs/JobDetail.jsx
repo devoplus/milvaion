@@ -10,11 +10,13 @@ import JsonEditor from '../../components/JsonEditor'
 import Modal from '../../components/Modal'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import { SkeletonDetail } from '../../components/Skeleton'
+import { getApiErrorMessage } from '../../utils/errorUtils'
 import { useTriggerJob } from '../../hooks/useTriggerJob'
 import { useModal } from '../../hooks/useModal'
 import './JobDetail.css'
 import CronDisplay from '../../components/CronDisplay'
 import OccurrenceTable from '../../components/OccurrenceTable'
+import AuditInfoCard from '../../components/AuditInfoCard'
 
 function JobDetail() {
 const { id } = useParams()
@@ -87,7 +89,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
       
       setLastRefreshTime(new Date())
     } catch (err) {
-      setError('Failed to load job details')
+      setError(getApiErrorMessage(err, 'Failed to load job details'))
       console.error(err)
     } finally {
       if (showLoading) {
@@ -252,15 +254,18 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
 
     const versionHistory = job.jobVersions.map((versionJson, index) => {
       try {
+        const parsed = JSON.parse(versionJson)
         return {
-          version: job.jobVersions.length - index, // Reverse order (newest first)
-          data: JSON.parse(versionJson)
+          version: job.jobVersions.length - index,
+          data: parsed,
+          error: null
         }
       } catch (err) {
         console.error('Failed to parse version JSON:', err)
         return {
           version: job.jobVersions.length - index,
-          data: { error: 'Failed to parse version data' }
+          data: null,
+          error: `Parse error: ${err.message}`
         }
       }
     })
@@ -286,15 +291,25 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
                   Version {version.version}
                 </span>
                 <span className="version-date">
-                  {version.data.creationDate ? formatDate(version.data.creationDate) : 'Unknown date'}
+                  {version.data?.creationDate ? formatDate(version.data.creationDate) : 'Unknown date'}
                 </span>
               </div>
               <div className="version-content">
-                <JsonViewer
-                  data={version.data}
-                  title={`Version ${version.version} Details`}
-                  defaultExpanded={index === 0}
-                />
+                {version.error ? (
+                  <div className="version-error">
+                    <Icon name="error" size={20} />
+                    <div>
+                      <strong>Failed to parse version data</strong>
+                      <p>{version.error}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <JsonViewer
+                    data={version.data}
+                    title={`Version ${version.version} Details`}
+                    defaultExpanded={index === 0}
+                  />
+                )}
               </div>
             </div>
           ))}
@@ -531,6 +546,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
               <span>Delete</span>
             </button>
           </div>
+          <AuditInfoCard auditInfo={job.auditInfo} />
         </div>
       </div>
 
@@ -687,6 +703,13 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
                     <span className="info-label">Failure Threshold</span>
                     <span className="info-value">
                       {job.autoDisableSettings.threshold || 'Default (5)'}
+                    </span>
+                  </div>
+
+                  <div className="info-row">
+                    <span className="info-label">Failure Window</span>
+                    <span className="info-value">
+                      {job.autoDisableSettings.failureWindowMinutes ? `${job.autoDisableSettings.failureWindowMinutes} min` : 'Default (60 min)'}
                     </span>
                   </div>
 

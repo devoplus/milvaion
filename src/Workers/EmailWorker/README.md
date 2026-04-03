@@ -7,6 +7,7 @@ Built-in worker for sending emails from Milvaion scheduler.
 Sends emails via SMTP with support for attachments and HTML content.
 
 **Configuration:**
+
 ```json
 "EmailWorkerOptions": {
   "Smtp": {

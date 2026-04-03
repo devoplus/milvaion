@@ -313,7 +313,7 @@
         </member>
         <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountNotificationDto.Text">
             <summary>
-            Text content of the notification. Can be null. 
+            Text content of the notification. Can be null.
             If it is null, Data property should be used in frontend(text generated with translations in frontend) for dynamic content.
             </summary>
         </member>
@@ -345,6 +345,11 @@
         <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountNotificationDto.IsSeenDescription">
             <summary>
             Determines whether the notification is seen or not.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountNotificationDto.CreationDate">
+            <summary>
+            Date when the user marked this notification as seen. Null if unseen.
             </summary>
         </member>
         <member name="P:Milvaion.Application.Dtos.AccountDtos.AccountNotificationDto.Projection">
@@ -2534,6 +2539,91 @@
             Application uptime.
             </summary>
         </member>
+        <member name="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto">
+            <summary>
+            Detailed DTO for a single metric report. Contains the full JSON report data along with metadata.
+            Used by detail and latest-report endpoints.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Id">
+            <summary> Unique identifier (Guid v7). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.MetricType">
+            <summary> Report type key (e.g. FailureRateTrend, WorkerThroughput, JobHealthScore). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.DisplayName">
+            <summary> Human-readable report title for UI display. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Description">
+            <summary> Short description of what the report measures. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Data">
+            <summary> JSON-serialized report payload (stored as jsonb in PostgreSQL). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.PeriodStartTime">
+            <summary> Start of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.PeriodEndTime">
+            <summary> End of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.GeneratedAt">
+            <summary> Timestamp when the report was generated (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Tags">
+            <summary> Comma-separated tags for categorization and filtering. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.CreationDate">
+            <summary> Record creation timestamp populated by the auditing infrastructure. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.CreatorUserName">
+            <summary> Username of the creator populated by the auditing infrastructure. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportDetailDto.Projection">
+            <summary>
+            EF Core projection expression that maps a <see cref="T:Milvasoft.Milvaion.Sdk.Domain.MetricReport"/> entity to this DTO.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto">
+            <summary>
+            Lightweight DTO used in paginated metric report lists.
+            Includes report metadata and the JSON data payload but omits creator details.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Id">
+            <summary> Unique identifier (Guid v7). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.MetricType">
+            <summary> Report type key (e.g. FailureRateTrend, WorkerThroughput, JobHealthScore). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.DisplayName">
+            <summary> Human-readable report title for UI display. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Description">
+            <summary> Short description of what the report measures. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Data">
+            <summary> JSON-serialized report payload (stored as jsonb in PostgreSQL). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.PeriodStartTime">
+            <summary> Start of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.PeriodEndTime">
+            <summary> End of the analysis window (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.GeneratedAt">
+            <summary> Timestamp when the report was generated (UTC). </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Tags">
+            <summary> Comma-separated tags for categorization and filtering. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.CreationDate">
+            <summary> Record creation timestamp populated by the auditing infrastructure. </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.MetricReportDtos.MetricReportListDto.Projection">
+            <summary>
+            EF Core projection expression that maps a <see cref="T:Milvasoft.Milvaion.Sdk.Domain.MetricReport"/> entity to this DTO.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.MilvaionBaseDto`1">
             <summary>
             App pool base dto for attribute usage.
@@ -3413,6 +3503,14 @@
             If null, uses global setting from configuration.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.ScheduledJobDtos.UpsertJobAutoDisableSettings.FailureWindowMinutes">
+            <summary>
+            Time window in minutes for counting consecutive failures.
+            Failures older than this window don't count towards the threshold.
+            This prevents jobs from being disabled due to old historical failures.
+            Default: 60 minutes (1 hour)
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Dtos.OccurrenceCreatedSignal">
             <summary>
             Event data for job occurrence created event.
@@ -3486,6 +3584,71 @@
         <member name="P:Milvaion.Application.Dtos.OccurrenceUpdatedSignal.EndTime">
             <summary>
             End time of the job occurrence.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.OccurrenceUpdatedSignal.DurationMs">
+            <summary>
+            Duration in milliseconds (only set on completion/failure).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.OccurrenceUpdatedSignal.Exception">
+            <summary>
+            Exception message if the occurrence failed.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.OccurrenceUpdatedSignal.StepStatus">
+            <summary>
+            Workflow step status (only set for workflow step occurrences).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowRunUpdatedSignal">
+            <summary>
+            Event data for workflow run status updates.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowRunUpdatedSignal.RunId">
+            <summary>
+            Workflow run ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowRunUpdatedSignal.WorkflowId">
+            <summary>
+            Workflow ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowRunUpdatedSignal.Status">
+            <summary>
+            Current status.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowRunUpdatedSignal.StepRuns">
+            <summary>
+            Step run states.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowStepRunSignal">
+            <summary>
+            Event data for a single workflow step run status.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowStepRunSignal.Id">
+            <summary>
+            Step run ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowStepRunSignal.WorkflowStepId">
+            <summary>
+            Step definition ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowStepRunSignal.Status">
+            <summary>
+            Step status.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowStepRunSignal.OccurrenceId">
+            <summary>
+            Occurrence ID.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Dtos.TranslationDtos.NameDescriptionTranslationDto">
@@ -3779,6 +3942,11 @@
             Job name and jobdata definition pair this worker handles.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.JobResultDefinitions">
+            <summary>
+            Job name and result schema definition pair this worker handles.
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.JobNames">
             <summary>
             Job names that the worker can execute.
@@ -3822,6 +3990,462 @@
         <member name="P:Milvaion.Application.Dtos.WorkerDtos.WorkerDto.Projection">
             <summary>
             Projection expression for mapping CachedWorker to WorkerDto.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto">
+            <summary>
+            Data transfer object for workflow detail.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.Name">
+            <summary>
+            Display name of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.Description">
+            <summary>
+            Description of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.Tags">
+            <summary>
+            Tags for categorization.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.IsActive">
+            <summary>
+            Whether this workflow is active.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.FailureStrategy">
+            <summary>
+            Failure handling strategy.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.MaxStepRetries">
+            <summary>
+            Maximum step retries.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.TimeoutSeconds">
+            <summary>
+            Timeout in seconds for entire workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.Version">
+            <summary>
+            Version of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.CronExpression">
+            <summary>
+            Cron expression for automatic recurring execution.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.LastScheduledRunAt">
+            <summary>
+            Last time the workflow was triggered by cron scheduler.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.AuditInfo">
+            <summary>
+            Information about record audit.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.Steps">
+            <summary>
+            Steps in this workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.Edges">
+            <summary>
+            Edges in this workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowDetailDto.WorkflowVersions">
+            <summary>
+            Workflow versions history (serialized workflow snapshots with steps).
+            Each entry is a JSON snapshot of the workflow definition before it was updated.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto">
+            <summary>
+            DTO for a workflow step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.Id">
+            <summary>
+            Step ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.NodeType">
+            <summary>
+            Node type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.JobId">
+            <summary>
+            The scheduled job this step executes.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.JobDisplayName">
+            <summary>
+            Job display name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.StepName">
+            <summary>
+            User-friendly label for this step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.Order">
+            <summary>
+            Sort order.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.NodeConfigJson">
+            <summary>
+            Node specific configuration stored as JSON.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.DataMappings">
+            <summary>
+            Data mapping definitions.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.DelaySeconds">
+            <summary>
+            Delay in seconds before executing.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.JobDataOverride">
+            <summary>
+            Override job data.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.PositionX">
+            <summary>
+            X position for DAG visualization.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.PositionY">
+            <summary>
+            Y position for DAG visualization.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto">
+            <summary>
+            DTO for a workflow edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.SourceStepId">
+            <summary>
+            ID of the source step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.TargetStepId">
+            <summary>
+            ID of the target step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.SourcePort">
+            <summary>
+            Source port identifier for the connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.TargetPort">
+            <summary>
+            Target port identifier for the connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.Label">
+            <summary>
+            Display label for the edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.Order">
+            <summary>
+            Sort order for edge evaluation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowEdgeDto.EdgeConfigJson">
+            <summary>
+            Edge specific configuration stored as JSON.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto">
+            <summary>
+            Data transfer object for workflow list.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.Name">
+            <summary>
+            Display name of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.Description">
+            <summary>
+            Description of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.Tags">
+            <summary>
+            Tags for categorization.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.IsActive">
+            <summary>
+            Whether this workflow is active.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.FailureStrategy">
+            <summary>
+            Failure handling strategy.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.Version">
+            <summary>
+            Version of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.StepCount">
+            <summary>
+            Number of steps in the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.CronExpression">
+            <summary>
+            Cron expression for automatic recurring execution.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowListDto.Projection">
+            <summary>
+            Projection expression.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto">
+            <summary>
+            Data transfer object for workflow run detail including step run states.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.WorkflowId">
+            <summary>
+            Parent workflow ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.WorkflowName">
+            <summary>
+            Workflow name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.WorkflowVersion">
+            <summary>
+            Workflow version at execution time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.CorrelationId">
+            <summary>
+            Correlation ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.Status">
+            <summary>
+            Status of the workflow run.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.StartTime">
+            <summary>
+            Start time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.EndTime">
+            <summary>
+            End time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.DurationMs">
+            <summary>
+            Duration in milliseconds.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.TriggerReason">
+            <summary>
+            Trigger reason.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.Error">
+            <summary>
+            Error message.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.StepRuns">
+            <summary>
+            Step runs with their current states.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.Steps">
+            <summary>
+            Workflow step definitions (for DAG visualization).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunDetailDto.Edges">
+            <summary>
+            Workflow edges (for DAG visualization).
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto">
+            <summary>
+            DTO for a workflow step run.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.Id">
+            <summary>
+            Step run ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.WorkflowStepId">
+            <summary>
+            Step definition ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.StepName">
+            <summary>
+            Step name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.Order">
+            <summary>
+            Sort order of the step within the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.JobId">
+            <summary>
+            Job ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.JobDisplayName">
+            <summary>
+            Job display name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.OccurrenceId">
+            <summary>
+            Occurrence ID (if dispatched).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.Status">
+            <summary>
+            Step run status.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.OutputData">
+            <summary>
+            Output data from the step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.Error">
+            <summary>
+            Error message.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.StartTime">
+            <summary>
+            Start time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.EndTime">
+            <summary>
+            End time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.DurationMs">
+            <summary>
+            Duration in milliseconds.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.RetryCount">
+            <summary>
+            Retry count.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.DependsOnStepIds">
+            <summary>
+            Dependencies (step IDs).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.Condition">
+            <summary>
+            Condition.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.DelaySeconds">
+            <summary>
+            Delay seconds.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.PositionX">
+            <summary>
+            X position for visualization.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepRunDto.PositionY">
+            <summary>
+            Y position for visualization.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto">
+            <summary>
+            Data transfer object for workflow run list.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.WorkflowId">
+            <summary>
+            Parent workflow ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.WorkflowVersion">
+            <summary>
+            Workflow version at execution time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.CorrelationId">
+            <summary>
+            Correlation ID.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.Status">
+            <summary>
+            Status of the workflow run.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.StartTime">
+            <summary>
+            Start time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.EndTime">
+            <summary>
+            End time.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.DurationMs">
+            <summary>
+            Duration in milliseconds.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.TriggerReason">
+            <summary>
+            Trigger reason.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.CreatedAt">
+            <summary>
+            Created at.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowRunListDto.Projection">
+            <summary>
+            Projection expression.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Features.Account.AccountDetail.AccountDetailQuery">
@@ -5337,6 +5961,161 @@
         <member name="M:Milvaion.Application.Features.Languages.UpdateLanguage.UpdateLanguageCommandValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.Roles.UpdateRole.UpdateRoleCommandValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommand">
+            <summary>
+            DeleteMetricReportCommand is a command that represents the action of deleting a metric report.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommand.Id">
+            <summary>
+            Id of the metric report to be deleted.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandHandler">
+            <summary>
+            Deletes metric report.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Deletes metric report.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandHandler.Handle(Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommand,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteMetricReport.DeleteMetricReportCommandValidator.#ctor">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommand">
+            <summary>
+            DeleteOldMetricReportsCommand is a command that represents the action of deleting old metric reports that are older than a specified number of days.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommand.OlderThanDays">
+            <summary>
+            Deletes metric reports that are older than the specified number of days. Default is 30 days.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler">
+            <summary>
+            Deletes old metric reports that are older than a specified number of days.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Deletes old metric reports that are older than a specified number of days.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandHandler.Handle(Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommand,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.DeleteOldMetricReports.DeleteOldMetricReportsCommandValidator.#ctor">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQuery">
+            <summary>
+            Gets latest metric report for a specified metric type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQuery.MetricType">
+            <summary>
+            Type of metric.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler">
+            <summary>
+            Gets latest metric report for a specified metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Gets latest metric report for a specified metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryHandler.Handle(Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQuery,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetLatestMetricReport.GetLatestMetricReportQueryValidator.#ctor">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQuery">
+            <summary>
+            Gets metric report detail by its unique identifier.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQuery.Id">
+            <summary>
+            Id of metric report.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryHandler">
+            <summary>
+            Gets metric report detail.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Gets metric report detail.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryHandler.Handle(Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQuery,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportDetail.GetMetricReportDetailQueryValidator.#ctor">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQuery">
+            <summary>
+            Gets a list of metric reports, optionally filtered by metric type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQuery.MetricType">
+            <summary>
+            Type of metric.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryHandler">
+            <summary>
+            Gets a list of metric reports, optionally filtered by metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.MetricReport})">
+            <summary>
+            Gets a list of metric reports, optionally filtered by metric type.
+            </summary>
+            <param name="metricReportRepository"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryHandler.Handle(Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQuery,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryValidator">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Application.Features.MetricReports.GetMetricReportList.GetMetricReportListQueryValidator.#ctor">
+            <inheritdoc />
+        </member>
         <member name="T:Milvaion.Application.Features.Pages.GetPageAccessibilityForCurrentUser.GetPageAccessibilityForCurrentUserQuery">
             <summary>
             Data transfer object for page details.
@@ -6496,6 +7275,504 @@
         <member name="M:Milvaion.Application.Features.Workers.GetWorkerList.GetWorkerListQueryValidator.#ctor">
             <inheritdoc cref="T:Milvaion.Application.Features.Workers.GetWorkerList.GetWorkerListQueryValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommand">
+            <summary>
+            Command to cancel a running workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommand.WorkflowRunId">
+            <summary>
+            The workflow run ID to cancel.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommand.Reason">
+            <summary>
+            Reason for cancellation.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommandHandler">
+            <summary>
+            Handles workflow cancellation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.Redis.IJobCancellationService,Milvaion.Application.Interfaces.Redis.IRedisSchedulerService)">
+            <summary>
+            Handles workflow cancellation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommandHandler.Handle(Milvaion.Application.Features.Workflows.CancelWorkflow.CancelWorkflowCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand">
+            <summary>
+            Command to create a new workflow with its steps (DAG definition).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.Name">
+            <summary>
+            Display name of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.Description">
+            <summary>
+            Description of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.Tags">
+            <summary>
+            Tags for categorization.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.IsActive">
+            <summary>
+            Whether this workflow is active.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.FailureStrategy">
+            <summary>
+            Failure handling strategy.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.MaxStepRetries">
+            <summary>
+            Maximum retries for failed steps.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.TimeoutSeconds">
+            <summary>
+            Timeout in seconds for entire workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.CronExpression">
+            <summary>
+            Cron expression for automatic recurring execution (6-part format: second minute hour day month dayOfWeek).
+            Null means the workflow is only triggered manually.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.Steps">
+            <summary>
+            Steps to include in this workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand.Edges">
+            <summary>
+            Edges to include in this workflow.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto">
+            <summary>
+            DTO for creating a workflow step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.TempId">
+            <summary>
+            Temporary client-side ID for referencing in DependsOnStepIds.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.NodeType">
+            <summary>
+            Node type.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.JobId">
+            <summary>
+            Job ID to execute for task nodes.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.StepName">
+            <summary>
+            Step display name.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.Order">
+            <summary>
+            Sort order.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.NodeConfigJson">
+            <summary>
+            Node specific configuration stored as JSON.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.DataMappings">
+            <summary>
+            Data mapping definitions (JSON).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.DelaySeconds">
+            <summary>
+            Delay in seconds.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.JobDataOverride">
+            <summary>
+            Override job data.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.PositionX">
+            <summary>
+            X position for DAG visualization.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto.PositionY">
+            <summary>
+            Y position for DAG visualization.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto">
+            <summary>
+            DTO for creating a workflow edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.TempId">
+            <summary>
+            Temporary client-side ID for referencing the edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.SourceTempId">
+            <summary>
+            Temporary ID of the source step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.TargetTempId">
+            <summary>
+            Temporary ID of the target step.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.SourcePort">
+            <summary>
+            Source port identifier for the connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.TargetPort">
+            <summary>
+            Target port identifier for the connection.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.Label">
+            <summary>
+            Display label for the edge.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.Order">
+            <summary>
+            Sort order for edge evaluation.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto.EdgeConfigJson">
+            <summary>
+            Edge specific configuration stored as JSON.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandHandler">
+            <summary>
+            Handles workflow creation with DAG validation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Handles workflow creation with DAG validation.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandHandler.Handle(Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommand"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommand">
+            <summary>
+            Command to delete a workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommand.WorkflowId">
+            <summary>
+            Workflow ID to delete.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommandHandler">
+            <summary>
+            Handles workflow deletion.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow})">
+            <summary>
+            Handles workflow deletion.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommandHandler.Handle(Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommandValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommand"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.DeleteWorkflow.DeleteWorkflowCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQuery">
+            <summary>
+            Query to get workflow detail.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQuery.WorkflowId">
+            <summary>
+            Workflow ID.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQueryHandler">
+            <summary>
+            Handles the workflow detail query.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Handles the workflow detail query.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQueryHandler.Handle(Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQueryValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQuery"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.GetWorkflowDetail.GetWorkflowDetailQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQuery">
+            <summary>
+            Query to get the list of workflows.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQuery.SearchTerm">
+            <summary>
+            Search term to filter workflows.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQueryHandler">
+            <summary>
+            Handles the workflow list query.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow})">
+            <summary>
+            Handles the workflow list query.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQueryHandler.Handle(Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQueryValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQuery"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.GetWorkflowList.GetWorkflowListQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQuery">
+            <summary>
+            Query to get a workflow run detail with step run states.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQuery.RunId">
+            <summary>
+            Workflow run ID.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQueryHandler">
+            <summary>
+            Handles the workflow run detail query.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Handles the workflow run detail query.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQueryHandler.Handle(Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQueryValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQuery"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunDetail.GetWorkflowRunDetailQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQuery">
+            <summary>
+            Query to get workflow runs for a specific workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQuery.WorkflowId">
+            <summary>
+            Workflow ID to filter runs for.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQueryHandler">
+            <summary>
+            Handles workflow run list query.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun})">
+            <summary>
+            Handles workflow run list query.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQueryHandler.Handle(Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQueryValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQuery"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQueryValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.GetWorkflowRunList.GetWorkflowRunListQueryValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand">
+            <summary>
+            Command to trigger a workflow run. Creates a WorkflowRun and dispatches root steps.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand.WorkflowId">
+            <summary>
+            Workflow ID to trigger.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand.Reason">
+            <summary>
+            Trigger reason.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommandHandler">
+            <summary>
+            Handles workflow triggering. Creates a WorkflowRun with step runs for all steps.
+            The WorkflowEngine background service picks up Pending runs and dispatches root steps.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun})">
+            <summary>
+            Handles workflow triggering. Creates a WorkflowRun with step runs for all steps.
+            The WorkflowEngine background service picks up Pending runs and dispatches root steps.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommandHandler.Handle(Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommandValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand">
+            <summary>
+            Command to update an existing workflow's settings.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.WorkflowId">
+            <summary>
+            ID of the workflow to update.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Name">
+            <summary>
+            Display name of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Description">
+            <summary>
+            Description of the workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Tags">
+            <summary>
+            Tags for categorization.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.IsActive">
+            <summary>
+            Whether this workflow is active.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.FailureStrategy">
+            <summary>
+            Failure handling strategy.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.MaxStepRetries">
+            <summary>
+            Maximum retries for failed steps.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.TimeoutSeconds">
+            <summary>
+            Timeout in seconds for entire workflow.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.CronExpression">
+            <summary>
+            Cron expression for automatic recurring execution (6-part format: second minute hour day month dayOfWeek).
+            Null or empty means manual-only trigger.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Steps">
+            <summary>
+            Steps to update in this workflow. When provided, replaces all existing steps.
+            TempId can be an existing step's real GUID (preserved) or a temporary string (new step gets a new GUID).
+            If null, steps are not modified.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand.Edges">
+            <summary>
+            Edges to update in this workflow. When provided, replaces all existing edges.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler">
+            <summary>
+            Handles workflow settings update.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.Workflow},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.WorkflowRun},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.JobOccurrence},Milvaion.Application.Interfaces.IMilvaionRepositoryBase{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob})">
+            <summary>
+            Handles workflow settings update.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandHandler.Handle(Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandValidator">
+            <summary>
+            Validator for <see cref="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommand"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandValidator.#ctor">
+            <inheritdoc cref="T:Milvaion.Application.Features.Workflows.UpdateWorkflow.UpdateWorkflowCommandValidator"/>
+        </member>
+        <member name="T:Milvaion.Application.Features.Workflows.WorkflowStepExtensions">
+            <summary>
+            Extension methods for workflow step collections.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Application.Features.Workflows.WorkflowStepExtensions.ValidateDAG(System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowStepDto},System.Collections.Generic.List{Milvaion.Application.Features.Workflows.CreateWorkflow.CreateWorkflowEdgeDto})">
+            <summary>
+            Validates that the step graph contains no cycles using Kahn's topological sort.
+            Returns <see langword="true"/> if the steps form a valid DAG.
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Interfaces.IAccountManager">
             <summary>
             Account manager for user account operations.
@@ -7002,18 +8279,18 @@
         </member>
         <member name="M:Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher.PublishJobAsync(Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid,System.Threading.CancellationToken)">
             <summary>
-            Publishes a scheduled job to the RabbitMQ queue with correlation tracking.
+            Publishes a scheduled job to the RabbitMQ queue.
             </summary>
             <param name="job">The scheduled job to publish</param>
-            <param name="correlationId">Correlation ID for distributed tracing</param>
+            <param name="occurrenceId">Unique identifier for the job occurrence (Occurrence.Id)</param>
             <param name="cancellationToken">Cancellation token</param>
             <returns>True if published successfully</returns>
         </member>
         <member name="M:Milvaion.Application.Interfaces.RabbitMQ.IRabbitMQPublisher.PublishBatchAsync(System.Collections.Generic.Dictionary{Milvasoft.Milvaion.Sdk.Domain.ScheduledJob,System.Guid},System.Threading.CancellationToken)">
             <summary>
-            Publishes multiple jobs in a batch with correlation IDs.
+            Publishes multiple jobs in a batch with occurrence IDs.
             </summary>
-            <param name="jobsWithCorrelation">Dictionary of jobs with their correlation IDs</param>
+            <param name="jobsWithOccurrence">Dictionary of jobs with their occurrence IDs</param>
             <param name="cancellationToken">Cancellation token</param>
             <returns>Number of jobs published successfully</returns>
         </member>
@@ -8948,6 +10225,22 @@
         <member name="F:Milvaion.Application.Utils.Models.Options.WorkerAutoDiscoveryOptions.SectionKey">
             <summary>
             Section key in configuration files.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Utils.Models.Options.WorkflowEngineOptions">
+            <summary>
+            Configuration options for the Workflow Engine background service.
+            </summary>
+        </member>
+        <member name="F:Milvaion.Application.Utils.Models.Options.WorkflowEngineOptions.SectionKey">
+            <summary>
+            Configuration section key.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.WorkflowEngineOptions.PollingIntervalSeconds">
+            <summary>
+            Polling interval in seconds (how often to check for active workflow runs).
+            Default: 5 seconds.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.ZombieOccurrenceDetectorOptions">

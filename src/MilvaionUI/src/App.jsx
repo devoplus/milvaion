@@ -15,16 +15,34 @@ import AdminDashboard from './pages/Admin/AdminDashboard'
 import Configuration from './pages/Configuration'
 import FailedOccurrenceList from './pages/FailedOccurrences/FailedOccurrenceList'
 import FailedOccurrenceDetail from './pages/FailedOccurrences/FailedOccurrenceDetail'
+import UserList from './pages/UserManagement/UserList'
+import RoleList from './pages/UserManagement/RoleList'
+import ActivityLogList from './pages/UserManagement/ActivityLogList'
+import Profile from './pages/Profile/Profile'
+import WorkflowList from './pages/Workflows/WorkflowList'
+import WorkflowDetail from './pages/Workflows/WorkflowDetail'
+import WorkflowForm from './pages/Workflows/WorkflowForm'
+import WorkflowRunDetail from './pages/Workflows/WorkflowRunDetail'
+import WorkflowBuilder from './pages/Workflows/WorkflowBuilder/WorkflowBuilder'
+import ReportDashboard from './pages/Reports/ReportDashboard'
+import FailureRateTrendReport from './pages/Reports/FailureRateTrendReport'
+import PercentileDurationsReport from './pages/Reports/PercentileDurationsReport'
+import TopSlowJobsReport from './pages/Reports/TopSlowJobsReport'
+import WorkerThroughputReport from './pages/Reports/WorkerThroughputReport'
+import WorkerUtilizationTrendReport from './pages/Reports/WorkerUtilizationTrendReport'
+import CronScheduleVsActualReport from './pages/Reports/CronScheduleVsActualReport'
+import JobHealthScoreReport from './pages/Reports/JobHealthScoreReport'
+import WorkflowSuccessRateReport from './pages/Reports/WorkflowSuccessRateReport'
+import WorkflowStepBottleneckReport from './pages/Reports/WorkflowStepBottleneckReport'
+import WorkflowDurationTrendReport from './pages/Reports/WorkflowDurationTrendReport'
 
 function App() {
   return (
     <ThemeProvider>
       <Router>
         <Routes>
-          {/* Public route - Login */}
           <Route path="/login" element={<Login />} />
 
-          {/* Protected routes - Wrapped in Layout */}
           <Route
             path="/*"
             element={
@@ -45,8 +63,29 @@ function App() {
                     <Route path="/failed-executions/:id" element={<FailedOccurrenceDetail />} />
                     <Route path="/admin" element={<AdminDashboard />} />
                     <Route path="/configuration" element={<Configuration />} />
+                    <Route path="/users" element={<UserList />} />
+                    <Route path="/roles" element={<RoleList />} />
+                    <Route path="/activity-logs" element={<ActivityLogList />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/workflows" element={<WorkflowList />} />
+                    <Route path="/workflows/new" element={<WorkflowForm />} />
+                    <Route path="/workflows/new/builder" element={<WorkflowBuilder />} />
+                    <Route path="/workflows/:id" element={<WorkflowDetail />} />
+                    <Route path="/workflows/:id/edit" element={<WorkflowForm />} />
+                    <Route path="/workflows/:id/builder" element={<WorkflowBuilder />} />
+                    <Route path="/workflows/:id/runs/:runId" element={<WorkflowRunDetail />} />
+                    <Route path="/reports" element={<ReportDashboard />} />
+                    <Route path="/reports/failureratetrend" element={<FailureRateTrendReport />} />
+                    <Route path="/reports/percentiledurations" element={<PercentileDurationsReport />} />
+                    <Route path="/reports/topslowjobs" element={<TopSlowJobsReport />} />
+                    <Route path="/reports/workerthroughput" element={<WorkerThroughputReport />} />
+                    <Route path="/reports/workerutilizationtrend" element={<WorkerUtilizationTrendReport />} />
+                    <Route path="/reports/cronschedulevsactual" element={<CronScheduleVsActualReport />} />
+                    <Route path="/reports/jobhealthscore" element={<JobHealthScoreReport />} />
+                    <Route path="/reports/workflowsuccessrate" element={<WorkflowSuccessRateReport />} />
+                    <Route path="/reports/workflowstepbottleneck" element={<WorkflowStepBottleneckReport />} />
+                    <Route path="/reports/workflowdurationtrend" element={<WorkflowDurationTrendReport />} />
 
-                    {/* Catch all - redirect to dashboard */}
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </Layout>

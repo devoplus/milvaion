@@ -32,6 +32,11 @@ public class WorkerDto
     public Dictionary<string, string> JobDataDefinitions { get; set; } = [];
 
     /// <summary>
+    /// Job name and result schema definition pair this worker handles.
+    /// </summary>
+    public Dictionary<string, string> JobResultDefinitions { get; set; } = [];
+
+    /// <summary>
     /// Job names that the worker can execute.
     /// </summary>
     public List<string> JobNames { get; set; }
@@ -82,6 +87,7 @@ public class WorkerDto
         DisplayName = r.DisplayName,
         RoutingPatterns = r.RoutingPatterns,
         JobDataDefinitions = r.JobDataDefinitions,
+        JobResultDefinitions = r.JobResultDefinitions,
         JobNames = r.JobNames,
         CurrentJobs = r.CurrentJobs,
         Status = r.Status.ToString(),

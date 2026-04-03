@@ -12,7 +12,7 @@ namespace SqlWorker.Jobs;
 /// SQL execution job that supports multiple database providers.
 /// Uses Dapper for lightweight, high-performance database operations.
 /// </summary>
-public class SqlExecutionJob(ISqlConnectionFactory connectionFactory) : IAsyncJobWithResult<SqlJobData>
+public class SqlExecutionJob(ISqlConnectionFactory connectionFactory) : IAsyncJobWithResult<SqlJobData, string>
 {
     private readonly ISqlConnectionFactory _connectionFactory = connectionFactory;
 

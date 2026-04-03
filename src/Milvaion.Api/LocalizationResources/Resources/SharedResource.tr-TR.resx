@@ -809,19 +809,250 @@ Maksimum dosya boyutu:
   <data name="Global.Job" xml:space="preserve">
   <value>İş</value>
 </data>
-<data name="Global.JobType" xml:space="preserve">
+  <data name="Global.JobType" xml:space="preserve">
   <value>İş Tipi</value>
 </data>
-<data name="CronOrExecuteAtRequired" xml:space="preserve">
+  <data name="CronOrExecuteAtRequired" xml:space="preserve">
   <value>Cron ifadesi veya çalışma zamanı belirtilmelidir</value>
 </data>
-<data name="InvalidCronExpression" xml:space="preserve">
+  <data name="InvalidCronExpression" xml:space="preserve">
   <value>Geçersiz cron ifadesi formatı veya gelecekte çalışma zamanı yok</value>
 </data>
-<data name="ExecuteAtMustBeInFuture" xml:space="preserve">
+  <data name="ExecuteAtMustBeInFuture" xml:space="preserve">
   <value>Çalışma zamanı gelecekte bir tarih olmalıdır</value>
 </data>
-<data name="InvalidJobData" xml:space="preserve">
+  <data name="InvalidJobData" xml:space="preserve">
   <value>İş verisi geçerli JSON formatında olmalıdır</value>
 </data>
+  <data name="Global.ScheduledJob" xml:space="preserve">
+    <value>Job</value>
+  </data>
+  <data name="Global.Worker" xml:space="preserve">
+    <value>Worker</value>
+  </data>
+  <data name="Global.FailedOccurrence" xml:space="preserve">
+    <value>Hatalı Execution</value>
+  </data>
+  <data name="Global.Occurrence" xml:space="preserve">
+    <value>Execution</value>
+  </data>
+  <data name="JobNotFound" xml:space="preserve">
+    <value>Job bulunamadı!</value>
+  </data>
+  <data name="JobType" xml:space="preserve">
+    <value>Job Tipi</value>
+  </data>
+  <data name="WorkerNotFound" xml:space="preserve">
+    <value>Worker bulunamadı!</value>
+  </data>
+  <data name="WorkerId" xml:space="preserve">
+    <value>Worker</value>
+  </data>
+  <data name="OccurrenceId" xml:space="preserve">
+    <value>Execution</value>
+  </data>
+  <data name="FailedOccurrenceNotFound" xml:space="preserve">
+    <value>Hatalı Execution bulunamadı!</value>
+  </data>
+  <data name="JobId" xml:space="preserve">
+    <value>Job</value>
+  </data>
+  <data name="ExternalJobCannotBeModified" xml:space="preserve">
+    <value>External job güncellenemez!</value>
+  </data>
+  <data name="ExternalJobCannotBeTriggered" xml:space="preserve">
+    <value>External job tetiklenemez!</value>
+  </data>
+  <data name="ExternalJobCannotBeCancelled" xml:space="preserve">
+    <value>External job iptal edilemez!</value>
+  </data>
+  <data name="AlertChannelType" xml:space="preserve">
+    <value>Alarm Kanalı</value>
+  </data>
+  <data name="AlertChannelType.GoogleChat" xml:space="preserve">
+    <value>Google Chat</value>
+  </data>
+  <data name="AlertChannelType.Slack" xml:space="preserve">
+    <value>Slack</value>
+  </data>
+  <data name="AlertChannelType.Teams" xml:space="preserve">
+    <value>Teams</value>
+  </data>
+  <data name="AlertChannelType.Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="AlertChannelType.InternalNotification" xml:space="preserve">
+    <value>Uygulama İçi Bildirim</value>
+  </data>
+  <data name="QueueHealthStatus" xml:space="preserve">
+    <value>Kuyruk Sağlığı</value>
+  </data>
+  <data name="QueueHealthStatus.Healthy" xml:space="preserve">
+    <value>Sağlıklı</value>
+  </data>
+  <data name="QueueHealthStatus.Warning" xml:space="preserve">
+    <value>Uyarı</value>
+  </data>
+  <data name="QueueHealthStatus.Critical" xml:space="preserve">
+    <value>Kritik</value>
+  </data>
+  <data name="QueueHealthStatus.Unavailable" xml:space="preserve">
+    <value>Erişilemez</value>
+  </data>
+  <data name="SystemHealth" xml:space="preserve">
+    <value>Sistem Sağlığı</value>
+  </data>
+  <data name="SystemHealth.Healthy" xml:space="preserve">
+    <value>Sağlıklı</value>
+  </data>
+  <data name="SystemHealth.Warning" xml:space="preserve">
+    <value>Uyarı</value>
+  </data>
+  <data name="SystemHealth.Critical" xml:space="preserve">
+    <value>Kritik</value>
+  </data>
+  <data name="SystemHealth.Degraded" xml:space="preserve">
+    <value>Kısıtlanmış</value>
+  </data>
+  <data name="ExportType" xml:space="preserve">
+    <value>Export Tipi</value>
+  </data>
+  <data name="AlertSeverity" xml:space="preserve">
+    <value>Alarm Seviyesi</value>
+  </data>
+  <data name="AlertSeverity.Info" xml:space="preserve">
+    <value>Bilgi</value>
+  </data>
+  <data name="AlertSeverity.Warning" xml:space="preserve">
+    <value>Uyarı</value>
+  </data>
+  <data name="AlertSeverity.Error" xml:space="preserve">
+    <value>Hata</value>
+  </data>
+  <data name="AlertSeverity.Critical" xml:space="preserve">
+    <value>Kritik</value>
+  </data>
+  <data name="AlertType" xml:space="preserve">
+    <value>Alert Tipi</value>
+  </data>
+  <data name="AlertType.All" xml:space="preserve">
+    <value>Hepsi</value>
+  </data>
+  <data name="AlertType.JobDispatcherMemoryUsageCritical" xml:space="preserve">
+    <value>Kullanım Kritik</value>
+  </data>
+  <data name="AlertType.DatabaseConnectionFailed" xml:space="preserve">
+    <value>Bağlantı Başarısız</value>
+  </data>
+  <data name="AlertType.ZombieOccurrenceDetected" xml:space="preserve">
+    <value>Zombi Execution Tespit Edildi</value>
+  </data>
+  <data name="AlertType.JobAutoDisabled" xml:space="preserve">
+    <value>Job Otomatik Devre Dışı Bırakıldı</value>
+  </data>
+  <data name="AlertType.QueueDepthCritical" xml:space="preserve">
+    <value>Kuyruk Derinliği Kritik</value>
+  </data>
+  <data name="AlertType.WorkerDisconnected" xml:space="preserve">
+    <value>Worker Bağlantısı Koptu</value>
+  </data>
+  <data name="AlertType.RedisConnectionFailed" xml:space="preserve">
+    <value>Redis Bağlantısı Başarısız</value>
+  </data>
+  <data name="AlertType.RabbitMQConnectionFailed" xml:space="preserve">
+    <value>RabbitMQ Bağlantısı Başarısız</value>
+  </data>
+  <data name="AlertType.JobExecutionFailed" xml:space="preserve">
+    <value>Job Execution Başarısız</value>
+  </data>
+  <data name="AlertType.UnknownException" xml:space="preserve">
+    <value>Bilinmeyen Hata</value>
+  </data>
+  <data name="AlertType.FailedOccurrenceReceived" xml:space="preserve">
+    <value>Hatalı Execution Bulundu</value>
+  </data>
+  <data name="AlertType.ServiceDegraded" xml:space="preserve">
+    <value>Servis Kısıtlandı</value>
+  </data>
+  <data name="AlertType.MemoryLeakDetected" xml:space="preserve">
+    <value>Leak Tespit Edildi</value>
+  </data>
+  <data name="NotificationEntity" xml:space="preserve">
+    <value>Bildirim</value>
+  </data>
+  <data name="NotificationEntity.None" xml:space="preserve">
+    <value>Hiçbiri</value>
+  </data>
+  <data name="UserType" xml:space="preserve">
+    <value>Kullanıcı Tipi</value>
+  </data>
+  <data name="PG.InternalNotificationManagement" xml:space="preserve">
+    <value>Uygulama İçi Bildirim yetkileri</value>
+  </data>
+  <data name="PG.ScheduledJobManagement" xml:space="preserve">
+    <value>Job Yönetimi yetkileri</value>
+  </data>
+  <data name="PG.WorkerManagement" xml:space="preserve">
+    <value>Worker yönetimi yetkileri</value>
+  </data>
+  <data name="PG.SystemAdministration" xml:space="preserve">
+    <value>Admin yetkileri</value>
+  </data>
+  <data name="PG.FailedOccurrenceManagement" xml:space="preserve">
+    <value>Hatalı Execution yetkileri</value>
+  </data>
+  <data name="Global.ActivityLog" xml:space="preserve">
+    <value>Aktivite Logu</value>
+  </data>
+  <data name="Global.Permission" xml:space="preserve">
+    <value>Yetki</value>
+  </data>
+  <data name="Global.RolePermissionRelation" xml:space="preserve">
+    <value>Yetki</value>
+  </data>
+  <data name="Global.UserRoleRelation" xml:space="preserve">
+    <value>Rol</value>
+  </data>
+  <data name="Global.UserSession" xml:space="preserve">
+    <value>Session</value>
+  </data>
+  <data name="Global.UserSessionHistory" xml:space="preserve">
+    <value>Session Geçmişi</value>
+  </data>
+  <data name="Global.MigrationHistory" xml:space="preserve">
+    <value>Migration History</value>
+  </data>
+  <data name="Global.EfMigrationHistory" xml:space="preserve">
+    <value>Migration History</value>
+  </data>
+  <data name="Global.MenuGroup" xml:space="preserve">
+    <value>Menu Group</value>
+  </data>
+  <data name="Global.MenuItem" xml:space="preserve">
+    <value>Menu Item</value>
+  </data>
+  <data name="Global.PageAction" xml:space="preserve">
+    <value>Page Action</value>
+  </data>
+  <data name="ScheduledJobManagement" xml:space="preserve">
+    <value>Job</value>
+  </data>
+  <data name="WorkerManagement" xml:space="preserve">
+    <value>Worker</value>
+  </data>
+  <data name="SystemAdministration" xml:space="preserve">
+    <value>Admin İşlemleri</value>
+  </data>
+  <data name="FailedOccurrenceManagement" xml:space="preserve">
+    <value>Hatalı Execution</value>
+  </data>
+  <data name="InternalNotificationManagement" xml:space="preserve">
+    <value>Uygulama İçi Bildirim</value>
+  </data>
+  <data name="PG.Cancel" xml:space="preserve">
+    <value>Job İptali</value>
+  </data>
+  <data name="PG.Trigger" xml:space="preserve">
+    <value>Job manuel tetikleme</value>
+  </data>
 </root>
