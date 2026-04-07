@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Devoplus.JobForge;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Milvasoft.Milvaion.Sdk.Worker;
 
@@ -9,6 +10,9 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+
+// Register infrastructure (MongoDB, mail queue, http client)
+builder.Services.AddJobForgeInfrastructure(builder.Configuration);
 
 // Register Worker SDK with auto job discovery and consumer registration
 builder.Services.AddMilvaionWorkerWithJobs(builder.Configuration);

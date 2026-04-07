@@ -1,11 +1,10 @@
-name: SampleHangfireWorker Docker Build & Push
+name: Devoplus.JobForge Docker Build & Push
 
 on:
   push:
     branches: [ master ]
     paths:
-      - 'src/Workers/SampleHangfireWorker/**'
-      - 'src/Sdk/**'
+      - 'src/Workers/Devoplus.JobForge/**'
       - '**/Directory.Build.props'
   workflow_dispatch:
 
@@ -28,7 +27,7 @@ jobs:
 
       - name: Read VERSION file
         id: version
-        run: echo "VERSION=$(cat src/Workers/SampleHangfireWorker/VERSION)" >> $GITHUB_OUTPUT
+        run: echo "VERSION=$(cat src/Workers/Devoplus.JobForge/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Prepare platform pair
         run: |
@@ -49,9 +48,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./src/Workers/SampleHangfireWorker/Dockerfile
+          file: ./src/Workers/Devoplus.JobForge/Dockerfile
           platforms: ${{ matrix.platform }}
-          outputs: type=image,"name=${{ secrets.DOCKERHUB_USERNAME }}/milvaion-sample-hangfire-worker",push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=${{ secrets.DOCKERHUB_USERNAME }}/milvaion-devoplus-jobforge",push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=build-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=build-${{ env.PLATFORM_PAIR }}
           provenance: mode=max
@@ -94,9 +93,9 @@ jobs:
       - name: Create manifest list and push
         run: |
           docker buildx imagetools create \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-sample-hangfire-worker:latest \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-sample-hangfire-worker:${{ needs.build.outputs.version }} \
-            $(printf '${{ secrets.DOCKERHUB_USERNAME }}/milvaion-sample-hangfire-worker@sha256:%s ' $(ls /tmp/digests/))
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-devoplus-jobforge:latest \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/milvaion-devoplus-jobforge:${{ needs.build.outputs.version }} \
+            $(printf '${{ secrets.DOCKERHUB_USERNAME }}/milvaion-devoplus-jobforge@sha256:%s ' $(ls /tmp/digests/))
 
       - name: Image digest
-        run: echo "SampleHangfireWorker image pushed with version ${{ needs.build.outputs.version }}"
+        run: echo "Devoplus.JobForge image pushed with version ${{ needs.build.outputs.version }}"

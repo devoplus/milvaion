@@ -9,6 +9,7 @@
     <AdditionalComposeFiles>docker-compose.debug.yml</AdditionalComposeFiles>
   </PropertyGroup>
   <ItemGroup>
+    <None Include=".github\workflows\devoplus-jobforge-docker-build.yml" />
     <None Include="docker-compose.yml" />
     <None Include="docker-compose.debug.yml" />
   </ItemGroup>
