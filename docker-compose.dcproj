@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include=".github\workflows\devoplus-jobforge-docker-build.yml" />
+    <None Include=".github\workflows\suvari-scheduledtasks-docker-build.yml" />
     <None Include="docker-compose.yml" />
     <None Include="docker-compose.debug.yml" />
   </ItemGroup>
