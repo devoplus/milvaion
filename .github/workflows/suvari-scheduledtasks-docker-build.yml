@@ -131,5 +131,5 @@ jobs:
           mkdir -p ~/milvaion
           cp ${{ github.workspace }}/docker-compose.yml ~/milvaion/docker-compose.yml
           docker pull ghcr.io/${{ github.repository_owner }}/milvaion-suvari-scheduled-tasks:latest
-          docker compose -f ~/milvaion/docker-compose.yml up -d suvari-scheduled-tasks --no-deps
+          docker compose -f ~/milvaion/docker-compose.yml up -d suvari-scheduled-tasks --no-deps --force-recreate
           docker image prune -f
