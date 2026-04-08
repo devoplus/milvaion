@@ -128,6 +128,8 @@ jobs:
         env:
           MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
         run: |
+          mkdir -p ~/milvaion
+          cp ${{ github.workspace }}/docker-compose.yml ~/milvaion/docker-compose.yml
           docker pull ghcr.io/${{ github.repository_owner }}/milvaion-devoplus-jobforge:latest
-          docker compose -f ${{ github.workspace }}/docker-compose.yml up -d devoplus-jobforge --no-deps
+          docker compose -f ~/milvaion/docker-compose.yml up -d devoplus-jobforge --no-deps
           docker image prune -f

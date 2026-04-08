@@ -128,6 +128,8 @@ jobs:
         env:
           SVR_MONGODB_CONNECTION_STRING: ${{ secrets.SVR_MONGODB_CONNECTION_STRING }}
         run: |
+          mkdir -p ~/milvaion
+          cp ${{ github.workspace }}/docker-compose.yml ~/milvaion/docker-compose.yml
           docker pull ghcr.io/${{ github.repository_owner }}/milvaion-suvari-scheduled-tasks:latest
-          docker compose -f ${{ github.workspace }}/docker-compose.yml up -d suvari-scheduled-tasks --no-deps
+          docker compose -f ~/milvaion/docker-compose.yml up -d suvari-scheduled-tasks --no-deps
           docker image prune -f

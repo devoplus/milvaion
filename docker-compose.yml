@@ -118,9 +118,7 @@
 
   # Milvaion API (Producer/Scheduler)
   milvaion-api:
-    build:
-      context: .
-      dockerfile: src/Milvaion.Api/Dockerfile
+    image: ghcr.io/devoplus/milvaion-api:latest
     container_name: milvaion-api
     environment:
       - ASPNETCORE_ENVIRONMENT=Production

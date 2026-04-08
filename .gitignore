@@ -362,3 +362,10 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /CoverageReport
+
+# Environment secrets - never commit to git
+.env
+**/.env
+.env.*
+!.env.example
+
