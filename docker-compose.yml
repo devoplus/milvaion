@@ -194,7 +194,7 @@
       - Worker__Redis__ConnectionString=redis:6379
       - "Worker__Redis__CancellationChannel=Milvaion:JobScheduler:cancellation_channel"
       - Worker__Heartbeat__Enabled=true
-      - Worker__Heartbeat__IntervalSeconds=5
+      - Worker__Heartbeat__IntervalSeconds=30
     depends_on:
       rabbitmq:
         condition: service_healthy

@@ -12,7 +12,7 @@ public class SimpleJob : IAsyncJob
         context.LogInformation("🚀 SimpleJob started!");
         context.LogInformation($"Job ID: {context.Job.Id}");
         context.LogInformation($"Job Type: {context.Job.JobNameInWorker}");
-        context.LogInformation($"CorrelationId: {context.CorrelationId}");
+        context.LogInformation($"OccurrenceId: {context.OccurrenceId}");
         context.LogInformation($"WorkerId: {context.WorkerId}");
 
         // Simulate work
