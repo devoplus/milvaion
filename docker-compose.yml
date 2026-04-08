@@ -180,25 +180,23 @@
     deploy:
       replicas: 1
       
-  # SampleWorker for Devoplus (Job Executor) - Scalable
-  test-worker-devoplus:
-    build:
-      context: .
-      dockerfile: src/Workers/Devoplus.JobForge/Dockerfile
+  # Devoplus JobForge Worker
+  devoplus-jobforge:
+    image: ghcr.io/devoplus/milvaion-devoplus-jobforge:latest
+    container_name: devoplus-jobforge
     environment:
-      - Worker__WorkerId=test-worker-devoplus
+      - DOTNET_ENVIRONMENT=Production
+      - MongoDB__ConnectionString=${MONGODB_CONNECTION_STRING}
+      - MongoDB__DatabaseName=SvrTech
+      - MongoDB__MailQueueDatabaseName=MailQueue
       - Worker__RabbitMQ__Host=rabbitmq
       - Worker__RabbitMQ__Port=5672
       - Worker__RabbitMQ__Username=guest
       - Worker__RabbitMQ__Password=guest
-      - Worker__RabbitMQ__QueueName=scheduled_jobs_queue
-      - Worker__RabbitMQ__WorkerLogsQueueName=worker_logs_queue
-      - Worker__RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
-      - Worker__RabbitMQ__ExchangeName=jobs.topic
       - Worker__Redis__ConnectionString=redis:6379
       - "Worker__Redis__CancellationChannel=Milvaion:JobScheduler:cancellation_channel"
       - Worker__Heartbeat__Enabled=true
-      - Worker__Heartbeat__IntervalSeconds=30
+      - Worker__Heartbeat__IntervalSeconds=5
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -210,30 +208,26 @@
       - milvaion-network
     restart: unless-stopped
     mem_limit: 1024m
-    stop_grace_period: 60s  # Allow time for running jobs to complete
-    # Enable scaling: docker-compose up --scale test-worker=4 -d
-    deploy:
-      replicas: 1
+    stop_grace_period: 60s
       
-  # SampleWorker for suvari (Job Executor) - Scalable
-  test-worker-suvari:
-    build:
-      context: .
-      dockerfile: src/Workers/Suvari.ScheduledTasks/Dockerfile
+  # Suvari ScheduledTasks Worker
+  suvari-scheduled-tasks:
+    image: ghcr.io/devoplus/milvaion-suvari-scheduled-tasks:latest
+    container_name: suvari-scheduled-tasks
     environment:
-      - Worker__WorkerId=test-worker-suvari
+      - DOTNET_ENVIRONMENT=Production
       - Worker__RabbitMQ__Host=rabbitmq
       - Worker__RabbitMQ__Port=5672
       - Worker__RabbitMQ__Username=guest
       - Worker__RabbitMQ__Password=guest
-      - Worker__RabbitMQ__QueueName=scheduled_jobs_queue
-      - Worker__RabbitMQ__WorkerLogsQueueName=worker_logs_queue
-      - Worker__RabbitMQ__StatusUpdatesQueueName=job_status_updates_queue
-      - Worker__RabbitMQ__ExchangeName=jobs.topic
       - Worker__Redis__ConnectionString=redis:6379
       - "Worker__Redis__CancellationChannel=Milvaion:JobScheduler:cancellation_channel"
       - Worker__Heartbeat__Enabled=true
       - Worker__Heartbeat__IntervalSeconds=30
+      - MongoDB__ConnectionString=${SVR_MONGODB_CONNECTION_STRING}
+      - MongoDB__SettingsDbName=Suvari
+      - MongoDB__LogQueueDbName=LogQueue
+      - MongoDB__LogDbName=Logs
     extra_hosts:
       - "DBP.suvari.local:10.20.65.7"
       - "DBN:10.20.65.100"
@@ -249,10 +243,7 @@
       - milvaion-network
     restart: unless-stopped
     mem_limit: 1024m
-    stop_grace_period: 60s  # Allow time for running jobs to complete
-    # Enable scaling: docker-compose up --scale test-worker=4 -d
-    deploy:
-      replicas: 1
+    stop_grace_period: 60s
       
   # Prometheus - Metrics Collector
   prometheus:

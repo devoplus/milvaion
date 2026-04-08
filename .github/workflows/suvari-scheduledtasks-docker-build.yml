@@ -122,6 +122,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull and restart
+        env:
+          SVR_MONGODB_CONNECTION_STRING: ${{ secrets.SVR_MONGODB_CONNECTION_STRING }}
         run: |
           docker pull ghcr.io/${{ github.repository_owner }}/milvaion-suvari-scheduled-tasks:latest
           docker compose -f ~/milvaion/docker-compose.yml up -d suvari-scheduled-tasks --no-deps

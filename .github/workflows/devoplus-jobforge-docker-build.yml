@@ -122,6 +122,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull and restart
+        env:
+          MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
         run: |
           docker pull ghcr.io/${{ github.repository_owner }}/milvaion-devoplus-jobforge:latest
           docker compose -f ~/milvaion/docker-compose.yml up -d devoplus-jobforge --no-deps
