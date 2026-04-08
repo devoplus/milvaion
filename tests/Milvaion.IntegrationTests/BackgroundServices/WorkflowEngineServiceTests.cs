@@ -1185,7 +1185,7 @@ public class WorkflowEngineServiceTests(ServicesWebApplicationFactory factory, I
         await disabledEngine.StartAsync(cts.Token);
 
         // Brief delay to let any residual engine iterations from prior tests drain
-        await Task.Delay(TimeSpan.FromSeconds(2), cts.Token);
+        await Task.Delay(TimeSpan.FromSeconds(8), cts.Token);
 
         // Now create the workflow run — no other enabled engine should be polling at this point
         var workflow = await SeedWorkflowWithSingleStepAsync("Disabled Engine Workflow");

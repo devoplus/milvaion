@@ -112,6 +112,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
             Environment.SetEnvironmentVariable("MilvaionConfig__ZombieOccurrenceDetector__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__FailedOccurrenceHandler__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__WorkflowEngine__Enabled", "false");
+            Environment.SetEnvironmentVariable("MilvaionConfig__JobDispatcher__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__LogCollector__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__Logging__Seq__Enabled", "false");
 
@@ -217,6 +218,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
                                                                                  ["MilvaionConfig:WorkerAutoDiscovery:Enabled"] = "false",
                                                                                  ["MilvaionConfig:ZombieOccurrenceDetector:Enabled"] = "false",
                                                                                  ["MilvaionConfig:FailedOccurrenceHandler:Enabled"] = "false",
+                                                                                 ["MilvaionConfig:JobDispatcher:Enabled"] = "false",
                                                                                  ["MilvaionConfig:LogCollector:Enabled"] = "false",
                                                                                  ["MilvaionConfig:Alerting"] = "{}",
                                                                                  ["MilvaionConfig:Logging:Seq:Enabled"] = "false",

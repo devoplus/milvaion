@@ -107,8 +107,8 @@ public class RabbitMQPublisher : IRabbitMQPublisher
                                             body: body,
                                             cancellationToken: cancellationToken);
 
-            // Give broker up to 1s to return the message if no queue matches
-            var completedTask = await Task.WhenAny(returnTcs.Task, Task.Delay(1000, cancellationToken));
+            // Give broker up to 500ms to return the message if no queue matches
+            var completedTask = await Task.WhenAny(returnTcs.Task, Task.Delay(500, cancellationToken));
             var returnedReason = completedTask == returnTcs.Task ? await returnTcs.Task : null;
 
             if (returnedReason != null)
