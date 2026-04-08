@@ -28,7 +28,11 @@ public class JobDispatcherServiceTests(ServicesWebApplicationFactory factory, IT
     public async Task DispatchDueJobs_ShouldCreateOccurrenceAndPublishToRabbitMQ()
     {
         // Arrange
-        await InitializeAsync();
+        // Disable hosted JobDispatcherService to prevent race with test-created dispatcher
+        await InitializeAsync(configureServices: services =>
+        {
+            services.Configure<JobDispatcherOptions>(opts => opts.Enabled = false);
+        });
 
         var uniqueJobName = $"DispatchTestJob_{Guid.CreateVersion7():N}";
         var job = await SeedScheduledJobAsync(
