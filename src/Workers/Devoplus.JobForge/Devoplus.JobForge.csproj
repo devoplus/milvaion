@@ -10,9 +10,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
-    <PackageReference Include="Milvasoft.Milvaion.Sdk.Worker" Version="10.1.0" />
     <PackageReference Include="MongoDB.Driver" Version="3.7.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Sdk\Milvasoft.Milvaion.Sdk.Worker\Milvasoft.Milvaion.Sdk.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>
