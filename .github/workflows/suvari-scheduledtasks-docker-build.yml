@@ -114,6 +114,9 @@ jobs:
     permissions:
       packages: read
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -126,5 +129,5 @@ jobs:
           SVR_MONGODB_CONNECTION_STRING: ${{ secrets.SVR_MONGODB_CONNECTION_STRING }}
         run: |
           docker pull ghcr.io/${{ github.repository_owner }}/milvaion-suvari-scheduled-tasks:latest
-          docker compose -f ~/milvaion/docker-compose.yml up -d suvari-scheduled-tasks --no-deps
+          docker compose -f ${{ github.workspace }}/docker-compose.yml up -d suvari-scheduled-tasks --no-deps
           docker image prune -f

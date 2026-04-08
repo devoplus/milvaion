@@ -114,6 +114,9 @@ jobs:
     permissions:
       packages: read
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -126,5 +129,5 @@ jobs:
           MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
         run: |
           docker pull ghcr.io/${{ github.repository_owner }}/milvaion-devoplus-jobforge:latest
-          docker compose -f ~/milvaion/docker-compose.yml up -d devoplus-jobforge --no-deps
+          docker compose -f ${{ github.workspace }}/docker-compose.yml up -d devoplus-jobforge --no-deps
           docker image prune -f
