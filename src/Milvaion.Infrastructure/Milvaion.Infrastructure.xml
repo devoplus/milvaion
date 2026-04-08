@@ -406,15 +406,15 @@
             Dequeues all messages from the batch queue.
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.RequeueMessages(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.RequeueMessages(System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage,System.UInt64}})">
             <summary>
-            Re-queues messages back to the batch queue for retry.
+            Re-queues messages back to the batch queue for retry (delivery tags preserved — NOT ACK'd).
             </summary>
         </member>
-        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DeduplicateByOccurrenceId(System.Collections.Generic.List{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage})">
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.DeduplicateByOccurrenceId(System.Collections.Generic.List{System.ValueTuple{Milvasoft.Milvaion.Sdk.Domain.JsonModels.JobStatusUpdateMessage,System.UInt64}})">
             <summary>
-            Deduplicates messages by OccurrenceId (message.OccurrenceId is Occurrence.Id).
-            Last update wins for same occurrence.
+            Deduplicates messages by OccurrenceId (last update wins) and collects all delivery tags.
+            Returns both the deduplicated status map and ALL delivery tags (including duplicates) for ACK.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.StatusTrackerService.FetchOccurrencesAsync(Milvaion.Infrastructure.Persistence.Context.MilvaionDbContext,System.Collections.Generic.List{System.Guid},System.Threading.CancellationToken)">
