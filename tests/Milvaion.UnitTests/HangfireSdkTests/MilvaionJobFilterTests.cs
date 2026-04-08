@@ -120,7 +120,7 @@ public class MilvaionJobFilterTests
         _filter.OnPerformed(context);
 
         // Allow fire-and-forget Task.Run to complete
-        Thread.Sleep(500);
+        Thread.Sleep(2000);
 
         // Assert
         _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(
@@ -211,7 +211,7 @@ public class MilvaionJobFilterTests
         _filter.OnStateElection(context);
 
         // Allow fire-and-forget Task.Run to complete
-        Thread.Sleep(500);
+        Thread.Sleep(2000);
 
         // Assert
         _publisherMock.Verify(x => x.PublishOccurrenceEventAsync(

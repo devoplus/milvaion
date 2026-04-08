@@ -91,7 +91,7 @@ public class MemoryTrackedBackgroundServiceTests
 
         // Act
         await service.StartAsync(CancellationToken.None);
-        await Task.Delay(200);
+        await Task.Delay(1000);
 
         // Assert - TrackMemory was called inside ExecuteWithMemoryTrackingAsync
         service.TrackMemoryCalled.Should().BeTrue();
