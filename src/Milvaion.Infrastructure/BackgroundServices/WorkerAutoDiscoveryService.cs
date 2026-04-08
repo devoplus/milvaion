@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -7,6 +8,7 @@ using Milvaion.Application.Interfaces.Redis;
 using Milvaion.Application.Utils.Constants;
 using Milvaion.Infrastructure.BackgroundServices.Base;
 using Milvaion.Infrastructure.Extensions;
+using Milvaion.Infrastructure.Persistence.Context;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvaion.Infrastructure.Telemetry;
 using Milvasoft.Core.Abstractions;
@@ -207,6 +209,9 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
                 _metrics.RecordWorkerRegistration(registration.WorkerId);
 
                 _logger.Information("Worker {WorkerId} (Instance: {InstanceId}) registered in Redis. Total instances: {Count}", registration.WorkerId, registration.InstanceId, instanceCount);
+
+                // Fire-and-forget: sync RoutingPatterns in DB for this worker's jobs
+                _ = Task.Run(() => SyncRoutingPatternsAsync(registration, CancellationToken.None), CancellationToken.None);
             }
             else
             {
@@ -396,6 +401,66 @@ public class WorkerAutoDiscoveryService(IRedisWorkerService redisWorkerService,
 
         await base.StopAsync(cancellationToken);
         _logger.Information("Worker auto discovery stopped");
+    }
+
+    private async Task SyncRoutingPatternsAsync(WorkerDiscoveryRequest registration, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (registration.RoutingPatterns == null || registration.RoutingPatterns.Count == 0)
+                return;
+
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+            foreach (var (jobTypeName, newPattern) in registration.RoutingPatterns)
+            {
+                try
+                {
+                    var updatedCount = await dbContext.ScheduledJobs
+                        .Where(j => j.JobNameInWorker == jobTypeName && j.WorkerId == registration.WorkerId)
+                        .ExecuteUpdateAsync(s => s.SetProperty(j => j.RoutingPattern, newPattern), cancellationToken);
+
+                    if (updatedCount > 0)
+                    {
+                        _logger.Information("Updated RoutingPattern for {Count} '{JobType}' jobs (WorkerId={WorkerId}): {Pattern}", updatedCount, jobTypeName, registration.WorkerId, newPattern);
+                        continue;
+                    }
+
+                    // Check for stale jobs assigned to a different (possibly inactive) worker
+                    var staleJob = await dbContext.ScheduledJobs
+                        .Where(j => j.JobNameInWorker == jobTypeName && j.WorkerId != registration.WorkerId)
+                        .Select(j => new { j.Id, j.WorkerId })
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (staleJob == null)
+                        continue;
+
+                    var oldWorker = await _redisWorkerService.GetWorkerAsync(staleJob.WorkerId, cancellationToken);
+                    var isOldWorkerActive = oldWorker?.Instances?.Count > 0;
+
+                    if (!isOldWorkerActive)
+                    {
+                        var reassigned = await dbContext.ScheduledJobs
+                            .Where(j => j.JobNameInWorker == jobTypeName && j.WorkerId == staleJob.WorkerId)
+                            .ExecuteUpdateAsync(s => s
+                                .SetProperty(j => j.WorkerId, registration.WorkerId)
+                                .SetProperty(j => j.RoutingPattern, newPattern), cancellationToken);
+
+                        if (reassigned > 0)
+                            _logger.Information("Reassigned {Count} stale '{JobType}' jobs from inactive worker '{OldWorker}' to '{NewWorker}' with pattern '{Pattern}'", reassigned, jobTypeName, staleJob.WorkerId, registration.WorkerId, newPattern);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Failed to sync routing pattern for job type '{JobType}'", jobTypeName);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "SyncRoutingPatternsAsync failed for worker '{WorkerId}'", registration.WorkerId);
+        }
     }
 
     /// <summary>

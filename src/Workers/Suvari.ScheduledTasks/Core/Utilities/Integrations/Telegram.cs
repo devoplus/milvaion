@@ -16,7 +16,21 @@ namespace Suvari.ScheduledTasks.Core.Utilities.Integrations;
 /// </summary>
 public class Telegram
 {
-    private static MongoClient _mongo = new MongoClient(SettingsExtensions.Default.MongoConnectionString);
+    private static MongoClient _mongo;
+    private static MongoClient GetMongo()
+    {
+        if (_mongo != null)
+            return _mongo;
+
+        var connStr = SettingsExtensions.Default.MongoConnectionString;
+
+        if (string.IsNullOrWhiteSpace(connStr))
+            throw new InvalidOperationException("Telegram: MongoDB bağlantı dizesi boş — SettingsExtensions.Default.MongoConnectionString henüz yapılandırılmamış.");
+
+        _mongo = new MongoClient(connStr);
+
+        return _mongo;
+    }
 
     /// <summary>
     /// Mevcut tanımlı kanallar
@@ -67,7 +81,7 @@ public class Telegram
     {
         try
         {
-            IMongoDatabase logQueueDb = _mongo.GetDatabase(SettingsExtensions.Default.LogQueueDbName);
+            IMongoDatabase logQueueDb = GetMongo().GetDatabase(SettingsExtensions.Default.LogQueueDbName);
             var collection = logQueueDb.GetCollection<LogQueue>("LogQueue");
 
             collection.InsertOne(new LogQueue
