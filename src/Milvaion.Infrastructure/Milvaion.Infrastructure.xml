@@ -331,9 +331,22 @@
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.PerformStartupRecoveryAsync(System.Threading.CancellationToken)">
+             <summary>
+             Performs startup recovery (zombie detection and Redis repopulation).
+             Uses distributed lock to ensure only one instance performs recovery at a time (multi-instance safe).
+            
+             Sequential (blocks dispatcher start):
+               STEP 1 — Stale Redis cleanup (required before dispatcher polls Redis)
+               STEP 3 — Redis repopulation   (required before dispatcher polls Redis)
+            
+             Background (non-blocking):
+               STEP 2 — Zombie occurrence cleanup (DB-only, dispatcher does not depend on it)
+             </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.CleanupZombieOccurrencesAsync(System.Threading.CancellationToken)">
             <summary>
-            Performs startup recovery (zombie detection and Redis repopulation).
-            Uses distributed lock to ensure only one instance performs recovery at a time (multi-instance safe).
+            Cleans up zombie occurrences (Queued/Running) left over from a previous run.
+            Runs in the background after startup so it does not delay dispatcher start.
             </summary>
         </member>
         <member name="M:Milvaion.Infrastructure.BackgroundServices.JobDispatcherService.WaitForDatabaseReadyAsync(System.Threading.CancellationToken)">

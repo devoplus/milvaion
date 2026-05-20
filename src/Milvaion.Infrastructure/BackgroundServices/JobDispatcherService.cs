@@ -933,6 +933,13 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
     /// <summary>
     /// Performs startup recovery (zombie detection and Redis repopulation).
     /// Uses distributed lock to ensure only one instance performs recovery at a time (multi-instance safe).
+    ///
+    /// Sequential (blocks dispatcher start):
+    ///   STEP 1 — Stale Redis cleanup (required before dispatcher polls Redis)
+    ///   STEP 3 — Redis repopulation   (required before dispatcher polls Redis)
+    ///
+    /// Background (non-blocking):
+    ///   STEP 2 — Zombie occurrence cleanup (DB-only, dispatcher does not depend on it)
     /// </summary>
     private async Task PerformStartupRecoveryAsync(CancellationToken cancellationToken)
     {
@@ -1005,89 +1012,9 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 _logger.Error(ex, "Failed to clean up stale Redis data, continuing with recovery...");
             }
 
-            // STEP 2: Clean up zombie occurrences from previous run
-            _logger.Information("Cleaning up zombie occurrences from previous run...");
-
-            try
-            {
-                var zombieStatuses = new[]
-                {
-                    JobOccurrenceStatus.Queued,
-                    JobOccurrenceStatus.Running
-                };
-
-                // Grace period: Only mark as zombie if older than 2 minutes
-                // This gives running jobs time to complete after restart
-                var zombieThreshold = DateTime.UtcNow.AddMinutes(-2);
-
-                // Mark old Queued/Running occurrences as Failed (system restart)
-                // Use batch processing to avoid timeout on large tables
-                const int zombieBatchSize = 500;
-                var totalZombiesProcessed = 0;
-                List<JobOccurrence> zombieOccurrences;
-
-                do
-                {
-                    zombieOccurrences = await dbContext.JobOccurrences
-                                                       .AsNoTracking()
-                                                       .Where(o => zombieStatuses.Contains(o.Status) && o.CreatedAt < zombieThreshold)
-                                                       .OrderBy(o => o.CreatedAt) // Consistent ordering for batching
-                                                       .Take(zombieBatchSize)
-                                                       .ToListAsync(cancellationToken);
-
-                    if (zombieOccurrences.Count > 0)
-                    {
-                        _logger.Warning("Processing {Count} zombie occurrences (older than 2 minutes), marking as Failed...", zombieOccurrences.Count);
-
-                        var zombieLogs = new List<JobOccurrenceLog>();
-
-                        foreach (var occurrence in zombieOccurrences)
-                        {
-                            occurrence.Status = JobOccurrenceStatus.Failed;
-                            occurrence.EndTime = DateTime.UtcNow;
-                            occurrence.Exception = "System restart detected. Job was not completed before shutdown.";
-
-                            zombieLogs.Add(new JobOccurrenceLog
-                            {
-                                Id = Guid.CreateVersion7(),
-                                OccurrenceId = occurrence.Id,
-                                Timestamp = DateTime.UtcNow,
-                                Level = "Warning",
-                                Message = "Job marked as failed due to system restart.",
-                                Category = "StartupRecovery"
-                            });
-                        }
-
-                        await dbContext.BulkUpdateAsync(zombieOccurrences, (bc) =>
-                        {
-                            bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _startupRecoveryUpdatePropNames;
-                        }, cancellationToken: cancellationToken);
-
-                        // Bulk insert zombie recovery logs
-                        if (zombieLogs.Count > 0)
-                        {
-                            var jobOccurrenceLogRepository = scope.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
-                            await jobOccurrenceLogRepository.BulkAddAsync(zombieLogs, cancellationToken: cancellationToken);
-                        }
-
-                        totalZombiesProcessed += zombieOccurrences.Count;
-                        _logger.Debug("Processed batch of {Count} zombie occurrences (total: {Total})", zombieOccurrences.Count, totalZombiesProcessed);
-                    }
-                } while (zombieOccurrences.Count == zombieBatchSize); // Continue if there might be more
-
-                if (totalZombiesProcessed > 0)
-                {
-                    _logger.Information("Cleaned up {Count} zombie occurrences in batches", totalZombiesProcessed);
-                }
-                else
-                {
-                    _logger.Information("No zombie occurrences found (all recent running jobs still have grace period)");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Failed to clean up zombie occurrences, continuing with recovery...");
-            }
+            // STEP 2: Clean up zombie occurrences — runs in the background so the dispatcher
+            // can start immediately. This step is DB-only and the dispatcher does not depend on it.
+            _ = Task.Run(() => CleanupZombieOccurrencesAsync(cancellationToken), cancellationToken);
 
             // STEP 3: Repopulate Redis with active jobs from database
             _logger.Information("Repopulating Redis with active jobs from database...");
@@ -1138,7 +1065,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 }
             }
 
-            _logger.Information("Startup recovery completed. Redis ZSET: {Added} added, {Updated} updated. Cache: {Cached} warmed. Total active jobs: {Total}", addedCount, updatedCount, cachedCount, activeJobs.Count);
+            _logger.Information("Startup recovery (Redis) completed. ZSET: {Added} added, {Updated} updated. Cache: {Cached} warmed. Total active jobs: {Total}. Zombie cleanup running in background.", addedCount, updatedCount, cachedCount, activeJobs.Count);
         }
         finally
         {
@@ -1156,6 +1083,95 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 await redisStatsService.SyncCountersFromDatabaseAsync(dbContext, cancellationToken);
             }, cancellationToken);
 
+        }
+    }
+
+    /// <summary>
+    /// Cleans up zombie occurrences (Queued/Running) left over from a previous run.
+    /// Runs in the background after startup so it does not delay dispatcher start.
+    /// </summary>
+    private async Task CleanupZombieOccurrencesAsync(CancellationToken cancellationToken)
+    {
+        _logger.Information("Background zombie cleanup started...");
+
+        try
+        {
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
+
+            var zombieStatuses = new[]
+            {
+                JobOccurrenceStatus.Queued,
+                JobOccurrenceStatus.Running
+            };
+
+            // Grace period: Only mark as zombie if older than 2 minutes
+            // This gives running jobs time to complete after restart
+            var zombieThreshold = DateTime.UtcNow.AddMinutes(-2);
+
+            const int zombieBatchSize = 500;
+            var totalZombiesProcessed = 0;
+            List<JobOccurrence> zombieOccurrences;
+
+            do
+            {
+                zombieOccurrences = await dbContext.JobOccurrences
+                                                   .AsNoTracking()
+                                                   .Where(o => zombieStatuses.Contains(o.Status) && o.CreatedAt < zombieThreshold)
+                                                   .OrderBy(o => o.CreatedAt)
+                                                   .Take(zombieBatchSize)
+                                                   .ToListAsync(cancellationToken);
+
+                if (zombieOccurrences.Count > 0)
+                {
+                    _logger.Warning("Background zombie cleanup: processing {Count} occurrences (total so far: {Total})...", zombieOccurrences.Count, totalZombiesProcessed);
+
+                    var zombieLogs = new List<JobOccurrenceLog>(zombieOccurrences.Count);
+
+                    foreach (var occurrence in zombieOccurrences)
+                    {
+                        occurrence.Status = JobOccurrenceStatus.Failed;
+                        occurrence.EndTime = DateTime.UtcNow;
+                        occurrence.Exception = "System restart detected. Job was not completed before shutdown.";
+
+                        zombieLogs.Add(new JobOccurrenceLog
+                        {
+                            Id = Guid.CreateVersion7(),
+                            OccurrenceId = occurrence.Id,
+                            Timestamp = DateTime.UtcNow,
+                            Level = "Warning",
+                            Message = "Job marked as failed due to system restart.",
+                            Category = "StartupRecovery"
+                        });
+                    }
+
+                    await dbContext.BulkUpdateAsync(zombieOccurrences, (bc) =>
+                    {
+                        bc.PropertiesToInclude = bc.PropertiesToIncludeOnUpdate = _startupRecoveryUpdatePropNames;
+                    }, cancellationToken: cancellationToken);
+
+                    if (zombieLogs.Count > 0)
+                    {
+                        var jobOccurrenceLogRepository = scope.ServiceProvider.GetRequiredService<IMilvaionRepositoryBase<JobOccurrenceLog>>();
+                        await jobOccurrenceLogRepository.BulkAddAsync(zombieLogs, cancellationToken: cancellationToken);
+                    }
+
+                    totalZombiesProcessed += zombieOccurrences.Count;
+                }
+            } while (zombieOccurrences.Count == zombieBatchSize);
+
+            if (totalZombiesProcessed > 0)
+                _logger.Information("Background zombie cleanup completed. Cleaned up {Count} occurrences.", totalZombiesProcessed);
+            else
+                _logger.Information("Background zombie cleanup completed. No zombie occurrences found.");
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Warning("Background zombie cleanup cancelled (application shutting down).");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Background zombie cleanup failed.");
         }
     }
 
