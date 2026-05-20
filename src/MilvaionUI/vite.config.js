@@ -1,9 +1,14 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const basePath = env.VITE_BASE_PATH || '/'
+  // Ensure basePath ends with / for Vite base option
+  const viteBase = basePath.endsWith('/') ? basePath : basePath + '/'
+  return {
   plugins: [
     react(),
     VitePWA({
@@ -17,8 +22,8 @@ export default defineConfig({
         background_color: '#242424',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: viteBase,
+        start_url: viteBase,
         icons: [
           {
             src: 'web-app-manifest-192x192.png',
@@ -98,21 +103,25 @@ export default defineConfig({
       }
     })
   ],
+  base: viteBase,
   server: {
     port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/hubs': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
-        ws: true, // Enable WebSocket proxying for SignalR
+    proxy: (() => {
+      const prefix = basePath === '/' ? '' : basePath
+      return {
+        [`${prefix}/api`]: {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+          secure: false,
+        },
+        [`${prefix}/hubs`]: {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+          secure: false,
+          ws: true,
+        }
       }
-    }
+    })()
   },
   build: {
     outDir: 'dist',
@@ -129,5 +138,6 @@ export default defineConfig({
     },
     // Copy PWA icons to dist
     copyPublicDir: true
+  }
   }
 })

@@ -115,6 +115,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
             Environment.SetEnvironmentVariable("MilvaionConfig__LogCollector__Enabled", "false");
             Environment.SetEnvironmentVariable("MilvaionConfig__Logging__Seq__Enabled", "false");
 
+            // Allow subclasses to inject additional env vars before the host build.
+            ConfigureAdditionalEnvironmentVariables();
+
             // Trigger host build — this reads env vars during Program.cs execution
             _ = Services;
         }
@@ -123,6 +126,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<IApiMarker>, IA
             _hostBuildLock.Release();
         }
     }
+
+    /// <summary>
+    /// Override in subclasses to set additional environment variables before the host is built.
+    /// Called inside the host-build lock, after all base env vars are set.
+    /// </summary>
+    protected virtual void ConfigureAdditionalEnvironmentVariables() { }
 
     public async Task CreateRespawner() => _respawner ??= await Respawner.CreateAsync(_connection, new RespawnerOptions
     {

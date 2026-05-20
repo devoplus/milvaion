@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import jobService from '../../services/jobService'
 import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
@@ -20,6 +20,7 @@ import AuditInfoCard from '../../components/AuditInfoCard'
 
 function JobDetail() {
 const { id } = useParams()
+const navigate = useNavigate()
 const [job, setJob] = useState(null)
 const [occurrences, setOccurrences] = useState([])
 const [totalCount, setTotalCount] = useState(0)
@@ -383,7 +384,7 @@ const { modalProps: deleteModalProps, showConfirm, showSuccess, showError } = us
 
       await showSuccess('Job deleted successfully')
       // Navigate back to jobs list after successful deletion
-      window.location.href = '/jobs'
+      navigate('/jobs')
     } catch (err) {
       await showError('Failed to delete job. Please try again.')
       console.error(err)

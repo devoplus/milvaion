@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import jobService from '../../services/jobService'
 import CronDisplay from '../../components/CronDisplay'
 import Modal from '../../components/Modal'
@@ -14,6 +14,7 @@ import './JobList.css'
 
 function JobList() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -335,7 +336,7 @@ function JobList() {
                 <div
                   key={job.id}
                   className={`job-card ${job.isActive ? 'active' : 'inactive'}`}
-                  onClick={() => window.location.href = `/jobs/${job.id}`}
+                  onClick={() => navigate(`/jobs/${job.id}`)}
                   style={{ cursor: 'pointer' }}
                 >
                   <div className="job-card-header">
@@ -432,11 +433,11 @@ function JobList() {
                     <tr
                       key={job.id}
                       className={`job-table-row ${job.isActive ? 'active' : 'inactive'}`}
-                      onClick={() => window.location.href = `/jobs/${job.id}`}
+                      onClick={() => navigate(`/jobs/${job.id}`)}
                       style={{ cursor: 'pointer' }}
                     >
                       <td>
-                        <div className={`job-status-indicator ${job.isActive ? 'active' : 'inactive'}`}>
+                        <div className={`job-status-indicator`}>
                           <Icon name={job.isActive ? 'check_circle' : 'cancel'} size={20} />
                         </div>
                       </td>

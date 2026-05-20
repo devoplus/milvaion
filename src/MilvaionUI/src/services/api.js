@@ -1,8 +1,11 @@
 import axios from 'axios'
 import authService from './authService'
 
+const basePath = (import.meta.env.VITE_BASE_PATH || '').replace(/\/$/, '')
+const loginPath = `${basePath}/login`
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || `${basePath}/api/v1`,
   headers: {
     'Content-Type': 'application/json',
     'Accept-Language': 'en-US',
@@ -62,8 +65,8 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401) {
       authService.clearAuth()
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+      if (window.location.pathname !== loginPath) {
+        window.location.href = loginPath
       }
       return Promise.reject(error)
     }
@@ -74,8 +77,8 @@ api.interceptors.response.use(
 
     if (originalRequest.url === '/account/login' || originalRequest.url === '/account/login/refresh') {
       authService.clearAuth()
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+      if (window.location.pathname !== loginPath) {
+        window.location.href = loginPath
       }
       return Promise.reject(error)
     }
@@ -111,8 +114,8 @@ api.interceptors.response.use(
         processQueue(new Error('Token refresh failed'), null)
           authService.clearAuth()
 
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
+          if (window.location.pathname !== loginPath) {
+            window.location.href = loginPath
           }
 
           return Promise.reject(error)
@@ -121,8 +124,8 @@ api.interceptors.response.use(
       processQueue(refreshError, null)
       authService.clearAuth()
 
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+      if (window.location.pathname !== loginPath) {
+        window.location.href = loginPath
       }
 
       return Promise.reject(refreshError)

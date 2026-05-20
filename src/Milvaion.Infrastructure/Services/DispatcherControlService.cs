@@ -49,7 +49,8 @@ public class DispatcherControlService(ILoggerFactory loggerFactory, IOptions<Job
             return;
         }
 
-        var downtime = _stoppedAt.HasValue ? DateTime.UtcNow - _stoppedAt.Value : TimeSpan.Zero;
+        var stoppedAt = _stoppedAt;
+        var downtime = stoppedAt.HasValue ? DateTime.UtcNow - stoppedAt.Value : TimeSpan.Zero;
 
         var previousUser = _stoppedBy;
 

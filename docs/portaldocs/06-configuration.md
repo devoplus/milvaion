@@ -208,6 +208,91 @@ Open telemetry configurations. Set null or empty via environment variables if yo
 | `ConsecutiveFailureThreshold` | `5` | Number of consecutive failures before a job is automatically disabled. Individual jobs can override this with their own AutoDisableThreshold setting. Default: 5 consecutive failures |
 | `FailureWindowMinutes` | `60` | Time window in minutes for counting consecutive failures. Failures older than this window don't count towards the threshold. This prevents jobs from being disabled due to old historical failures. Default: 60 minutes (1 hour) |
 
+### BasePath Configuration
+
+Milvaion API supports hosting under a configurable sub-path (e.g. `/milvaion`) so that both the UI and the backend API can be scoped to a URL prefix. This is useful when deploying behind a reverse proxy alongside other services.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `BasePath` | `""` | URL prefix the application is mounted under. Leave empty to host at the root. Example: `/milvaion` |
+
+When `BasePath` is set:
+
+- The REST API is available at `{BasePath}/api/v1/...` (e.g. `/milvaion/api/v1/jobs`)
+- The SignalR hub is available at `{BasePath}/hubs/jobs`
+- The Prometheus metrics endpoint is available at `{BasePath}/metrics`
+- The Scalar/OpenAPI documentation is available at `{BasePath}/scalar/v1`
+- The SPA (UI) is served at `{BasePath}` and all sub-routes fall back to the SPA index
+
+When `BasePath` is empty or not set, the application is hosted at the root (`/`).
+
+#### Example Configuration
+
+```json
+{
+  "MilvaionConfig": {
+    "BasePath": "/milvaion"
+  }
+}
+```
+
+#### Environment Variable Override
+
+```bash
+MilvaionConfig__BasePath=/milvaion
+```
+
+#### Docker / docker-compose
+
+The official `Dockerfile` already has `VITE_BASE_PATH` defined as a build argument with a default of `/`:
+
+```dockerfile
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+RUN npm run build
+```
+
+To host under `/milvaion`, **you only need to override this in `docker-compose.yml`** — no manual Dockerfile edits required. Pass the value both as a build argument (baked into the frontend bundle at build time) and as a runtime environment variable (consumed by the ASP.NET Core backend):
+
+```yaml
+services:
+  milvaion-api:
+    build:
+      args:
+        VITE_BASE_PATH: /milvaion        # overrides ARG default in Dockerfile
+    environment:
+      - MilvaionConfig__BasePath=/milvaion  # runtime backend config
+```
+
+Both values must match. If you omit `build.args.VITE_BASE_PATH`, the frontend will be built for `/` and navigation/API calls will break even if the backend is correctly configured.
+
+To revert to root hosting, remove both overrides (or set them to `/`):
+
+```yaml
+services:
+  milvaion-api:
+    build:
+      args:
+        VITE_BASE_PATH: /
+    environment:
+      - MilvaionConfig__BasePath=
+```
+
+#### Frontend Environment Variables
+
+The frontend SPA must be built with the matching base path so that Vite asset URLs, React Router navigation, and API/SignalR client URLs align with the backend.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_BASE_PATH` | `/` | URL prefix baked into the frontend bundle at build time. Must match `MilvaionConfig:BasePath`. |
+
+```bash
+# .env.production
+VITE_BASE_PATH=/milvaion
+```
+
+> **Note:** Changing `BasePath` requires rebuilding the frontend bundle because the value is baked in at build time. If you change it at runtime on the backend only, the SPA asset references and client-side navigation will break.
+
 ---
 
 ## Worker Configuration

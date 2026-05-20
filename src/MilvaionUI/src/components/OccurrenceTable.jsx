@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { formatDateTime, formatDuration } from '../utils/dateUtils'
 import './OccurrenceTable.css'
@@ -24,6 +24,7 @@ function OccurrenceTable({
 }) {
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [selectedOccurrences, setSelectedOccurrences] = useState([])
+  const navigate = useNavigate()
 
   // Update current time every second for running occurrences
   useEffect(() => {
@@ -374,7 +375,7 @@ function OccurrenceTable({
                 <tr
                   key={occurrence.id}
                   className={occurrence.status === 1 ? 'occurrence-running' : ''}
-                  onClick={() => window.location.href = `/occurrences/${occurrence.id}`}
+                  onClick={() => navigate(`/occurrences/${occurrence.id}`)}
                   style={{ cursor: 'pointer' }}
                 >
                   <td className="checkbox-column" onClick={(e) => e.stopPropagation()}>

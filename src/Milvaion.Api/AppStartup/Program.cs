@@ -82,6 +82,14 @@ try
     // Configure the HTTP request pipeline.
     var app = builder.Build();
 
+    // PathBase support: when BasePath is configured (e.g. "/milvaion"), all middleware and endpoints (controllers, hubs, static files, SPA fallback) are automatically scoped to it.
+    // UseRouting() MUST be called explicitly right after UsePathBase so that route matching happens on the already-stripped path, not the full original path.
+    if (!string.IsNullOrWhiteSpace(fineConfig?.BasePath))
+    {
+        app.UsePathBase(fineConfig.BasePath);
+        app.UseRouting();
+    }
+
     app.UseCorsFromConfiguration(builder.Configuration);
 
     #region Configure

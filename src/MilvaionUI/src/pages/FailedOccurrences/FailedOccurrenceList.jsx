@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import failedOccurrenceService from '../../services/failedOccurrenceService'
 import { formatDateTime } from '../../utils/dateUtils'
 import Modal from '../../components/Modal'
@@ -11,6 +11,7 @@ import { getApiErrorMessage } from '../../utils/errorUtils'
 import './FailedOccurrenceList.css'
 
 function FailedOccurrenceList() {
+  const navigate = useNavigate()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -404,7 +405,7 @@ function FailedOccurrenceList() {
                   <tr
                     key={job.id}
                     className={job.resolved ? 'resolved-row' : ''}
-                    onClick={() => window.location.href = `/failed-executions/${job.id}`}
+                    onClick={() => navigate(`/failed-executions/${job.id}`)}
                     style={{ cursor: 'pointer' }}
                   >
                     <td className="checkbox-column" onClick={(e) => e.stopPropagation()}>

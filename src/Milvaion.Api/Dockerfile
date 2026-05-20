@@ -16,6 +16,10 @@ RUN npm install --silent --legacy-peer-deps
 # Copy source files
 COPY ["src/MilvaionUI/", "./"]
 
+# Build-time base path — override with --build-arg VITE_BASE_PATH=/milvaion
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+
 # Build production bundle
 RUN npm run build
 

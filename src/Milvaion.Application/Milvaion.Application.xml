@@ -10111,9 +10111,9 @@
         </member>
         <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.BasePath">
             <summary>
-            Optional sub-path under which the application is hosted (e.g. "/milvaion").
-            Leave empty or null when hosted at the root.
-            Must match the VITE_BASE_PATH used when the frontend was built.
+            Optional base path for the application (e.g. "/milvaion").
+            When set, the UI is served at &lt;BasePath&gt; and the API at &lt;BasePath&gt;/api.
+            Leave empty or null to keep the default root behaviour.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.RabbitMQOptions">
