@@ -90,7 +90,7 @@ public class MilvaionJobListenerTests
             .Returns(Task.CompletedTask);
 
         var context = CreateJobExecutionContext("TestJob", "DEFAULT");
-        context.MergedJobDataMap.Put("Milvaion_CorrelationId", Guid.CreateVersion7().ToString());
+        context.MergedJobDataMap["Milvaion_CorrelationId"] = Guid.CreateVersion7().ToString();
 
         // Act
         await _listener.JobWasExecuted(context, null);
@@ -112,7 +112,7 @@ public class MilvaionJobListenerTests
             .Returns(Task.CompletedTask);
 
         var context = CreateJobExecutionContext("TestJob", "DEFAULT");
-        context.MergedJobDataMap.Put("Milvaion_CorrelationId", Guid.CreateVersion7().ToString());
+        context.MergedJobDataMap["Milvaion_CorrelationId"] = Guid.CreateVersion7().ToString();
         var jobException = new JobExecutionException("Test job failed");
 
         // Act
@@ -184,7 +184,7 @@ public class MilvaionJobListenerTests
             .ThrowsAsync(new Exception("Connection lost"));
 
         var context = CreateJobExecutionContext("TestJob", "DEFAULT");
-        context.MergedJobDataMap.Put("Milvaion_CorrelationId", Guid.CreateVersion7().ToString());
+        context.MergedJobDataMap["Milvaion_CorrelationId"] = Guid.CreateVersion7().ToString();
 
         // Act & Assert
         var act = async () => await _listener.JobWasExecuted(context, null);
@@ -243,7 +243,7 @@ public class MilvaionJobListenerTests
             .Returns(Task.CompletedTask);
 
         var context = CreateJobExecutionContext("TestJob", "DEFAULT");
-        context.MergedJobDataMap.Put("Milvaion_CorrelationId", "not-a-guid");
+        context.MergedJobDataMap["Milvaion_CorrelationId"] = "not-a-guid";
 
         // Act
         await _listener.JobWasExecuted(context, null);
@@ -263,7 +263,7 @@ public class MilvaionJobListenerTests
             .Returns(Task.CompletedTask);
 
         var context = CreateJobExecutionContext("TestJob", "DEFAULT");
-        context.MergedJobDataMap.Put("Milvaion_CorrelationId", Guid.CreateVersion7().ToString());
+        context.MergedJobDataMap["Milvaion_CorrelationId"] = Guid.CreateVersion7().ToString();
 
         // Act
         await _listener.JobWasExecuted(context, new JobExecutionException("fail"));
@@ -283,7 +283,7 @@ public class MilvaionJobListenerTests
             .Returns(Task.CompletedTask);
 
         var context = CreateJobExecutionContext("TestJob", "DEFAULT");
-        context.MergedJobDataMap.Put("Milvaion_CorrelationId", Guid.CreateVersion7().ToString());
+        context.MergedJobDataMap["Milvaion_CorrelationId"] = Guid.CreateVersion7().ToString();
 
         // Act
         await _listener.JobWasExecuted(context, null);

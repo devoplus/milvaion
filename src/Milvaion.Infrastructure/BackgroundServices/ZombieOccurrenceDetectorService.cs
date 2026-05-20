@@ -167,7 +167,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
     /// </summary>
     private async Task<(List<JobOccurrence> occurrences, List<JobOccurrenceLog> logs)> DetectZombieQueuedAsync(MilvaionDbContext dbContext, CancellationToken cancellationToken)
     {
-        var queuedOccurrences = await dbContext.JobOccurrences
+        var queuedOccurrences = await dbContext.JobOccurrences.AsNoTracking()
                                                .Where(o => o.Status == JobOccurrenceStatus.Queued
                                                         && (o.WorkflowRunId == null || o.StepStatus != WorkflowStepStatus.Pending))
                                                .Select(JobOccurrence.Projections.DetectZombie)
@@ -248,7 +248,7 @@ public class ZombieOccurrenceDetectorService(IServiceProvider serviceProvider,
     {
         var heartbeatThreshold = DateTime.UtcNow.AddMinutes(-_options.ZombieTimeoutMinutes);
 
-        var lostOccurrences = await dbContext.JobOccurrences
+        var lostOccurrences = await dbContext.JobOccurrences.AsNoTracking()
                                              .Where(o => o.Status == JobOccurrenceStatus.Running && (o.LastHeartbeat == null || o.LastHeartbeat < heartbeatThreshold))
                                              .Select(JobOccurrence.Projections.RecoverLostJob)
                                              .ToListAsync(cancellationToken);

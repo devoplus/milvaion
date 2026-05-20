@@ -732,6 +732,14 @@
             <param name="cancellation"></param>
             <returns></returns>
         </member>
+        <member name="M:Milvaion.Api.Controllers.JobsController.GetJobOccurrencesCursorAsync(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery,System.Threading.CancellationToken)">
+            <summary>
+            Gets job occurrences.
+            </summary>
+            <param name="request"></param>
+            <param name="cancellation"></param>
+            <returns></returns>
+        </member>
         <member name="M:Milvaion.Api.Controllers.JobsController.GetJobOccurrenceDetailAsync(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail.GetJobOccurrenceDetailQuery,System.Threading.CancellationToken)">
             <summary>
             Gets job occurrence detail.
@@ -1297,6 +1305,18 @@
             <inheritdoc />
         </member>
         <member name="M:Milvaion.Api.Migrations.RowLevelAuditing.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Milvaion.Api.Migrations.WorkflowJobDataOverride">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowJobDataOverride.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowJobDataOverride.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Milvaion.Api.Migrations.WorkflowJobDataOverride.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
         <member name="T:Milvaion.Api.Migrations.MigrationHostedService">

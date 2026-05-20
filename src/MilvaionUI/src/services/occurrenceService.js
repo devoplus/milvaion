@@ -1,6 +1,31 @@
 import api from './api'
 
 export const occurrenceService = {
+  // Get all occurrences with cursor-based pagination
+  getAllCursor: async (params = {}) => {
+    const requestBody = {
+      rowCount: params.rowCount || 20,
+      sorting: {
+        sortBy: params.sortBy || 'CreatedAt',
+        type: params.sortType ?? 1, // 1 = Descending
+      },
+    }
+
+    if (params.cursor) {
+      requestBody.cursor = params.cursor
+    }
+
+    if (params.searchTerm) {
+      requestBody.searchTerm = params.searchTerm
+    }
+
+    if (params.filtering) {
+      requestBody.filtering = params.filtering
+    }
+
+    return api.patch('/jobs/occurrences', requestBody)
+  },
+
   // Get all occurrences with pagination
   getAll: async (params = {}) => {
     const requestBody = {

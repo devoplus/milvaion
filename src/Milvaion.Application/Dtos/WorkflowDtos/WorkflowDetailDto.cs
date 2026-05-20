@@ -107,6 +107,16 @@ public class WorkflowStepDto
     public string JobDisplayName { get; set; }
 
     /// <summary>
+    /// Worker ID that owns the job (used for schema lookup in UI).
+    /// </summary>
+    public string WorkerId { get; set; }
+
+    /// <summary>
+    /// Job name in worker (used for schema lookup in UI).
+    /// </summary>
+    public string JobNameInWorker { get; set; }
+
+    /// <summary>
     /// User-friendly label for this step.
     /// </summary>
     public string StepName { get; set; }

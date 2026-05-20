@@ -1,0 +1,260 @@
+/* ── TriggerWorkflowModal ─────────────────────────────────── */
+
+.twm-fetch-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--text-muted);
+}
+
+.twm-modal {
+  width: 660px;
+  max-width: 95vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.twm-body {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.twm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.twm-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.twm-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+/* Steps */
+.twm-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.twm-steps-label {
+  margin-bottom: 0.25rem;
+}
+
+.twm-step {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.twm-step-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.twm-step-order {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.twm-step-name {
+  font-size: 0.9rem;
+}
+
+.twm-step-job {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  padding: 2px 7px;
+  margin-left: auto;
+}
+
+/* Schema */
+.twm-schema {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.625rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.twm-schema-error {
+  font-size: 0.78rem;
+  color: var(--color-failed);
+}
+
+.twm-schema-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.twm-schema-gen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.twm-schema-gen-btn:hover {
+  background: var(--accent-color);
+  color: #fff;
+  border-color: var(--accent-color);
+}
+
+.twm-schema-props {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.twm-schema-prop {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+}
+
+.twm-prop-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Fira Code', monospace;
+}
+
+.twm-prop-type {
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.twm-type-string  { background: #1e6a4a22; color: #2ecc71; }
+.twm-type-number,
+.twm-type-integer { background: #1a4a9022; color: #5b9cf6; }
+.twm-type-boolean { background: #6a1a6a22; color: #c678dd; }
+.twm-type-array,
+.twm-type-object  { background: #6a4a1a22; color: #e5c07b; }
+
+.twm-prop-required {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-failed);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.twm-prop-enum {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.twm-prop-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-basis: 100%;
+  padding-left: 0.25rem;
+}
+
+.twm-schema-toggle {
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  font-size: 0.74rem;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  width: fit-content;
+}
+
+.twm-schema-raw {
+  font-size: 0.74rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text-secondary);
+}
+
+/* Textarea */
+.twm-textarea {
+  width: 100%;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 70px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.twm-textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.twm-textarea--error {
+  border-color: var(--color-failed);
+}
+
+.twm-error {
+  font-size: 0.75rem;
+  color: var(--color-failed);
+}

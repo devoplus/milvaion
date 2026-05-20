@@ -44,6 +44,7 @@ public record TriggerWorkflowCommandHandler(IMilvaionRepositoryBase<Workflow> Wo
             CorrelationId = correlationId,
             Status = WorkflowStatus.Pending,
             TriggerReason = request.Reason ?? "Manual trigger",
+            StepJobData = request.StepJobData,
             CreatedAt = now,
         };
 

@@ -140,7 +140,8 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
         var now = DateTime.UtcNow;
 
-        var cronWorkflows = await dbContext.Workflows.Where(w => w.IsActive && w.CronExpression != null)
+        var cronWorkflows = await dbContext.Workflows.AsNoTracking()
+                                                     .Where(w => w.IsActive && w.CronExpression != null)
                                                      .Select(Workflow.Projections.CheckCron)
                                                      .ToListAsync(cancellationToken);
 
@@ -193,7 +194,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
         await using var scope = _serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MilvaionDbContext>();
 
-        var activeRuns = await dbContext.WorkflowRuns
+        var activeRuns = await dbContext.WorkflowRuns.AsNoTracking()
                                         .Include(r => r.StepOccurrences)
                                         .Include(r => r.Workflow)
                                         .Where(r => r.Status == WorkflowStatus.Pending || r.Status == WorkflowStatus.Running)
@@ -233,7 +234,7 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                                       .Distinct()
                                       .ToList();
 
-        var jobsById = jobIds.Count > 0 ? await dbContext.ScheduledJobs.Where(j => jobIds.Contains(j.Id)).ToDictionaryAsync(j => j.Id, cancellationToken) : [];
+        var jobsById = jobIds.Count > 0 ? await dbContext.ScheduledJobs.AsNoTracking().Where(j => jobIds.Contains(j.Id)).ToDictionaryAsync(j => j.Id, cancellationToken) : [];
 
         // Populate JobName for occurrences that were never dispatched (skipped, cancelled, delayed)
         foreach (var occ in occurrencesToUpdate.Where(o => string.IsNullOrWhiteSpace(o.JobName) && o.WorkflowStepId.HasValue))
@@ -258,7 +259,15 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
                 continue;
             }
 
-            var jobData = !string.IsNullOrWhiteSpace(stepDef.JobDataOverride) ? stepDef.JobDataOverride : job.JobData;
+            // Merge priority (lowest → highest):
+            // 1. job.JobData (design-time base)
+            // 2. stepDef.JobDataOverride (design-time per-step override)
+            // 3. run.StepJobData[stepId] (run-time per-step override, highest priority)
+            var jobData = MergeJobData(job.JobData, stepDef.JobDataOverride);
+
+            if (run.StepJobData != null && run.StepJobData.TryGetValue(stepDef.Id, out var runtimeStepData))
+                jobData = MergeJobData(jobData, runtimeStepData);
+
             var occurrencesDict = run.StepOccurrences.ToDictionary(o => o.WorkflowStepId!.Value);
 
             if (!string.IsNullOrWhiteSpace(stepDef.DataMappings))
@@ -937,6 +946,37 @@ public class WorkflowEngineService(IServiceProvider serviceProvider,
 
             if (eventPublisher != null)
                 await eventPublisher.PublishOccurrenceCreatedAsync(succeededOccurrences, _logger, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Merges <paramref name="globalJobData"/> on top of <paramref name="baseJobData"/>.
+    /// Properties in <paramref name="globalJobData"/> overwrite matching keys in the base.
+    /// If <paramref name="globalJobData"/> is null/empty, <paramref name="baseJobData"/> is returned as-is.
+    /// </summary>
+    private static string MergeJobData(string baseJobData, string globalJobData)
+    {
+        if (string.IsNullOrWhiteSpace(globalJobData))
+            return baseJobData;
+
+        try
+        {
+            var target = !string.IsNullOrWhiteSpace(baseJobData) ? JsonNode.Parse(baseJobData)?.AsObject() : [];
+            target ??= [];
+
+            var overlay = JsonNode.Parse(globalJobData)?.AsObject();
+
+            if (overlay != null)
+            {
+                foreach (var prop in overlay)
+                    target[prop.Key] = prop.Value?.DeepClone();
+            }
+
+            return target.ToJsonString();
+        }
+        catch
+        {
+            return baseJobData;
         }
     }
 

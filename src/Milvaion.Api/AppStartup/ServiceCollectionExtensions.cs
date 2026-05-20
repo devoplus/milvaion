@@ -326,8 +326,6 @@ public static partial class StartupExtensions
 
     private static LoggerConfiguration ApplyLoggingFromConfig(this LoggerConfiguration loggerConfig, WebApplicationBuilder builder)
     {
-        loggerConfig.WriteTo.Console();
-
         var seqEnabled = builder.Configuration.GetSection("MilvaionConfig:Logging:Seq:Enabled").Get<bool>();
 
         if (seqEnabled)

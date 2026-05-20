@@ -38,8 +38,11 @@ export const workflowService = {
   },
 
   // Trigger workflow run
-  trigger: async (workflowId, reason = 'Manual trigger') => {
-    return api.post('/workflows/workflow/trigger', { workflowId, reason })
+  trigger: async (workflowId, reason = 'Manual trigger', stepJobData = null) => {
+    const payload = { workflowId, reason }
+    if (stepJobData && Object.keys(stepJobData).length > 0)
+      payload.stepJobData = stepJobData
+    return api.post('/workflows/workflow/trigger', payload)
   },
 
   // Cancel workflow run

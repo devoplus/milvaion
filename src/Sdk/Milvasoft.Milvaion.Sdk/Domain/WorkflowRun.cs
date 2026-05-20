@@ -65,6 +65,15 @@ public class WorkflowRun : CreationAuditableEntity<Guid>
     public string Error { get; set; }
 
     /// <summary>
+    /// Per-step job data overrides provided at trigger time.
+    /// Key is the <see cref="WorkflowStepDefinition.Id"/> (WorkflowStepId), value is JSON job data.
+    /// Merged on top of base job data, design-time <see cref="WorkflowStepDefinition.JobDataOverride"/>,
+    /// and <see cref="GlobalJobData"/> — highest priority at dispatch time.
+    /// </summary>
+    [Column(TypeName = "jsonb")]
+    public Dictionary<Guid, string> StepJobData { get; set; }
+
+    /// <summary>
     /// Timestamp when this record was created.
     /// </summary>
     [Required]

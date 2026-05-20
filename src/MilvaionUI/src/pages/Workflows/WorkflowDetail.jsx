@@ -9,6 +9,7 @@ import CronDisplay from '../../components/CronDisplay'
 import { formatDate } from '../../utils/dateUtils'
 import AutoRefreshIndicator from '../../components/AutoRefreshIndicator'
 import AuditInfoCard from '../../components/AuditInfoCard'
+import TriggerWorkflowModal from '../../components/TriggerWorkflowModal'
 import './WorkflowDetail.css'
 
 const workflowStatusLabels = { 0: 'Pending', 1: 'Running', 2: 'Completed', 3: 'Failed', 4: 'Cancelled', 5: 'Partially Completed' }
@@ -31,6 +32,8 @@ function WorkflowDetail() {
   const runsPerPage = 20
   const { modalProps, showConfirm, showSuccess, showError } = useModal()
   const isInitialLoadRef = useRef(true)
+
+  const [showTriggerModal, setShowTriggerModal] = useState(false)
 
   const toggleVersionExpand = (index) => {
     setExpandedVersions(prev => ({
@@ -109,19 +112,7 @@ function WorkflowDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, id])
 
-  const handleTrigger = async () => {
-    try {
-      const result = await workflowService.trigger(id, 'Manual trigger from dashboard')
-      if (result?.isSuccess) {
-        showSuccess('Workflow triggered! Run ID: ' + result.data)
-        loadRuns(1) // Navigate to first page to see new run
-      } else {
-        showError(result?.message || 'Failed to trigger')
-      }
-    } catch (err) {
-      showError('Failed to trigger workflow')
-    }
-  }
+  const handleTrigger = () => setShowTriggerModal(true)
 
   const handleDelete = async () => {
     const confirmed = await showConfirm(
@@ -383,6 +374,22 @@ function WorkflowDetail() {
           </>
         )}
       </div>
+
+      {/* Trigger Modal */}
+      {showTriggerModal && (
+        <TriggerWorkflowModal
+          workflow={workflow}
+          onClose={(errMsg) => {
+            setShowTriggerModal(false)
+            if (errMsg) showError(errMsg)
+          }}
+          onSuccess={(runId) => {
+            setShowTriggerModal(false)
+            showSuccess('Workflow triggered! Run ID: ' + runId)
+            loadRuns(1)
+          }}
+        />
+      )}
 
       {/* Version History Modal */}
       {showVersionHistory && (

@@ -5,6 +5,7 @@ import Icon from '../../components/Icon'
 import Modal from '../../components/Modal'
 import { useModal } from '../../hooks/useModal'
 import CronDisplay from '../../components/CronDisplay'
+import TriggerWorkflowModal from '../../components/TriggerWorkflowModal'
 import './WorkflowList.css'
 
 const failureStrategyLabels = {
@@ -18,6 +19,7 @@ function WorkflowList() {
   const [workflows, setWorkflows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [triggerTarget, setTriggerTarget] = useState(null) // workflow to trigger
   const navigate = useNavigate()
   const { modalProps, showConfirm, showSuccess, showError } = useModal()
 
@@ -37,19 +39,7 @@ function WorkflowList() {
     loadWorkflows()
   }, [loadWorkflows])
 
-  const handleTrigger = async (workflow) => {
-    try {
-      const result = await workflowService.trigger(workflow.id, 'Manual trigger from dashboard')
-      if (result?.isSuccess) {
-        showSuccess('Workflow triggered successfully! Run ID: ' + result.data)
-        navigate(`/workflows/${workflow.id}/runs/${result.data}`)
-      } else {
-        showError(result?.message || 'Failed to trigger workflow')
-      }
-    } catch (err) {
-      showError('Failed to trigger workflow')
-    }
-  }
+  const handleTrigger = (workflow) => setTriggerTarget(workflow)
 
   const handleDelete = async (workflow) => {
     const confirmed = await showConfirm(
@@ -156,6 +146,21 @@ function WorkflowList() {
           ))
         )}
       </div>
+
+      {triggerTarget && (
+        <TriggerWorkflowModal
+          workflowId={triggerTarget.id}
+          onClose={(errMsg) => {
+            setTriggerTarget(null)
+            if (errMsg) showError(errMsg)
+          }}
+          onSuccess={(runId) => {
+            setTriggerTarget(null)
+            showSuccess('Workflow triggered! Run ID: ' + runId)
+            navigate(`/workflows/${triggerTarget.id}/runs/${runId}`)
+          }}
+        />
+      )}
 
       <Modal {...modalProps} />
     </div>

@@ -15,7 +15,12 @@ function OccurrenceTable({
   onPageChange,
   onPageSizeChange,
   onBulkDelete,
-  showJobName = false
+  showJobName = false,
+  useCursorPagination = false,
+  hasNextPage = false,
+  hasPreviousPage = false,
+  onNextPage,
+  onPreviousPage,
 }) {
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [selectedOccurrences, setSelectedOccurrences] = useState([])
@@ -95,6 +100,51 @@ function OccurrenceTable({
   const totalPages = Math.ceil(totalCount / pageSize)
 
   const renderPagination = () => {
+    if (useCursorPagination) {
+      return (
+        <div className="pagination-container">
+          <div className="pagination">
+            <button
+              className="btn btn-sm"
+              onClick={onPreviousPage}
+              disabled={!hasPreviousPage}
+            >
+              <Icon name="chevron_left" size={18} />
+              Previous
+            </button>
+            <span className="page-info">
+              Page {currentPage}
+              {totalCount > 0 ? ` (${totalCount} total)` : ''}
+            </span>
+            <button
+              className="btn btn-sm"
+              onClick={onNextPage}
+              disabled={!hasNextPage}
+            >
+              Next
+              <Icon name="chevron_right" size={18} />
+            </button>
+          </div>
+          <div className="page-size-selector">
+            <label htmlFor="pageSize">Rows per page:</label>
+            <select
+              id="pageSize"
+              value={pageSize}
+              onChange={(e) => onPageSizeChange(parseInt(e.target.value))}
+              className="page-size-select"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={500}>500</option>
+              <option value={1000}>1000</option>
+            </select>
+          </div>
+        </div>
+      )
+    }
+
     if (totalPages <= 1 && totalCount <= pageSize) return null
 
     const maxVisiblePages = 5

@@ -1029,6 +1029,7 @@ public class JobDispatcherService(IServiceProvider serviceProvider,
                 do
                 {
                     zombieOccurrences = await dbContext.JobOccurrences
+                                                       .AsNoTracking()
                                                        .Where(o => zombieStatuses.Contains(o.Status) && o.CreatedAt < zombieThreshold)
                                                        .OrderBy(o => o.CreatedAt) // Consistent ordering for batching
                                                        .Take(zombieBatchSize)

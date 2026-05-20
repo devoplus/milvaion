@@ -22,19 +22,14 @@ public class GetWorkflowDetailQueryHandler(IMilvaionRepositoryBase<Workflow> wor
         if (workflow == null)
             return Response<WorkflowDetailDto>.Success(null, "Workflow not found");
 
-        // Get job names for steps
+        // Get job info for steps (display name, workerId, jobNameInWorker for schema lookup)
         var jobIds = workflow.Definition?.Steps?.Where(s => s.JobId.HasValue).Select(s => s.JobId.Value).Distinct().ToList() ?? [];
-        var jobNames = new Dictionary<Guid, string>();
+        var jobInfoById = new Dictionary<Guid, (string DisplayName, string WorkerId, string JobNameInWorker)>();
 
         var jobs = await _jobRepository.GetAllAsync(j => jobIds.Contains(j.Id), cancellationToken: cancellationToken);
 
-        foreach (var jobId in jobIds)
-        {
-            var job = jobs.FirstOrDefault(j => j.Id == jobId);
-
-            if (job != null)
-                jobNames[jobId] = job.DisplayName;
-        }
+        foreach (var job in jobs)
+            jobInfoById[job.Id] = (job.DisplayName, job.WorkerId, job.JobNameInWorker);
 
         var dto = new WorkflowDetailDto
         {
@@ -51,20 +46,26 @@ public class GetWorkflowDetailQueryHandler(IMilvaionRepositoryBase<Workflow> wor
             LastScheduledRunAt = workflow.LastScheduledRunAt,
             WorkflowVersions = workflow.Versions?.OrderByDescending(i => i.Version).ToList(),
             AuditInfo = new AuditDto<Guid>(workflow),
-            Steps = workflow.Definition?.Steps?.Select(s => new WorkflowStepDto
+            Steps = workflow.Definition?.Steps?.Select(s =>
             {
-                Id = s.Id,
-                NodeType = s.NodeType,
-                JobId = s.JobId,
-                JobDisplayName = s.JobId.HasValue ? jobNames.GetValueOrDefault(s.JobId.Value, "Unknown") : null,
-                StepName = s.StepName,
-                Order = s.Order,
-                NodeConfigJson = s.NodeConfigJson,
-                DataMappings = s.DataMappings,
-                DelaySeconds = s.DelaySeconds,
-                JobDataOverride = s.JobDataOverride,
-                PositionX = s.PositionX,
-                PositionY = s.PositionY,
+                jobInfoById.TryGetValue(s.JobId ?? Guid.Empty, out var ji);
+                return new WorkflowStepDto
+                {
+                    Id = s.Id,
+                    NodeType = s.NodeType,
+                    JobId = s.JobId,
+                    JobDisplayName = ji.DisplayName,
+                    WorkerId = ji.WorkerId,
+                    JobNameInWorker = ji.JobNameInWorker,
+                    StepName = s.StepName,
+                    Order = s.Order,
+                    NodeConfigJson = s.NodeConfigJson,
+                    DataMappings = s.DataMappings,
+                    DelaySeconds = s.DelaySeconds,
+                    JobDataOverride = s.JobDataOverride,
+                    PositionX = s.PositionX,
+                    PositionY = s.PositionY,
+                };
             }).OrderBy(s => s.Order).ToList(),
             Edges = workflow.Definition?.Edges?.Select(e => new WorkflowEdgeDto
             {

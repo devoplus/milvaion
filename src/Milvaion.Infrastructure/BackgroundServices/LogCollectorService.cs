@@ -442,10 +442,11 @@ public class LogCollectorService(IServiceProvider serviceProvider,
 
             // Check which occurrences exist now
             var occurrenceIds = logsToRetry.Select(l => l.OccurrenceId).Distinct().ToList();
-            var existingOccurrences = await dbContext.JobOccurrences
-                .Where(o => occurrenceIds.Contains(o.Id))
-                .Select(o => o.Id)
-                .ToListAsync(cancellationToken);
+
+            var existingOccurrences = await dbContext.JobOccurrences.AsNoTracking()
+                                                                    .Where(o => occurrenceIds.Contains(o.Id))
+                                                                    .Select(o => o.Id)
+                                                                    .ToListAsync(cancellationToken);
 
             var existingSet = existingOccurrences.ToHashSet();
 

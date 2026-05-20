@@ -38,8 +38,8 @@ public class MilvaionJobListener(IExternalJobPublisher publisher, IOptions<Worke
             var fireInstanceId = context.FireInstanceId;
 
             // Store correlation ID in JobDataMap so job can access it for logging
-            context.MergedJobDataMap.Put("Milvaion_CorrelationId", correlationId.ToString());
-            context.MergedJobDataMap.Put("Milvaion_WorkerId", _workerOptions?.WorkerId ?? "unknown");
+            context.MergedJobDataMap["Milvaion_CorrelationId"] = correlationId.ToString();
+            context.MergedJobDataMap["Milvaion_WorkerId"] = _workerOptions?.WorkerId ?? "unknown";
 
             var message = new ExternalJobOccurrenceMessage
             {

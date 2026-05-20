@@ -3,6 +3,8 @@
   margin: 0 auto;
 }
 
+
+
 .workflow-detail-loading,
 .workflow-detail-error {
   display: flex;

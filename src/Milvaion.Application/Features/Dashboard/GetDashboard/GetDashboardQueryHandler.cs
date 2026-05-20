@@ -43,8 +43,10 @@ public class GetDashboardQueryHandler(IRedisStatsService redisStatsService, IRed
         double? avgDuration = durationCount > 0 ? (double)durationSum / durationCount : null;
 
         double successRate = 0;
-        if (totalExecutions > 0)
-            successRate = completedJobs * 100.0 / totalExecutions;
+        var finishedJobs = completedJobs + failedJobs + cancelledJobs + timedOutJobs;
+
+        if (finishedJobs > 0)
+            successRate = completedJobs * 100.0 / finishedJobs;
 
         // Get worker statistics from Redis
         var activeWorkers = workers.Where(w => w.Status == WorkerStatus.Active).ToList();

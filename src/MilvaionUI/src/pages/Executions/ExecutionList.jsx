@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import occurrenceService from '../../services/occurrenceService'
 import signalRService from '../../services/signalRService'
@@ -17,19 +17,28 @@ function ExecutionList() {
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
+  const isFirstRender = useRef(true)
   const [totalCount, setTotalCount] = useState(0)
   const [filterStatus, setFilterStatus] = useState(
     location.state?.filterByStatus !== undefined ? location.state.filterByStatus : null
   )
   const [pageSize, setPageSize] = useState(20)
+  const [paginationState, setPaginationState] = useState({
+    cursor: null,
+    cursorHistory: [],
+    hasNextPage: false,
+  })
 
   const { modalProps, showConfirm, showSuccess, showError } = useModal()
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm)
-      setCurrentPage(1)
+      setPaginationState({ cursor: null, cursorHistory: [], hasNextPage: false })
     }, 500)
 
     return () => clearTimeout(timer)
@@ -42,17 +51,17 @@ function ExecutionList() {
       }
       setError(null)
 
-      const requestBody = {
-        pageNumber: currentPage,
+      const params = {
+        cursor: paginationState.cursor || undefined,
         rowCount: pageSize,
-        searchTerm: debouncedSearchTerm || undefined
+        searchTerm: debouncedSearchTerm || undefined,
       }
 
       if (filterStatus !== null) {
-        requestBody.filtering = {
+        params.filtering = {
           criterias: [
             {
-              filterBy: "Status",
+              filterBy: 'Status',
               value: filterStatus,
               type: 5
             }
@@ -60,25 +69,28 @@ function ExecutionList() {
         }
       }
 
-      const response = await occurrenceService.getAll(requestBody)
+      const response = await occurrenceService.getAllCursor(params)
 
-      const data = response?.data?.data || response?.data || []
-      const total = response?.data?.totalDataCount || response?.totalDataCount || 0
+      const data = response?.data || []
+      const total = response?.totalDataCount ?? 0
+      const nextCursorVal = response?.nextCursor ?? null
+      const hasNext = response?.hasNextPage ?? false
 
       setOccurrences(data)
       setTotalCount(total)
+      setPaginationState(prev => ({ ...prev, hasNextPage: hasNext, nextCursor: nextCursorVal }))
     } catch (err) {
       setError(getApiErrorMessage(err, 'Failed to load executions'))
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }, [currentPage, pageSize, debouncedSearchTerm, filterStatus])
+  }, [paginationState.cursor, pageSize, debouncedSearchTerm, filterStatus])
 
   useEffect(() => {
     loadOccurrences(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, debouncedSearchTerm, filterStatus])
+  }, [paginationState.cursor, pageSize, debouncedSearchTerm, filterStatus])
 
   useEffect(() => {
 
@@ -103,7 +115,7 @@ function ExecutionList() {
     }
 
     const handleOccurrenceCreated = (newOccurrence) => {
-      if (currentPage === 1 && (filterStatus === null || newOccurrence.status === filterStatus)) {
+      if (paginationState.cursorHistory.length === 0 && (filterStatus === null || newOccurrence.status === filterStatus)) {
         setOccurrences(prev => {
           const occId = newOccurrence.id || newOccurrence.occurrenceId
           const exists = prev.some(occ => occ.id === occId)
@@ -114,7 +126,7 @@ function ExecutionList() {
           return prev
         })
         setTotalCount(prev => prev + 1)
-      } else if (currentPage !== 1) {
+      } else {
         setTotalCount(prev => prev + 1)
       }
     }
@@ -126,13 +138,32 @@ function ExecutionList() {
       unsubscribeOccurrenceUpdated()
       unsubscribeOccurrenceCreated()
     }
-  }, [currentPage, pageSize, filterStatus])
+  }, [paginationState.cursorHistory.length, pageSize, filterStatus])
 
-  const handlePageChange = (newPage) => {
-    const totalPages = Math.ceil(totalCount / pageSize)
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-    }
+  const handleNextPage = () => {
+    setPaginationState(prev => {
+      if (!prev.nextCursor) return prev
+      return {
+        cursor: prev.nextCursor,
+        cursorHistory: [...prev.cursorHistory, prev.cursor],
+        hasNextPage: false,
+        nextCursor: null,
+      }
+    })
+  }
+
+  const handlePreviousPage = () => {
+    setPaginationState(prev => {
+      if (prev.cursorHistory.length === 0) return prev
+      const newHistory = [...prev.cursorHistory]
+      const previousCursor = newHistory.pop() ?? null
+      return {
+        cursor: previousCursor,
+        cursorHistory: newHistory,
+        hasNextPage: false,
+        nextCursor: null,
+      }
+    })
   }
 
   const handleBulkDelete = async (occurrenceIds) => {
@@ -196,20 +227,25 @@ function ExecutionList() {
         occurrences={occurrences}
         loading={loading}
         totalCount={totalCount}
-        currentPage={currentPage}
+        currentPage={paginationState.cursorHistory.length + 1}
         pageSize={pageSize}
         filterStatus={filterStatus}
         onFilterChange={(status) => {
           setFilterStatus(status)
-          setCurrentPage(1)
+          setPaginationState({ cursor: null, cursorHistory: [], hasNextPage: false, nextCursor: null })
         }}
-        onPageChange={handlePageChange}
+        onPageChange={() => {}}
         onPageSizeChange={(newSize) => {
           setPageSize(newSize)
-          setCurrentPage(1)
+          setPaginationState({ cursor: null, cursorHistory: [], hasNextPage: false, nextCursor: null })
         }}
         onBulkDelete={handleBulkDelete}
         showJobName={true}
+        useCursorPagination={true}
+        hasNextPage={paginationState.hasNextPage}
+        hasPreviousPage={paginationState.cursorHistory.length > 0}
+        onNextPage={handleNextPage}
+        onPreviousPage={handlePreviousPage}
       />
     </div>
   )

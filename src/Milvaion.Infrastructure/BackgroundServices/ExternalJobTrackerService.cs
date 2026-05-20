@@ -279,7 +279,7 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
             var externalIds = jobsByExternalId.Keys.ToList();
 
             // Find existing jobs by ExternalJobId field
-            var existingJobs = await dbContext.ScheduledJobs.Where(j => j.IsExternal && externalIds.Contains(j.ExternalJobId)).ToListAsync(cancellationToken);
+            var existingJobs = await dbContext.ScheduledJobs.AsNoTracking().Where(j => j.IsExternal && externalIds.Contains(j.ExternalJobId)).ToListAsync(cancellationToken);
 
             var existingJobDict = existingJobs.ToDictionary(j => j.ExternalJobId, j => j);
 
@@ -355,7 +355,8 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
                             createdCount++;
 
                             // Get the created job ID from DB and add to Redis mapping
-                            var createdJob = await dbContext.ScheduledJobs.Where(j => j.IsExternal && j.ExternalJobId == externalId)
+                            var createdJob = await dbContext.ScheduledJobs.AsNoTracking()
+                                                                          .Where(j => j.IsExternal && j.ExternalJobId == externalId)
                                                                           .Select(j => new { j.Id, j.ExternalJobId })
                                                                           .FirstOrDefaultAsync(cancellationToken);
 
@@ -439,7 +440,8 @@ public class ExternalJobTrackerService(IServiceProvider serviceProvider,
 
                 if (missingExternalIds.Count > 0)
                 {
-                    var dbMappings = await dbContext.ScheduledJobs.Where(j => j.IsExternal && missingExternalIds.Contains(j.ExternalJobId))
+                    var dbMappings = await dbContext.ScheduledJobs.AsNoTracking()
+                                                                  .Where(j => j.IsExternal && missingExternalIds.Contains(j.ExternalJobId))
                                                                   .Select(j => new { j.Id, j.ExternalJobId })
                                                                   .ToListAsync(cancellationToken);
 

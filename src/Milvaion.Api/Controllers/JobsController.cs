@@ -13,6 +13,7 @@ using Milvaion.Application.Features.ScheduledJobs.DeleteJobOccurrence;
 using Milvaion.Application.Features.ScheduledJobs.DeleteScheduledJob;
 using Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail;
 using Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList;
+using Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor;
 using Milvaion.Application.Features.ScheduledJobs.GetScheduledJobDetail;
 using Milvaion.Application.Features.ScheduledJobs.GetScheduledJobList;
 using Milvaion.Application.Features.ScheduledJobs.GetTagList;
@@ -105,8 +106,18 @@ public class JobsController(IMediator mediator) : ControllerBase
     /// <param name="cancellation"></param>
     /// <returns></returns>
     [Auth(PermissionCatalog.ScheduledJobManagement.List)]
-    [HttpPatch("occurrences")]
+    [HttpPatch("occurrences/list")]
     public Task<ListResponse<JobOccurrenceListDto>> GetJobOccurrencesAsync(GetJobOccurrenceListQuery request, CancellationToken cancellation) => _mediator.Send(request, cancellation);
+
+    /// <summary>
+    /// Gets job occurrences.
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="cancellation"></param>
+    /// <returns></returns>
+    [Auth(PermissionCatalog.ScheduledJobManagement.List)]
+    [HttpPatch("occurrences")]
+    public async Task<CursorListResponse<JobOccurrenceListDto>> GetJobOccurrencesCursorAsync(GetJobOccurenceListCursorQuery request, CancellationToken cancellation) => (await _mediator.Send(request, cancellation)).Data;
 
     /// <summary>
     /// Gets job occurrence detail.

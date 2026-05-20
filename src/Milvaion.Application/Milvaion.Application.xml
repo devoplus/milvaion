@@ -4093,6 +4093,16 @@
             Job display name.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.WorkerId">
+            <summary>
+            Worker ID that owns the job (used for schema lookup in UI).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.JobNameInWorker">
+            <summary>
+            Job name in worker (used for schema lookup in UI).
+            </summary>
+        </member>
         <member name="P:Milvaion.Application.Dtos.WorkflowDtos.WorkflowStepDto.StepName">
             <summary>
             User-friendly label for this step.
@@ -6623,6 +6633,41 @@
         <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail.GetJobOccurrenceDetailQueryValidator.#ctor(Milvasoft.Core.Abstractions.Localization.IMilvaLocalizer)">
             <inheritdoc cref="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceDetail.GetJobOccurrenceDetailQueryValidator"/>
         </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery">
+            <summary>
+            Data transfer object for scheduledjob list.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery.SearchTerm">
+            <summary>
+            Search term to filter job occurrences.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler">
+            <summary>
+            Handles the job occurrence list operation.
+            </summary>
+            <param name="milvaionDbContextAccessor"></param>
+            <param name="redisStatsService"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.#ctor(Milvaion.Application.Interfaces.IMilvaionDbContextAccessor,Milvaion.Application.Interfaces.Redis.IRedisStatsService)">
+            <summary>
+            Handles the job occurrence list operation.
+            </summary>
+            <param name="milvaionDbContextAccessor"></param>
+            <param name="redisStatsService"></param>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.Handle(Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQuery,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceListCursor.GetJobOccurenceListCursorQueryHandler.GetValueWithCorrectType``1(System.Object)">
+            <summary>
+            Gets the value with the correct type from the object.
+            </summary>
+            <typeparam name="TActualType"></typeparam>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
         <member name="T:Milvaion.Application.Features.ScheduledJobs.GetJobOccurenceList.GetJobOccurrenceListQuery">
             <summary>
             Data transfer object for scheduledjob list.
@@ -7653,6 +7698,13 @@
         <member name="P:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand.Reason">
             <summary>
             Trigger reason.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommand.StepJobData">
+            <summary>
+            Per-step job data overrides for this run.
+            Key is the step ID (<see cref="P:Milvasoft.Milvaion.Sdk.Domain.JsonModels.WorkflowStepDefinition.Id"/>), value is JSON job data.
+            Takes highest priority — overrides base data, design-time step override, and global job data.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Features.Workflows.TriggerWorkflow.TriggerWorkflowCommandHandler">
@@ -10055,6 +10107,13 @@
         <member name="P:Milvaion.Application.Utils.Models.Options.MemoryTrackingOptions.LeakDetectionMinIterations">
             <summary>
             Minimum iterations before checking for leaks (default: 100).
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.MilvaionConfig.BasePath">
+            <summary>
+            Optional sub-path under which the application is hosted (e.g. "/milvaion").
+            Leave empty or null when hosted at the root.
+            Must match the VITE_BASE_PATH used when the frontend was built.
             </summary>
         </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.RabbitMQOptions">
