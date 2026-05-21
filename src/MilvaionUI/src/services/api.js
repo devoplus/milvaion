@@ -1,7 +1,7 @@
 import axios from 'axios'
 import authService from './authService'
 
-const basePath = (import.meta.env.VITE_BASE_PATH || '').replace(/\/$/, '')
+const basePath = (window.__MILVAION_CONFIG__?.basePath ?? import.meta.env.VITE_BASE_PATH ?? '').replace(/\/$/, '')
 const loginPath = `${basePath}/login`
 
 const api = axios.create({

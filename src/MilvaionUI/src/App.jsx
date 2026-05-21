@@ -37,7 +37,7 @@ import WorkflowStepBottleneckReport from './pages/Reports/WorkflowStepBottleneck
 import WorkflowDurationTrendReport from './pages/Reports/WorkflowDurationTrendReport'
 
 function App() {
-  const basename = import.meta.env.VITE_BASE_PATH || '/'
+  const basename = (window.__MILVAION_CONFIG__?.basePath ?? import.meta.env.VITE_BASE_PATH ?? '/') || '/'
   return (
     <ThemeProvider>
       <Router basename={basename}>

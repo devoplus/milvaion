@@ -2,6 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- Runtime config: base path and other boot-time settings injected by the backend.
+         Must be the very first script — loaded synchronously so window.__MILVAION_CONFIG__
+         is available before main.jsx runs. Cache-Control: no-store is set on the server side. -->
+    <script src="%BASE_URL%config.js"></script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

@@ -12,6 +12,7 @@ using Milvaion.Infrastructure;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvasoft.Components.Rest;
 using Milvasoft.Core.Utils.Converters;
+using Microsoft.Extensions.Options;
 using Serilog;
 using System.Reflection;
 
@@ -131,6 +132,22 @@ try
     // SPA Fallback - Serve React app for all non-API routes
     // Must be LAST (after MapControllers, MapHub, etc.)
     app.MapFallbackToFile("index.html");
+
+    // Runtime config endpoint — serves base path and other boot-time settings to the SPA.
+    // Must be reachable BEFORE authentication so the browser can load it as a plain <script>.
+    // Cache-Control: no-store prevents PWA/browser from caching stale config across deployments.
+    app.MapGet("/config.js", (IOptions<MilvaionConfig> opts, HttpContext ctx) =>
+    {
+        var basePath = (opts.Value.BasePath ?? string.Empty).TrimEnd('/');
+        var js = $"window.__MILVAION_CONFIG__ = {{ basePath: '{basePath}' }};";
+
+        ctx.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+
+        return Results.Content(js, "application/javascript", System.Text.Encoding.UTF8);
+    })
+    .ExcludeFromDescription()
+    .WithMetadata(new Microsoft.AspNetCore.Routing.RouteNameMetadata("runtime-config"))
+    .AllowAnonymous();
 
     #endregion
 

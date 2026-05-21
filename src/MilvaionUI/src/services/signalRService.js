@@ -31,7 +31,7 @@ class SignalRService {
       this.isConnecting = true
 
       const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-      const basePath = (import.meta.env.VITE_BASE_PATH || '').replace(/\/$/, '')
+      const basePath = (window.__MILVAION_CONFIG__?.basePath ?? import.meta.env.VITE_BASE_PATH ?? '').replace(/\/$/, '')
       const hubUrl = `${apiUrl}${basePath}/hubs/jobs`
 
       this.connection = new signalR.HubConnectionBuilder()

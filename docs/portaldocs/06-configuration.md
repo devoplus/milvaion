@@ -244,54 +244,20 @@ MilvaionConfig__BasePath=/milvaion
 
 #### Docker / docker-compose
 
-The official `Dockerfile` already has `VITE_BASE_PATH` defined as a build argument with a default of `/`:
-
-```dockerfile
-ARG VITE_BASE_PATH=/
-ENV VITE_BASE_PATH=${VITE_BASE_PATH}
-RUN npm run build
-```
-
-To host under `/milvaion`, **you only need to override this in `docker-compose.yml`** — no manual Dockerfile edits required. Pass the value both as a build argument (baked into the frontend bundle at build time) and as a runtime environment variable (consumed by the ASP.NET Core backend):
-
 ```yaml
 services:
   milvaion-api:
-    build:
-      args:
-        VITE_BASE_PATH: /milvaion        # overrides ARG default in Dockerfile
+    image: milvasoft/milvaion:latest   # pull from Docker Hub, no rebuild needed
     environment:
-      - MilvaionConfig__BasePath=/milvaion  # runtime backend config
+      - MilvaionConfig__BasePath=/milvaion
 ```
 
-Both values must match. If you omit `build.args.VITE_BASE_PATH`, the frontend will be built for `/` and navigation/API calls will break even if the backend is correctly configured.
-
-To revert to root hosting, remove both overrides (or set them to `/`):
+To revert to root hosting, remove the override or set it to empty:
 
 ```yaml
-services:
-  milvaion-api:
-    build:
-      args:
-        VITE_BASE_PATH: /
-    environment:
-      - MilvaionConfig__BasePath=
+environment:
+  - MilvaionConfig__BasePath=
 ```
-
-#### Frontend Environment Variables
-
-The frontend SPA must be built with the matching base path so that Vite asset URLs, React Router navigation, and API/SignalR client URLs align with the backend.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_BASE_PATH` | `/` | URL prefix baked into the frontend bundle at build time. Must match `MilvaionConfig:BasePath`. |
-
-```bash
-# .env.production
-VITE_BASE_PATH=/milvaion
-```
-
-> **Note:** Changing `BasePath` requires rebuilding the frontend bundle because the value is baked in at build time. If you change it at runtime on the backend only, the SPA asset references and client-side navigation will break.
 
 ---
 
