@@ -23,14 +23,13 @@ namespace Milvaion.IntegrationTests.ControllersTests;
 /// </summary>
 [Collection(nameof(BasePathTestCollection))]
 [Trait("Controller Integration Tests", "BasePath sub-path routing integration tests.")]
-public class BasePathIntegrationTests(BasePathWebApplicationFactory factory, ITestOutputHelper output)
-    : IntegrationTestBase(factory, output)
+public class BasePathIntegrationTests(BasePathWebApplicationFactory factory, ITestOutputHelper output) : IntegrationTestBase(factory, output)
 {
     private const string _basePath = "/milvaion";
     private const string _apiVersion = "v1.0";
 
     // Helpers
-    private string ApiUrl(string controller) => $"{_basePath}/{GlobalConstant.RoutePrefix}/{_apiVersion}/{controller}";
+    private static string ApiUrl(string controller) => $"{_basePath}/{GlobalConstant.RoutePrefix}/{_apiVersion}/{controller}";
 
     // ─────────────────────────────────────────────────────────────────────────
     // Health-check: sanity check that the factory boots under the sub-path

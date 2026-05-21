@@ -174,8 +174,6 @@ public static partial class MilvaionExtensions
                                                                                     int? manualTotalCount = null,
                                                                                     CancellationToken cancellationToken = default) where TEntity : class
     {
-        // TODO implement in Milvasoft.DataAccess.EfCore project
-
         if (query == null)
             return ListResponse<TDto>.Success();
 

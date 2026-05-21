@@ -1,4 +1,5 @@
-﻿using Milvaion.Api;
+﻿using Microsoft.Extensions.Options;
+using Milvaion.Api;
 using Milvaion.Api.AppStartup;
 using Milvaion.Api.Hubs;
 using Milvaion.Api.Middlewares;
@@ -12,7 +13,6 @@ using Milvaion.Infrastructure;
 using Milvaion.Infrastructure.Services.RabbitMQ;
 using Milvasoft.Components.Rest;
 using Milvasoft.Core.Utils.Converters;
-using Microsoft.Extensions.Options;
 using Serilog;
 using System.Reflection;
 
@@ -32,9 +32,9 @@ try
     // Add services to the container.
     var services = builder.Services;
 
-    var fineConfig = builder.Configuration.GetSection(nameof(MilvaionConfig)).Get<MilvaionConfig>();
+    var config = builder.Configuration.GetSection(nameof(MilvaionConfig)).Get<MilvaionConfig>();
 
-    services.AddSingleton(fineConfig);
+    services.AddSingleton(config);
 
     services.AddControllers().AddApplicationPart(PresentationAssembly.Assembly);
 
@@ -85,11 +85,16 @@ try
 
     // PathBase support: when BasePath is configured (e.g. "/milvaion"), all middleware and endpoints (controllers, hubs, static files, SPA fallback) are automatically scoped to it.
     // UseRouting() MUST be called explicitly right after UsePathBase so that route matching happens on the already-stripped path, not the full original path.
-    if (!string.IsNullOrWhiteSpace(fineConfig?.BasePath))
+    if (!string.IsNullOrWhiteSpace(config?.BasePath))
     {
-        app.UsePathBase(fineConfig.BasePath);
+        app.UsePathBase(config.BasePath);
         app.UseRouting();
     }
+
+    var effectiveBasePath = string.IsNullOrWhiteSpace(config?.BasePath) ? "/" : config.BasePath;
+
+    if (app.Logger.IsEnabled(LogLevel.Information))
+        app.Logger.LogInformation("Milvaion starting on base path: {BasePath}", effectiveBasePath);
 
     app.UseCorsFromConfiguration(builder.Configuration);
 
@@ -101,7 +106,7 @@ try
     // Prometheus metrics endpoint - /api/metrics
     app.UsePrometheusMetrics(builder.Configuration);
 
-    // Serve static files (wwwroot) - Use Microsoft.AspNetCore.Builder extension directly
+    // Serve static files (wwwroot)
     StaticFileExtensions.UseStaticFiles(app, new StaticFileOptions
     {
         OnPrepareResponse = ctx =>
@@ -155,8 +160,8 @@ try
     var rabbitMQFactory = app.Services.GetRequiredService<RabbitMQConnectionFactory>();
 
     await rabbitMQFactory.InitializeAsync();
-    await app.RunAsync();
 
+    await app.RunAsync();
 }
 catch (Exception ex)
 {
