@@ -75,7 +75,22 @@ public class MemoryTrackedBackgroundServiceTests
 
         // Act
         await service.StartAsync(CancellationToken.None);
-        await Task.Delay(200);
+
+        // Poll until Register has been invoked or timeout, to avoid CI timing races
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                registryMock.Verify(r => r.Register("TestService", It.IsAny<Func<MemoryTrackStats>>()), Times.Once);
+                break;
+            }
+            catch (MockException)
+            {
+                await Task.Delay(50);
+            }
+        }
+
         await service.StopAsync(CancellationToken.None);
 
         // Assert
