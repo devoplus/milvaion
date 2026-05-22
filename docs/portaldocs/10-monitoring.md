@@ -741,6 +741,82 @@ docker exec milvaion-rabbitmq rabbitmqctl list_connections
 
 ---
 
+### Queue Depth Monitoring (`IQueueDepthMonitor`)
+
+Milvaion includes a built-in `IQueueDepthMonitor` service that tracks queue depths and health status. When the **RabbitMQ Management HTTP API** is enabled, it provides richer statistics — including unacknowledged message counts — and automatically discovers **dynamic consumer queues** (e.g. `scheduled_jobs_queue.SampleWorker`) that are created at runtime when workers bind to the exchange.
+
+#### Configuration
+
+Enable Management API integration in `appsettings.json`:
+
+```json
+{
+  "MilvaionConfig": {
+    "RabbitMQ": {
+      "ManagementEnabled": true,
+      "ManagementPort": 15672
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ManagementEnabled` | `false` | Enable RabbitMQ Management HTTP API integration |
+| `ManagementPort` | `15672` | Management plugin HTTP port |
+| `QueueDepthWarningThreshold` | `5000` | Message count that triggers a Warning health status |
+| `QueueDepthCriticalThreshold` | `10000` | Message count that triggers a Critical health status |
+
+> **Note:** The Management API uses the same `Username` and `Password` credentials configured under `MilvaionConfig:RabbitMQ`.
+
+#### How it Works
+
+| Scenario | Behavior |
+|----------|----------|
+| `ManagementEnabled: true` | Uses `GET /api/queues/{vhost}/{queue}` for individual queue stats |
+| `ManagementEnabled: true` | Uses `GET /api/queues/{vhost}` to **discover all queues**, including dynamic routing-key queues |
+| `ManagementEnabled: false` or API unavailable | Falls back to AMQP passive queue declare (core queues only, `MessagesUnacknowledged` will be `0`) |
+
+#### Queue Health Statuses
+
+| Status | Condition |
+|--------|-----------|
+| `Healthy` | Message count below warning threshold |
+| `Warning` | Message count ≥ `QueueDepthWarningThreshold` |
+| `Critical` | Message count ≥ `QueueDepthCriticalThreshold` |
+| `Unavailable` | Queue or broker unreachable |
+
+#### API Endpoints
+
+Retrieve queue stats via the Admin API:
+
+```bash
+# All queues (includes dynamic consumer queues when Management API is enabled)
+curl http://localhost:5000/api/v1/admin/queues
+
+# Single queue depth
+curl http://localhost:5000/api/v1/admin/queues/{queueName}
+```
+
+**Example response for a single queue:**
+
+```json
+{
+  "queueName": "scheduled_jobs_queue",
+  "messageCount": 42,
+  "consumerCount": 3,
+  "messagesReady": 40,
+  "messagesUnacknowledged": 2,
+  "healthStatus": "Healthy",
+  "healthMessage": "Queue operating normally",
+  "timestamp": "2026-01-14T18:10:00.000Z"
+}
+```
+
+> **Dynamic queues:** Without Management API enabled, only the 8 core queues (`jobs`, `worker_logs`, `worker_heartbeat`, `worker_registration`, `status_updates`, `failed_occurrences`, `external_job_registration`, `external_job_occurrence`) are monitored. With it enabled, all queues in the vhost — including per-worker routing-key queues like `scheduled_jobs_queue.SampleWorker` — are returned automatically.
+
+---
+
 ## Redis Monitoring
 
 ### Key Metrics

@@ -54,7 +54,9 @@ This page documents all configuration options for Milvaion API and Workers.
       "AutomaticRecoveryEnabled": true,
       "NetworkRecoveryInterval": 10,
       "QueueDepthWarningThreshold": 100,
-      "QueueDepthCriticalThreshold": 500
+      "QueueDepthCriticalThreshold": 500,
+      "ManagementEnabled": false,
+      "ManagementPort": 15672
     },
     "JobDispatcher": {
       "Enabled": true,
@@ -141,8 +143,10 @@ Open telemetry configurations. Set null or empty via environment variables if yo
 | `Heartbeat` | `/` | Heartbeat interval in seconds (0 = disabled). |
 | `AutomaticRecoveryEnabled` | `/` | Automatic connection recovery enabled. |
 | `NetworkRecoveryInterval` | `/` | Network recovery interval in seconds. |
-| `QueueDepthWarningThreshold` | `/` | Queue depth warning threshold. |
-| `QueueDepthCriticalThreshold` | `/` | Queue depth critical threshold. |
+| `QueueDepthWarningThreshold` | `5000` | Message count that triggers a Warning health status. |
+| `QueueDepthCriticalThreshold` | `10000` | Message count that triggers a Critical health status. |
+| `ManagementEnabled` | `false` | Enable RabbitMQ Management HTTP API integration for richer queue stats and dynamic queue discovery. |
+| `ManagementPort` | `15672` | RabbitMQ Management plugin HTTP port. Used when `ManagementEnabled` is `true`. |
 
 ### Job Dispatcher Configuration
 

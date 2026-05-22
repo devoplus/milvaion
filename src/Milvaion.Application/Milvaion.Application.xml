@@ -10191,6 +10191,18 @@
             Queue depth critical threshold.
             </summary>
         </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.ManagementEnabled">
+            <summary>
+            Whether the RabbitMQ Management HTTP API is enabled and accessible.
+            When enabled, the monitoring service uses the Management API to retrieve
+            unacknowledged message counts and discover dynamic queues.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Application.Utils.Models.Options.RabbitMQOptions.ManagementPort">
+            <summary>
+            RabbitMQ Management HTTP API port (default: 15672).
+            </summary>
+        </member>
         <member name="T:Milvaion.Application.Utils.Models.Options.RedisOptions">
             <summary>
             Redis configuration options for job scheduler.

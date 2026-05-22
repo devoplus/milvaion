@@ -15,11 +15,12 @@ namespace Milvaion.Infrastructure.Services.Monitoring;
 /// <remarks>
 /// Initializes a new instance of the <see cref="QueueDepthMonitor"/> class.
 /// </remarks>
-public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOptions<RabbitMQOptions> options, ILoggerFactory loggerFactory) : IQueueDepthMonitor
+public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOptions<RabbitMQOptions> options, ILoggerFactory loggerFactory, RabbitMQManagementClient managementClient) : IQueueDepthMonitor
 {
     private readonly RabbitMQConnectionFactory _connectionFactory = connectionFactory;
     private readonly RabbitMQOptions _options = options.Value;
     private readonly IMilvaLogger _logger = loggerFactory.CreateMilvaLogger<QueueDepthMonitor>();
+    private readonly RabbitMQManagementClient _managementClient = managementClient;
 
     /// <inheritdoc/>
     public async Task<QueueDepthInfo> GetQueueDepthAsync(string queueName, CancellationToken cancellationToken = default)
@@ -83,6 +84,26 @@ public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOpt
     {
         try
         {
+            // Try Management API first for richer stats (MessagesUnacknowledged, MessagesReady)
+            var managementInfo = await _managementClient.GetQueueAsync(queueName, cancellationToken);
+
+            if (managementInfo != null)
+            {
+                var mgmtHealthStatus = DetermineHealthStatus(managementInfo.Messages);
+
+                return new QueueStats
+                {
+                    QueueName = queueName,
+                    MessageCount = managementInfo.Messages,
+                    ConsumerCount = managementInfo.Consumers,
+                    MessagesReady = managementInfo.MessagesReady,
+                    MessagesUnacknowledged = managementInfo.MessagesUnacknowledged,
+                    HealthStatus = mgmtHealthStatus,
+                    Timestamp = DateTime.UtcNow
+                };
+            }
+
+            // Fallback to AMQP passive declare when Management API is unavailable
             await using var channel = await _connectionFactory.CreateChannelAsync(cancellationToken);
             var queueInfo = await channel.QueueDeclarePassiveAsync(queueName, cancellationToken);
 
@@ -93,8 +114,8 @@ public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOpt
                 QueueName = queueName,
                 MessageCount = queueInfo.MessageCount,
                 ConsumerCount = queueInfo.ConsumerCount,
-                MessagesReady = queueInfo.MessageCount, // Simplified - all messages ready
-                MessagesUnacknowledged = 0, // Would need RabbitMQ Management API for this
+                MessagesReady = queueInfo.MessageCount,
+                MessagesUnacknowledged = 0,
                 HealthStatus = healthStatus,
                 Timestamp = DateTime.UtcNow
             };
@@ -119,16 +140,34 @@ public class QueueDepthMonitor(RabbitMQConnectionFactory connectionFactory, IOpt
     /// <inheritdoc/>
     public async Task<List<QueueStats>> GetAllQueueStatsAsync(CancellationToken cancellationToken = default)
     {
-        // TODO: This only monitors the main queues defined in RabbitMQOptions.
-        // Consumer routing key queues (e.g., scheduled_jobs_queue.SampleWorker) are created
-        // automatically by RabbitMQ when workers bind to the exchange with routing keys.
-        //
-        // To monitor these dynamic queues, RabbitMQ Management API integration would be needed:
-        // - GET /api/queues/{vhost} to list all queues
-        // - Filter queues by pattern (e.g., starts with main queue name)
-        //
-        // For now, this monitors the 3 core queues which is sufficient for basic health checks.
+        // Use the Management API to discover all queues in the vhost (including dynamic
+        // consumer routing-key queues such as scheduled_jobs_queue.SampleWorker that are
+        // created automatically when workers bind to the exchange).
+        // Falls back to the known core queue list when the Management API is unavailable.
+        var managementQueues = await _managementClient.GetAllQueuesAsync(cancellationToken);
 
+        if (managementQueues.Count > 0)
+        {
+            var mgmtResults = managementQueues.Select(q =>
+            {
+                var healthStatus = DetermineHealthStatus(q.Messages);
+
+                return new QueueStats
+                {
+                    QueueName = q.Name,
+                    MessageCount = q.Messages,
+                    ConsumerCount = q.Consumers,
+                    MessagesReady = q.MessagesReady,
+                    MessagesUnacknowledged = q.MessagesUnacknowledged,
+                    HealthStatus = healthStatus,
+                    Timestamp = DateTime.UtcNow
+                };
+            });
+
+            return [.. mgmtResults];
+        }
+
+        // Fallback: monitor the known core queues via AMQP passive declare
         var queueNames = new[]
         {
             WorkerConstant.Queues.Jobs,

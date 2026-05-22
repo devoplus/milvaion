@@ -1791,7 +1791,7 @@
             Initializes a new instance of the <see cref="T:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor"/> class.
             </remarks>
         </member>
-        <member name="M:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory)">
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor.#ctor(Milvaion.Infrastructure.Services.RabbitMQ.RabbitMQConnectionFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions},Microsoft.Extensions.Logging.ILoggerFactory,Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient)">
             <summary>
             Implementation of queue depth monitoring service.
             </summary>
@@ -1810,6 +1810,48 @@
         </member>
         <member name="M:Milvaion.Infrastructure.Services.Monitoring.QueueDepthMonitor.GetAllQueueStatsAsync(System.Threading.CancellationToken)">
             <inheritdoc/>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient">
+            <summary>
+            Lightweight wrapper around the RabbitMQ Management HTTP API.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient.#ctor(System.Net.Http.IHttpClientFactory,Microsoft.Extensions.Options.IOptions{Milvaion.Application.Utils.Models.Options.RabbitMQOptions})">
+            <summary>
+            Initializes a new instance of <see cref="T:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient"/>.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient.GetQueueAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Gets statistics for a single queue from the Management API.
+            Returns <see langword="null"/> when the Management API is disabled or the request fails.
+            </summary>
+        </member>
+        <member name="M:Milvaion.Infrastructure.Services.Monitoring.RabbitMQManagementClient.GetAllQueuesAsync(System.Threading.CancellationToken)">
+            <summary>
+            Lists all queues in the configured virtual host from the Management API.
+            Returns an empty collection when the Management API is disabled or the request fails.
+            </summary>
+        </member>
+        <member name="T:Milvaion.Infrastructure.Services.Monitoring.ManagementQueueInfo">
+            <summary>
+            Represents queue information returned by the RabbitMQ Management API.
+            </summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Monitoring.ManagementQueueInfo.Name">
+            <summary>Queue name.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Monitoring.ManagementQueueInfo.Messages">
+            <summary>Total messages in the queue.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Monitoring.ManagementQueueInfo.MessagesReady">
+            <summary>Messages ready for delivery.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Monitoring.ManagementQueueInfo.MessagesUnacknowledged">
+            <summary>Messages unacknowledged by consumers.</summary>
+        </member>
+        <member name="P:Milvaion.Infrastructure.Services.Monitoring.ManagementQueueInfo.Consumers">
+            <summary>Number of active consumers.</summary>
         </member>
         <member name="T:Milvaion.Infrastructure.Services.NotificationService">
             <summary>

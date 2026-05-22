@@ -404,6 +404,8 @@ public static class InfraServiceCollectionExtensions
         services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
 
         // Register Queue Monitoring Service
+        services.AddHttpClient(RabbitMQManagementClient._httpClientName);
+        services.AddSingleton<RabbitMQManagementClient>();
         services.AddSingleton<IQueueDepthMonitor, QueueDepthMonitor>();
 
         return services;

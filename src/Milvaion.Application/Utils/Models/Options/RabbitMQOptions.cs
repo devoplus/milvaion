@@ -74,4 +74,16 @@ public class RabbitMQOptions
     /// Queue depth critical threshold.
     /// </summary>
     public int QueueDepthCriticalThreshold { get; set; } = 10000;
+
+    /// <summary>
+    /// Whether the RabbitMQ Management HTTP API is enabled and accessible.
+    /// When enabled, the monitoring service uses the Management API to retrieve
+    /// unacknowledged message counts and discover dynamic queues.
+    /// </summary>
+    public bool ManagementEnabled { get; set; } = false;
+
+    /// <summary>
+    /// RabbitMQ Management HTTP API port (default: 15672).
+    /// </summary>
+    public int ManagementPort { get; set; } = 15672;
 }
